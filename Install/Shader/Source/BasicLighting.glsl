@@ -49,61 +49,6 @@ vec3 AoMultiBounce(float AO, vec3 baseColor)
     return max(x, ((x * a + b) * x + c) * x);
 }
 
-// IBL term compute.
-// Reference from https://google.github.io/filament/Filament.md.html 
-// 5.3.4.6 IBL evaluation implementation
-vec3 getIBLContribution(PBRMaterial materialInfo, vec3 n, vec3 v, vec3 ao, float so)
-{
-    vec3 diffuse = vec3(0.0);
-    vec3 specular = vec3(0.0);
-
-    // Irradiance diffuse compute.
-    {
-        vec3 diffuseLight = texture(samplerCube(inCubeGlobalIrradiance, linearClampEdgeSampler), n).rgb;
-
-        // No physical correct, but look better.
-        // diffuseLight = granTurismoTonemapper(diffuseLight);
-
-        diffuse = diffuseLight * materialInfo.diffuseColor;// * kPI;
-    }
-
-    // Environment specular compute.
-    {
-        vec3 reflection = normalize(reflect(-v, n));
-        float NdotV = clamp(dot(n, v), 0.0, 1.0);
-
-        // NOTE:
-        // alphaRoughness = perceptualRoughness * perceptualRoughness
-        // Use perceptualRoughness to lut and prefilter search to get better view.
-
-        // Load precompute brdf texture value.
-        vec2 brdfSamplePoint = clamp(vec2(NdotV, materialInfo.perceptualRoughness), vec2(0.0), vec2(1.0));
-        vec2 brdf = texture(sampler2D(inBRDFLut, linearClampEdgeSampler), brdfSamplePoint).rg;
-
-        // Compute roughness's lod.
-        uvec2 prefilterCubeSize = textureSize(inCubeGlobalPrefilter, 0);
-        float mipCount = float(log2(max(prefilterCubeSize.x, prefilterCubeSize.y)));
-        float lod = clamp(materialInfo.perceptualRoughness * float(mipCount), 0.0, float(mipCount));
-    
-        // Load environment's color from prefilter color.
-        vec3 specularLight = textureLod(samplerCube(inCubeGlobalPrefilter, linearClampEdgeSampler), reflection, lod).rgb;
-
-        // No physical correct, but look better.
-        // specularLight = granTurismoTonemapper(specularLight);
-
-        // Final get the specular.
-        specular = specularLight * (materialInfo.specularColor * brdf.x + brdf.y);
-    }
-
-    vec3 singleScatter = diffuse * ao; // Two times
-
-    // TODO: Try some white furnace test. multi-scatter feed.
-    // See https://google.github.io/filament/Filament.md.html 4.7.2
-    // https://bruop.github.io/ibl/
-    // But in my test, looks same with single scatter result.
-    return singleScatter;
-}
-
 #include "Schedule.glsl"
 
 layout (local_size_x = 8, local_size_y = 8) in;
@@ -207,12 +152,10 @@ void main()
         float ao = texture(sampler2D(inGTAO, linearClampEdgeSampler), uv).r * meshAo;
         vec3 aoMultiBounceColor = AoMultiBounce(ao, baseColor);
 
-        // GTSO use bent normal, but looks just slightly diff with this, XD.
-        // So kill GTSO and save filter cost, keep this so as an approximate.
-        // float so = specularAOLagarde(max(0.0, dot(normal, view)), ao, material.alphaRoughness);
-        float so = ao;
+        vec3 diffuseLight = texture(samplerCube(inCubeGlobalIrradiance, linearClampEdgeSampler), normal).rgb  * frameData.globalIBLIntensity;// ;
+        diffuseLight += atmosphereTransmittance;
 
-        color += getIBLContribution(material, normal, view, aoMultiBounceColor, so) * frameData.globalIBLIntensity;
+        color += diffuseLight * material.diffuseColor * aoMultiBounceColor;
     }
     
 

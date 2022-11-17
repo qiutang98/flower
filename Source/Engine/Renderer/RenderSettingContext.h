@@ -173,10 +173,10 @@ namespace Flower
 
 		int GTAO_sliceNum = 2;
 		int GTAO_stepNum = 8;
-		float GTAO_radius = 0.8f;
-		float GTAO_thickness = 0.8f;
+		float GTAO_radius = 4.0f;
+		float GTAO_thickness = 1.0f;
 
-		float GTAO_Power = 2.0f;
+		float GTAO_Power = 1.0f;
 		float GTAO_Intensity = 1.0f;
 
 		RHI::DisplayMode displayMode = RHI::DisplayMode::DISPLAYMODE_SDR;

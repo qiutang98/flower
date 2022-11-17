@@ -19,7 +19,7 @@ namespace Flower
 
 	protected:
 		glm::vec3 m_color = { 1.0f, 1.0f, 1.0f };
-		float m_intensity = 10.0f;
+		float m_intensity = 20.0f;
 
 		glm::vec3 m_forward = { 0.0f, -1.0f, 0.0f };
 

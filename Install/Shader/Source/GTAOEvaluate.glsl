@@ -106,6 +106,7 @@ void main()
     const float attenFactor = 2.0 / max(kGTAORadius * kGTAORadius, 0.001);
 
     float occlusion = 0.0;
+    vec3 bounceColor = vec3(0.0);
     {
         vec3 randomAndOffset = getRandomVector(workPos);
 
