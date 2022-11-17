@@ -168,6 +168,7 @@ namespace Flower
 		PoolImageSharedRef m_averageLum = nullptr;
 		PoolImageSharedRef m_gtaoHistory = nullptr;
 
+		PoolImageSharedRef m_prevHDR = nullptr;
 		PoolImageSharedRef m_prevDepth = nullptr;
 		PoolImageSharedRef m_prevGBufferB = nullptr;
 	};

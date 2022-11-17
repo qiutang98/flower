@@ -216,6 +216,7 @@ namespace Flower
 
 		m_prevDepth = sceneTexures.getDepth();
 		m_prevGBufferB = sceneTexures.getGbufferB();
+		m_prevHDR = sceneTexures.getHdrSceneColor();
 	}
 
 	void DeferredRenderer::updateRenderSizeImpl(
@@ -225,6 +226,10 @@ namespace Flower
 		float displayScale)
 	{
 		vkDeviceWaitIdle(RHI::Device);
+
+		m_prevDepth = nullptr;
+		m_prevGBufferB = nullptr;
+		m_prevHDR = nullptr;
 
 		m_fsr2->onCreateWindowSizeDependentResources(
 			nullptr, 

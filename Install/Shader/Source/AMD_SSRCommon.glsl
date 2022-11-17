@@ -20,7 +20,7 @@ const float kTemporalStableReprojectFactor = .7f; // big value is ghosting, smal
 const int kTemporalPeriod = 32; // 32 is good for keep energy fill.
 const float kTemporalStableFactor = kTemporalStableReprojectFactor;
 
-const float kDepthBufferThickness = 0.45f;
+const float kDepthBufferThickness = 0.015f;
 const uint kMaxTraversalIterations = 64; // 128;
 const uint kMinTraversalOccupancy = 4;
 
