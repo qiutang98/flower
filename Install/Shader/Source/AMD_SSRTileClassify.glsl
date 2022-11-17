@@ -137,7 +137,7 @@ void main()
     uvec2 dispatchId = groupThreadId + gl_WorkGroupID.xy * 8;
     ivec2 workPos = ivec2(dispatchId);
 
-    float perceptualRoughness = texelFetch(inGbufferS, workPos, 0).g;
+    float perceptualRoughness = texelFetch(inGbufferS, workPos, 0).g + 0.003; // Slight offset roughness on ssr evaluate.
     classifyTiles(dispatchId, groupThreadId, perceptualRoughness);
 
     // Also store roughness.

@@ -141,7 +141,53 @@ void main()
 {
     uvec2 groupThreadId = remap8x8(gl_LocalInvocationIndex);
     uvec2 dispatchId = groupThreadId + gl_WorkGroupID.xy * 8;
-    ivec2 workPos = ivec2(dispatchId);
 
-    
+    ivec2 rayCoord = ivec2(dispatchId);
+
+    const uvec2 screenSize = imageSize(SSGI_RayCast);
+    const vec2 screenSizeInv = 1.0 / vec2(screenSize);
+
+    const vec2 uv = (rayCoord + 0.5) * screenSizeInv;
+
+    const vec3 worldNormal = normalize(texelFetch(inGbufferB, ivec2(rayCoord), 0).xyz); 
+
+    const uvec2 hizSize = textureSize(inHiz, 0);
+
+    const int mostDetailedMip = kMostDetailedMip; 
+    const vec2 mipResolution = getHizMipResolution(mostDetailedMip);
+
+    const float z = loadDepth(ivec2(rayCoord), mostDetailedMip);
+    const vec3 screenSpaceUVzStart = vec3(uv, z);
+
+    const vec3 viewPos = getViewPos(uv, z, viewData);
+    const vec3 viewDir = normalize(viewPos);
+    const vec3 viewNormal = normalize((viewData.camView * vec4(worldNormal, 0.0)).rgb);
+
+     const vec3 viewReflectedDir = getReflectionDir(viewDir, viewNormal, roughness, ivec2(rayCoord));
+    const vec3 viewEnd = viewPos + viewReflectedDir;
+    const vec3 screenSpaceUVzEnd = projectPos(viewEnd, viewData.camProj);
+
+    // Now get the screen space step dir.
+    const vec3 screenSpaceUVz = screenSpaceUVzEnd - screenSpaceUVzStart;
+
+    bool bValidHit = false;
+    vec3 hit;
+    if(dot(-viewDir, viewReflectedDir) < 0.0) // Skip out ray hit.
+    {
+        hit = hizMarching(
+            screenSpaceUVzStart, 
+            screenSpaceUVz, 
+            bMirrorPlane, 
+            vec2(screenSize),
+            mostDetailedMip,
+            kMinTraversalOccupancy,
+            kMaxTraversalIterations,
+            bValidHit
+        );
+    }
+    else
+    {
+        // Same with src pos, so ray length will be zero.
+        hit = vec3(uv, z);
+    }
 }
