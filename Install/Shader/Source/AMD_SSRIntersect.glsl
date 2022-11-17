@@ -284,10 +284,7 @@ void main()
     }
 
     vec3 worldSpaceReflectedDir = (viewData.camInvertView * vec4(viewReflectedDir, 0.0)).xyz;
-    vec3 envLookup = textureLod(samplerCube(inCubeGlobalPrefilter, linearClampEdgeSampler), worldSpaceReflectedDir, 0.0).rgb;
-    envLookup = envLookup / (1.0 + envLookup); // Todo: mipmap filter.
-
-    reflectionRadiance = mix(envLookup, reflectionRadiance, confidence);
+    reflectionRadiance = mix(vec3(0.0), reflectionRadiance, confidence);
 
     vec4 newSample = vec4(reflectionRadiance, worldRayLength);
 

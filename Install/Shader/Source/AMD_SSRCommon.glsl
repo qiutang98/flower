@@ -15,7 +15,7 @@
 #include "Common.glsl"
 #include "FastMath.glsl"
 
-const float kTemporalStableReprojectFactor = .21f; // big value is ghosting, small value is noise.
+const float kTemporalStableReprojectFactor = .7f; // big value is ghosting, small value is noise.
 
 const int kTemporalPeriod = 32; // 32 is good for keep energy fill.
 const float kTemporalStableFactor = kTemporalStableReprojectFactor;

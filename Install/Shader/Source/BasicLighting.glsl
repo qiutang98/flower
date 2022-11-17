@@ -95,7 +95,7 @@ vec3 getIBLContribution(PBRMaterial materialInfo, vec3 n, vec3 v, vec3 ao, float
         specular = specularLight * (materialInfo.specularColor * brdf.x + brdf.y);
     }
 
-    vec3 singleScatter = diffuse * ao;// + specular * so;
+    vec3 singleScatter = diffuse * ao; // Two times
 
     // TODO: Try some white furnace test. multi-scatter feed.
     // See https://google.github.io/filament/Filament.md.html 4.7.2

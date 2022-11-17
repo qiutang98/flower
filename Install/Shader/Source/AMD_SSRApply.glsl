@@ -9,11 +9,31 @@
 // Important bits from the PBR shader
 vec3 getIBLContribution(float perceptualRoughness, vec3 specularColor, vec3 specularLight, vec3 n, vec3 v)
 {
+    vec3 reflection = normalize(reflect(-v, n));
     float NdotV = clamp(dot(n, v), 0.0, 1.0);
+
+    // Compute roughness's lod.
+    uvec2 prefilterCubeSize = textureSize(inCubeGlobalPrefilter, 0);
+    float mipCount = float(log2(max(prefilterCubeSize.x, prefilterCubeSize.y)));
+    float lod = clamp(perceptualRoughness * float(mipCount), 0.0, float(mipCount));
+    
+    // NOTE:
+    // alphaRoughness = perceptualRoughness * perceptualRoughness
+    // Use perceptualRoughness to lut and prefilter search to get better view.
+
+    // Load precompute brdf texture value.
     vec2 brdfSamplePoint = clamp(vec2(NdotV, perceptualRoughness), vec2(0.0, 0.0), vec2(1.0, 1.0));
 
     // retrieve a scale and bias to F0. See [1], Figure 3
     vec2 brdf = texture(sampler2D(inBRDFLut, linearClampEdgeSampler), brdfSamplePoint).rg;
+
+    vec3 specularLightEnv = textureLod(samplerCube(inCubeGlobalPrefilter, linearClampEdgeSampler), reflection, lod).rgb;
+    
+    // Also apply ibl intensity.
+    specularLightEnv = specularLightEnv * frameData.globalIBLIntensity;
+
+    // Add env ibl specular light, also scale ssr radiance.
+    specularLight = max(specularLight, vec3(0.0)) * 2.0 + specularLightEnv;
 
     vec3 specular = specularLight * (specularColor * brdf.x + brdf.y); 
 
@@ -50,9 +70,14 @@ void main()
     float deviceZ = texelFetch(inDepth, workPos, 0).r;
     vec3 worldPos = getWorldPos(uv, deviceZ, viewData);
     vec3 v = normalize(viewData.camWorldPos.xyz - worldPos);
+
+    float ao = texture(sampler2D(inGTAO, linearClampEdgeSampler), uv).r * inGbufferSValue.b;
     
     vec4 ssrResult = texelFetch(inSSRIntersection, workPos, 0);
-    ssrResult.xyz =  getIBLContribution(perceptualRoughness, specularColor, ssrResult.xyz, n, v);
+
+    
+    ssrResult.xyz =  getIBLContribution(perceptualRoughness, specularColor, ssrResult.xyz, n, v) * ao;
+
 
     vec4 resultColor;
     vec4 srcHdrSceneColor = imageLoad(HDRSceneColorImage, workPos);

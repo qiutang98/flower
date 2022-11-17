@@ -99,7 +99,7 @@ void classifyTiles(uvec2 dispatchThreadId, uvec2 groupThreadId, float roughness)
 
     // Compact ray and append to ray list.
     uvec4 ballotNeedRay = subgroupBallot(bNeedRay);
-    uint waveRayCount = subgroupBallotBitCount(ballotNeedRay); // fuck, i write this function name as subgroupBallotBitcount which error cost me about one night free time to fix.
+    uint waveRayCount = subgroupBallotBitCount(ballotNeedRay); 
     uint localRayIndexInWave = subgroupBallotExclusiveBitCount(ballotNeedRay);
 
     uint baseRayIndex;
@@ -116,13 +116,6 @@ void classifyTiles(uvec2 dispatchThreadId, uvec2 groupThreadId, float roughness)
     }
 
     vec4 intersectionOutput = vec4(0);
-
-    // Very rough plane use env ibl.
-    if(bAllInScreen && bCanReflective && (!bGlossyReflection))
-    {
-        vec2 uv = (vec2(dispatchThreadId) + 0.5) / vec2(workSize);
-        intersectionOutput.xyz = envIBLReflectionCallback(dispatchThreadId, uv, roughness);
-    }
     imageStore(SSRIntersection, ivec2(dispatchThreadId), intersectionOutput);
 
     // Sync for sharedTileCount add done.

@@ -7,8 +7,8 @@
 
 vec3 drawSun(vec3 rayDir, vec3 sunDir) 
 {
-    const float theta = 0.3 * kPI / 180.0;
-    const vec3 sunCenterColor = vec3(1.0f, 0.92549, 0.87843) * 5000.0f;
+    const float theta = 0.15 * kPI / 180.0;
+    const vec3 sunCenterColor = vec3(1.0f, 0.92549, 0.87843) * 39.0f * 1000.0;
 
 
     const float cT = cos(theta);
@@ -63,10 +63,18 @@ void main()
 
     const bool bUnderAtmosphere =  viewHeight < atmosphere.topRadius;
 
-    vec3 sunLum = drawSun(worldDir, sunDirection);
+    vec3 upVector = normalize(worldPos);
+	
+    float sunZenithCosAngle = dot(sunDirection, upVector);
+	vec2 sampleTransmittanceUv;
+	lutTransmittanceParamsToUv(atmosphere, viewHeight, sunZenithCosAngle, sampleTransmittanceUv);
+	vec3 transmittanceToSun = texture(sampler2D(inTransmittanceLut, linearClampEdgeSampler), sampleTransmittanceUv).rgb;
+
+
+    vec3 sunLum = drawSun(worldDir, sunDirection) * transmittanceToSun;
     {
         // Use smoothstep to limit the effect, so it drops off to actual zero.
-        sunLum = smoothstep(0.002, 1.0, sunLum);
+        // sunLum = smoothstep(0.002, 1.0, sunLum);
         if (length(sunLum) > 0.0) 
         {
             bool bIntersectGround = raySphereIntersectNearest(worldPos, worldDir, vec3(0.0), atmosphere.bottomRadius) >= 0.0f;
@@ -80,8 +88,7 @@ void main()
     // Back ground and under atmosphere pixel, sample sky view lut.
     if (bUnderAtmosphere && (!bShadingModelValid))
 	{
-		vec3 upVector = normalize(worldPos);
-		float viewZenithCosAngle = dot(worldDir, upVector);
+        float viewZenithCosAngle = dot(worldDir, upVector);
 
         // Assumes non parallel vectors
 		vec3 sideVector = normalize(cross(upVector, worldDir));		
