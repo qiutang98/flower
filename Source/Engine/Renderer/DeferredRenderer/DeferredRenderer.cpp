@@ -191,7 +191,11 @@ namespace Flower
 			// Prepare sky lut.
 			renderAtmosphere(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, false);
 			renderBasicLighting(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, GTAOTex);
-			
+
+			// SSGI is a bad global illumination solution for realtime rendering.
+			// We use RTX DDGI.
+			// renderSSGI(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, hizTex, GTAOTex, blueNoiseMisc);
+
 			renderSSR(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, hizTex, GTAOTex, blueNoiseMisc);
 
 			// Composite sky.

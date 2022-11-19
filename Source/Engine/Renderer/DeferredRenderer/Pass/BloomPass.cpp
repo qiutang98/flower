@@ -20,7 +20,11 @@ namespace Flower
 
     struct BloomPushUpscale
     {
+        uint32_t bBlurX;
+        uint32_t bFinalBlur = 0u;
+        uint32_t upscaleTime;
         float blurRadius;
+
     };
 
 	class BloomPass : public PassInterface
@@ -147,32 +151,29 @@ namespace Flower
 
         const uint32_t srcHdrColorWidth = hdrSceneColor.getExtent().width;
         const uint32_t srcHdrColorHeight = hdrSceneColor.getExtent().height;
-        const uint32_t mipStartWidth = getSafeWidthDiv2(srcHdrColorWidth);
-        const uint32_t mipStartHeight = getSafeWidthDiv2(srcHdrColorHeight);
+
+        // Min size is 64x64
+        const uint32_t mipStartWidth  = srcHdrColorWidth  >> 1;
+        const uint32_t mipStartHeight = srcHdrColorHeight >> 1;
 
         const uint32_t downsampleMipCount = glm::min(GMaxDownsampleCount, glm::log2(glm::min(mipStartWidth, mipStartHeight)));
 
-		auto sceneColoBlurMipChain = m_rtPool->createPoolImage(
-            "SceneColorBlurChain", 
-            mipStartWidth, 
-            mipStartHeight,
-            hdrSceneColor.getFormat(),
-            VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-            downsampleMipCount);
-
         auto* pass = getPasses()->getPass<BloomPass>();
 
-        
+        std::vector<PoolImageSharedRef> downsampleBlurs;
+        downsampleBlurs.resize(downsampleMipCount);
 
-        // Upscale.
-        auto sceneColoUpscaleMipChain = m_rtPool->createPoolImage(
-            "SceneColorUpscaleChain",
-            mipStartWidth,
-            mipStartHeight,
-            hdrSceneColor.getFormat(),
-            VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-            downsampleMipCount - 1);
+        for (auto i = 0; i < downsampleMipCount; i ++)
+        {
+            downsampleBlurs[i] = m_rtPool->createPoolImage(
+                "SceneColorBlurChain",
+                mipStartWidth  >> i,
+                mipStartHeight >> i,
+                hdrSceneColor.getFormat(),
+                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
+        }
 
+        PoolImageSharedRef result;
         {
             RHI::ScopePerframeMarker marker(cmd, "Bloom Basic", { 1.0f, 1.0f, 0.0f, 1.0f });
 
@@ -187,15 +188,10 @@ namespace Flower
             vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->downsamplePipelineLayout,
                 1, (uint32_t)passSets.size(), passSets.data(), 0, nullptr);
 
-            VkDescriptorImageInfo inImageInfo{};
-            VkDescriptorImageInfo outImageInfo{};
 
             // CHECK(m_averageLum && "Must call adaptive exposure before tonemapper."); // TODO: 
             VkDescriptorImageInfo lumImgInfo = RHIDescriptorImageInfoSample(m_averageLum->getImage().getView(buildBasicImageSubresource()));
 
-
-            uint32_t workWidth = mipStartWidth;
-            uint32_t workHeight = mipStartHeight;
             BloomDownsample downsamplePush{};
 
             float knee = RenderSettingManager::get()->bloomThreshold * RenderSettingManager::get()->bloomThresholdSoft;
@@ -205,43 +201,18 @@ namespace Flower
             downsamplePush.prefilterFactor.z = 2.0f * knee;
             downsamplePush.prefilterFactor.w = 0.25f / (knee + 0.00001f);
 
+            VkDescriptorImageInfo inImageInfo{};
+            VkDescriptorImageInfo outImageInfo{};
             for (uint32_t i = 0; i < downsampleMipCount; i++)
             {
                 const bool bFirstLevel = (i == 0);
                 downsamplePush.mipLevel = i;
 
-                if (bFirstLevel)
-                {
-                    inImageInfo = RHIDescriptorImageInfoSample(hdrSceneColor.getView(buildBasicImageSubresource()));
-                }
-                else
-                {
-                    auto prevRange = VkImageSubresourceRange
-                    {
-                        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, 
-                        .baseMipLevel = i - 1, 
-                        .levelCount = 1, 
-                        .baseArrayLayer = 0, 
-                        .layerCount = 1 
-                    };
-                    inImageInfo = RHIDescriptorImageInfoSample(sceneColoBlurMipChain->getImage().getView(prevRange));
-                }
+                inImageInfo = RHIDescriptorImageInfoSample((bFirstLevel ? hdrSceneColor : downsampleBlurs[i - 1]->getImage()).getView(buildBasicImageSubresource()));
 
-                auto outRange = VkImageSubresourceRange
-                {
-                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                    .baseMipLevel = i,
-                    .levelCount = 1,
-                    .baseArrayLayer = 0,
-                    .layerCount = 1
-                };
+                downsampleBlurs[i]->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
 
-                sceneColoBlurMipChain->getImage().transitionLayout(
-                    cmd,
-                    VK_IMAGE_LAYOUT_GENERAL,
-                    outRange
-                );
-                outImageInfo = RHIDescriptorImageInfoStorage(sceneColoBlurMipChain->getImage().getView(outRange));
+                outImageInfo = RHIDescriptorImageInfoStorage(downsampleBlurs[i]->getImage().getView(buildBasicImageSubresource()));
 
                 std::vector<VkWriteDescriptorSet> writes
                 {
@@ -254,86 +225,47 @@ namespace Flower
 
                 vkCmdPushConstants(cmd, pass->downsamplePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(downsamplePush), &downsamplePush);
 
-                vkCmdDispatch(cmd, getGroupCount(workWidth, 8), getGroupCount(workHeight, 8), 1);
+                vkCmdDispatch(cmd, getGroupCount(downsampleBlurs[i]->getImage().getExtent().width, 8), getGroupCount(downsampleBlurs[i]->getImage().getExtent().height, 8), 1);
 
-                sceneColoBlurMipChain->getImage().transitionLayout(
-                    cmd,
-                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                    outRange
-                );
-
-                workWidth = getSafeWidthDiv2(workWidth);
-                workHeight = getSafeWidthDiv2(workHeight);
+                downsampleBlurs[i]->getImage().transitionLayout(cmd,VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,buildBasicImageSubresource());
             }
 
             std::vector<VkDescriptorSet> upscalePassSets =
             {
                 RHI::SamplerManager->getCommonDescriptorSet(), // samplers.
             };
-            
-            BloomPushUpscale upscalePush{ .blurRadius = RenderSettingManager::get()->bloomRadius, }; 
-            vkCmdPushConstants(cmd, pass->upscalePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(upscalePush), &upscalePush);
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->upscalePipeline);
             vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->upscalePipelineLayout, 1, (uint32_t)upscalePassSets.size(), upscalePassSets.data(), 0, nullptr);
-            
+
+            // Upscale.
             VkDescriptorImageInfo inImageCurInfo{};
-            for (uint32_t i = 1; i < downsampleMipCount; i++)
+            PoolImageSharedRef prevLevelUpscaleResult = nullptr;
+            for (uint32_t i = 0; i < downsampleMipCount; i++)
             {
-                uint32_t workMip = downsampleMipCount - i - 1;
+                uint32_t workMip = downsampleMipCount - i;
 
-                workWidth = glm::max(1u, mipStartWidth >> workMip);
-                workHeight = glm::max(1u, mipStartHeight >> workMip);
+                uint32_t workWidth  = srcHdrColorWidth  >> workMip;
+                uint32_t workHeight = srcHdrColorHeight >> workMip;
 
-                if (i == 1)
-                {
-                    auto inRange = VkImageSubresourceRange
-                    {
-                        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                        .baseMipLevel = workMip + 1,
-                        .levelCount = 1,
-                        .baseArrayLayer = 0,
-                        .layerCount = 1
-                    };
+                const bool bLowestUpscale  = (i == 0);
+                const bool bHighestUpscale = (i == (downsampleMipCount - 1));
 
-                    // Input from low res mip.
-                    inImageInfo = RHIDescriptorImageInfoSample(sceneColoBlurMipChain->getImage().getView(inRange));
-                }
-                else
-                {
-                    auto inRange = VkImageSubresourceRange
-                    {
-                        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                        .baseMipLevel = workMip + 1,
-                        .levelCount = 1,
-                        .baseArrayLayer = 0,
-                        .layerCount = 1
-                    };
+                // Prev blur result.
+                inImageInfo = RHIDescriptorImageInfoSample((
+                    bLowestUpscale ? 
+                    downsampleBlurs[downsampleMipCount - 1] : // Input from last downsample texture.
+                    prevLevelUpscaleResult // Input from prev upscale result.
+                )->getImage().getView(buildBasicImageSubresource()));
 
-                    // Input from low res mip. upscale mip.
-                    inImageInfo = RHIDescriptorImageInfoSample(sceneColoUpscaleMipChain->getImage().getView(inRange));
-                }
+                inImageCurInfo = RHIDescriptorImageInfoSample((
+                    bHighestUpscale ?
+                    hdrSceneColor :
+                    downsampleBlurs[workMip - 1]->getImage()
+                    ).getView(buildBasicImageSubresource()));
                 
-                // Cur input.
-                auto inRangeCur = VkImageSubresourceRange
-                {
-                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                    .baseMipLevel = workMip,
-                    .levelCount = 1,
-                    .baseArrayLayer = 0,
-                    .layerCount = 1
-                };
-                inImageCurInfo = RHIDescriptorImageInfoSample(sceneColoBlurMipChain->getImage().getView(inRangeCur));
+                auto blurX = m_rtPool->createPoolImage("blurX", workWidth, workHeight, hdrSceneColor.getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
 
-                auto outRange = VkImageSubresourceRange
-                {
-                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                    .baseMipLevel = workMip,
-                    .levelCount = 1,
-                    .baseArrayLayer = 0,
-                    .layerCount = 1
-                };
-                sceneColoUpscaleMipChain->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, outRange);
-                outImageInfo = RHIDescriptorImageInfoStorage(sceneColoUpscaleMipChain->getImage().getView(outRange));
+                outImageInfo = RHIDescriptorImageInfoStorage(blurX->getImage().getView(buildBasicImageSubresource()));
 
                 std::vector<VkWriteDescriptorSet> writes
                 {
@@ -342,17 +274,43 @@ namespace Flower
                     RHIPushWriteDescriptorSetImage(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &outImageInfo),
                 };
 
+                BloomPushUpscale upscalePush{ .bBlurX = 1u, .blurRadius = RenderSettingManager::get()->bloomRadius, };
+                vkCmdPushConstants(cmd, pass->upscalePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(upscalePush), &upscalePush);
                 RHI::PushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->upscalePipelineLayout, 0, uint32_t(writes.size()), writes.data());
 
+                blurX->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
                 vkCmdDispatch(cmd, getGroupCount(workWidth, 8), getGroupCount(workHeight, 8), 1);
+                blurX->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
 
-                sceneColoUpscaleMipChain->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, outRange);
+                inImageInfo = RHIDescriptorImageInfoSample(blurX->getImage().getView(buildBasicImageSubresource()));
+
+                upscalePush = { .bBlurX = 0u, .bFinalBlur = (bHighestUpscale ? 1u : 0u), .upscaleTime = workMip - 1,.blurRadius = RenderSettingManager::get()->bloomRadius,};
+                vkCmdPushConstants(cmd, pass->upscalePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(upscalePush), &upscalePush);
+                auto blurY = m_rtPool->createPoolImage("blurY", workWidth, workHeight, hdrSceneColor.getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
+
+                outImageInfo = RHIDescriptorImageInfoStorage(blurY->getImage().getView(buildBasicImageSubresource()));
+
+                writes = 
+                {
+                    RHIPushWriteDescriptorSetImage(0, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &inImageInfo),
+                    RHIPushWriteDescriptorSetImage(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &inImageCurInfo),
+                    RHIPushWriteDescriptorSetImage(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &outImageInfo),
+                };
+
+                RHI::PushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->upscalePipelineLayout, 0, uint32_t(writes.size()), writes.data());
+
+                blurY->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                vkCmdDispatch(cmd, getGroupCount(workWidth, 8), getGroupCount(workHeight, 8), 1);
+                blurY->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+
+                // Update prevUpscale result.
+                prevLevelUpscaleResult = blurY;
             }
-
+            result = prevLevelUpscaleResult;
         }
 
         m_gpuTimer.getTimeStamp(cmd, "BasicBloom");
 
-        return sceneColoUpscaleMipChain;
+        return result;
 	}
 }

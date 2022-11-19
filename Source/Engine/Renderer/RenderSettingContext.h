@@ -155,7 +155,7 @@ namespace Flower
 		EarthAtmosphereContext earthAtmosphere;
 
 		float bloomIntensity = 1.0f;
-		float bloomRadius = 0.85f;
+		float bloomRadius = 0.75f;
 
 		float bloomThreshold = 0.4f;
 		float bloomThresholdSoft = 0.6f;

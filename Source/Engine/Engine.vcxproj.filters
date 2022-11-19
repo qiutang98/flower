@@ -148,5 +148,7 @@
     <ClCompile Include="Renderer\DeferredRenderer\Pass\PreZPass.cpp" />
     <ClCompile Include="RHI\AccelerateStructure.cpp" />
     <ClCompile Include="AssetSystem\AsyncQueueSchedule.cpp" />
+    <ClCompile Include="Renderer\DeferredRenderer\Pass\SSGIPass.cpp" />
+    <ClCompile Include="Renderer\DeferredRenderer\Pass\SSGIPass.cpp" />
   </ItemGroup>
 </Project>

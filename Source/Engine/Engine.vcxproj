@@ -212,6 +212,7 @@
     <ClCompile Include="Renderer\DeferredRenderer\Pass\HierarchyZBufferBuild.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\PreZPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\SampleDistributionShadowMap.cpp" />
+    <ClCompile Include="Renderer\DeferredRenderer\Pass\SSGIPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\SSRPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\StaticMeshPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\TonemapperPass.cpp" />

@@ -76,17 +76,20 @@ void WidgetViewport::onVisibleTick(const RuntimeModuleTickData& tickData)
 
 	if (m_cacheWidth != width || m_cacheHeight != height)
 	{
-		m_cacheWidth = width;
-		m_cacheHeight = height;
-		m_viewportRenderer->updateRenderSize(uint32_t(width), uint32_t(height), 1.0f, 1.0f);
+		if (!ImGui::IsMouseDragging(0))
+		{
+			m_cacheWidth = width;
+			m_cacheHeight = height;
+			m_viewportRenderer->updateRenderSize(uint32_t(width), uint32_t(height), 1.0f, 1.0f);
 
-		tryReleaseDescriptorSet(tickData.tickCount);
+			tryReleaseDescriptorSet(tickData.tickCount);
 
-		m_descriptorSet = ImGui_ImplVulkan_AddTexture(
-			m_viewportImageSampler, 
-			m_viewportRenderer->getDisplayOutput().getView(buildBasicImageSubresource()),
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-		);
+			m_descriptorSet = ImGui_ImplVulkan_AddTexture(
+				m_viewportImageSampler,
+				m_viewportRenderer->getDisplayOutput().getView(buildBasicImageSubresource()),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			);
+		}
 	}
 
 	ImVec2 startPos = ImGui::GetCursorPos();

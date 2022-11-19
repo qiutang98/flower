@@ -442,7 +442,10 @@ namespace Flower
 
         VkDescriptorImageInfo hdrImageInfo = RHIDescriptorImageInfoStorage(hdrSceneColor.getView(buildBasicImageSubresource()));
         VkDescriptorImageInfo hdrSampleInfo = RHIDescriptorImageInfoSample(hdrSceneColor.getView(buildBasicImageSubresource()));
-
+        if (m_prevHDR)
+        {
+            hdrSampleInfo = RHIDescriptorImageInfoSample(m_prevHDR->getImage().getView(buildBasicImageSubresource()));
+        }
 
         auto* pass = getPasses()->getPass<SSRPass>();
 

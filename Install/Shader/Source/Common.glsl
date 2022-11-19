@@ -111,6 +111,18 @@ vec2 vogelDiskSample(uint sampleIndex, uint sampleCount, float angle)
   return vec2(cosine, sine) * r;
 }
 
+// Activision GTAO paper: https://www.activision.com/cdn/research/s2016_pbs_activision_occlusion.pptx
+vec3 AoMultiBounce(float AO, vec3 baseColor)
+{
+    vec3 a =  2.0404 * baseColor - 0.3324;
+    vec3 b = -4.7951 * baseColor + 0.6417;
+    vec3 c =  2.7552 * baseColor + 0.6903;
+
+    vec3 x  = vec3(AO);
+
+    return max(x, ((x * a + b) * x + c) * x);
+}
+
 // Rounds value to the nearest multiple of 8
 uvec2 roundUp8(uvec2 value) 
 {

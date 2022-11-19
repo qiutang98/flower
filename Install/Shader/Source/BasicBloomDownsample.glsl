@@ -26,29 +26,31 @@ layout (push_constant) uniform PushConsts
 const uint kDownSampleCount = 13;
 const vec2 kDownSampleCoords[kDownSampleCount] = 
 {
-    {0.0,0.0},
-	{-1.0,-1.0},{1.0,-1.0},{1.0,1.0},{-1.0,1.0},
-	{-2.0,-2.0},{0.0,-2.0},{2.0,-2.0},{2.0,0.0},{2.0,2.0},{0.0,2.0},{-2.0,2.0},{-2.0,0.0}
+    { 0.0,  0.0},
+	{-1.0, -1.0}, {1.0, -1.0}, {1.0,  1.0}, { -1.0, 1.0},
+	{-2.0, -2.0}, {0.0, -2.0}, {2.0, -2.0}, {  2.0, 0.0}, {2.0, 2.0}, {0.0, 2.0}, {-2.0, 2.0}, {-2.0, 0.0}
 };
+
 const float kWeights[kDownSampleCount] = 
 {
-    0.125, 0.125, 0.125, 0.125, 0.125, 0.03125, 0.0625,
-	0.03125, 0.0625, 0.03125, 0.0625, 0.03125, 0.0625
+    0.125, 
+    0.125, 0.125, 0.125, 0.125, 
+    0.03125, 0.0625, 0.03125, 0.0625, 0.03125, 0.0625, 0.03125, 0.0625
 };
 
 const int kDownSampleGroupCnt = 5;
 const int kSamplePerGroup = 4;
 const int kDownSampleGroups[kDownSampleGroupCnt][kSamplePerGroup] = 
 {
-	{1,2,3,4},
-    {5,6,0,12},
-    {6,7,8,0},
-    {0,8,9,10},
-    {12,0,10,11}
+	{ 1, 2,  3,  4},
+    { 5, 6,  0, 12},
+    { 6, 7,  8,  0},
+    { 0, 8,  9, 10},
+    {12, 0, 10, 11}
 };
 const float kDownSampleGroupWeights[kDownSampleGroupCnt] = 
 {
-	0.5,0.125,0.125,0.125,0.125
+	0.5, 0.125, 0.125, 0.125, 0.125
 };
 
 #include "BasicBloomCommon.glsl"
@@ -72,7 +74,6 @@ void main()
     #endif
     // TODO: Bloom ev compensation, we need this?
     // exposure *= pow(2.0, ev100 + compensation - 3.0);
-
 
     vec2 uv = (vec2(workPos) + vec2(0.5)) / vec2(downsampleSize);
     vec3 outColor = vec3(0.0);

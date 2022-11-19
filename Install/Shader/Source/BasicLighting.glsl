@@ -37,17 +37,7 @@ layout(push_constant) uniform PushConsts
 
 #include "TonemapperFunction.glsl"
 
-// Activision GTAO paper: https://www.activision.com/cdn/research/s2016_pbs_activision_occlusion.pptx
-vec3 AoMultiBounce(float AO, vec3 baseColor)
-{
-    vec3 a =  2.0404 * baseColor - 0.3324;
-    vec3 b = -4.7951 * baseColor + 0.6417;
-    vec3 c =  2.7552 * baseColor + 0.6903;
 
-    vec3 x  = vec3(AO);
-
-    return max(x, ((x * a + b) * x + c) * x);
-}
 
 #include "Schedule.glsl"
 
@@ -146,18 +136,15 @@ void main()
     // TODO....
 
     color += directColor;
-
-    if(frameData.globalIBLEnable > 0)
     {
-        float ao = texture(sampler2D(inGTAO, linearClampEdgeSampler), uv).r * meshAo;
-        vec3 aoMultiBounceColor = AoMultiBounce(ao, baseColor);
-
         vec3 diffuseLight = texture(samplerCube(inCubeGlobalIrradiance, linearClampEdgeSampler), normal).rgb  * frameData.globalIBLIntensity;// ;
-        diffuseLight += atmosphereTransmittance;
-
-        color += diffuseLight * material.diffuseColor * aoMultiBounceColor;
+        color += diffuseLight * diffuseColor;
     }
-    
+
+    float ao = texture(sampler2D(inGTAO, linearClampEdgeSampler), uv).r * inGbufferSValue.b;
+    vec3 multiBounceAO = AoMultiBounce(ao, baseColor);
+
+    color *= multiBounceAO; // Also add ao to direct light, though it's no correct in physics.
 
     // Emissive color.
     color += emissiveColor;

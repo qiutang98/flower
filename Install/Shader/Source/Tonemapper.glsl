@@ -85,9 +85,7 @@ void main()
      
 
     // Build bloom color.
-    vec3 bloomColor = upscampleTentFilter(uv, inBloomTexture, linearClampEdgeSampler, bloomBlur);
-    
-
+    vec3 bloomColor = texture(sampler2D(inBloomTexture, linearClampEdgeSampler), uv).rgb;
 
     // Auto exposure.
     #if 1

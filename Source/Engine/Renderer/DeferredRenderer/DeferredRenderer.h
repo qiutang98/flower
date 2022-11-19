@@ -109,6 +109,17 @@ namespace Flower
 			BufferParamRefPointer& frameData,
 			PoolImageSharedRef inGTAO);
 
+		void renderSSGI(
+			VkCommandBuffer cmd,
+			Renderer* renderer,
+			SceneTextures* inTextures,
+			RenderSceneData* scene,
+			BufferParamRefPointer& viewData,
+			BufferParamRefPointer& frameData,
+			PoolImageSharedRef inHiz,
+			PoolImageSharedRef inGTAO,
+			BlueNoiseMisc& inBlueNoise);
+
 		void renderSSR(
 			VkCommandBuffer cmd,
 			Renderer* renderer,
