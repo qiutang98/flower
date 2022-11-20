@@ -2,7 +2,7 @@
 
 ​	Flower engine is a vulkan starter friendly render engine.
 
-​	Too keep simple, i delete some complex code like animate/serialization etc, and rewrite this version code, to keep engine code clean and easy to understand.
+​	To keep simple, i delete some complex code like animate/serialization etc, and rewrite this version code, to keep engine code clean and easy to understand.
 
 ​	There is not too much warping, so every beginner can easy to find out how it work.
 
@@ -34,10 +34,8 @@
 
 ​	Just download the project, all dependency here is ready.
 
-​	bistro asset can download here: https://drive.google.com/file/d/14dXqpqvnRHF8gRtfPVgDACDAH1UQmXni/view?usp=sharing
+​	Some mesh art asset can download here: https://drive.google.com/file/d/14dXqpqvnRHF8gRtfPVgDACDAH1UQmXni/view?usp=sharing
 
-​	and unzip data to **Install/Project/**
-
-​	Set editor as start project. then click play. 
+​	and unzip then import mesh. It need some time to cook asset. 
 
 **NOTE: When first time run, engine need some time to bake raw media asset to engine bin asset, so need a long time baking. but next time open the engine, it work very fast.**

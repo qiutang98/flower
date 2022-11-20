@@ -4,6 +4,7 @@
 #extension GL_EXT_samplerless_texture_functions : enable
 
 #include "UE4_AtmosphereCommon.glsl"
+#include "Deband16.glsl"
 
 vec3 drawSun(vec3 rayDir, vec3 sunDir) 
 {
@@ -107,7 +108,7 @@ void main()
 
 		vec3 luminance = texture(sampler2D(inSkyViewLut, linearClampEdgeSampler), sampleUv).rgb; // TODO: Add sun disk.
 
-		imageStore(imageHdrSceneColor, workPos, vec4(prepareOut(luminance, atmosphere) + sunLum, 1.0f));
+		imageStore(imageHdrSceneColor, workPos, vec4(prepareOut(luminance, atmosphere, vec2(pixPos)) + sunLum, 1.0f));
         return;
 	}
 
@@ -185,7 +186,7 @@ void main()
         sunLum = vec3(0.0);
     }
 
-    L.rgb = prepareOut(L.rgb, atmosphere);
+    L.rgb = prepareOut(L.rgb, atmosphere, vec2(pixPos));
 
     vec3 srcColor = imageLoad(imageHdrSceneColor, workPos).rgb;
     vec3 outColor = L.rgb + sunLum + (1.0 - opacity) * srcColor;

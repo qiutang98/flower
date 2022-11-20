@@ -43,6 +43,8 @@ namespace Flower
                 RHI::SamplerManager->getCommonDescriptorSetLayout(),
                 GetLayoutStatic(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER),  // viewData
                 GetLayoutStatic(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER),  // frameData
+                BlueNoiseMisc::getSetLayout(), // Bluenoise
+                StaticTexturesManager::get()->globalBlueNoise.spp_1_buffer.setLayouts, // All blue noise set layout is same.
             };
             auto shaderModule = RHI::ShaderManager->getShader("Tonemapper.comp.spv", true);
 
@@ -83,7 +85,8 @@ namespace Flower
         RenderSceneData* scene, 
         BufferParamRefPointer& viewData,
         BufferParamRefPointer& frameData,
-        PoolImageSharedRef bloomTex)
+        PoolImageSharedRef bloomTex,
+        BlueNoiseMisc& inBlueNoise)
     {
         auto& hdrSceneColor = inTextures->getHdrSceneColorUpscale()->getImage();
         auto& ldrSceneColor = getDisplayOutput();
@@ -133,6 +136,8 @@ namespace Flower
                 RHI::SamplerManager->getCommonDescriptorSet(), // samplers.
                 viewData->buffer.getSet(),
                 frameData->buffer.getSet(),
+                inBlueNoise.getSet(),
+                StaticTexturesManager::get()->globalBlueNoise.spp_1_buffer.set // 1spp is good.
             };
             vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->pipelineLayout,
                 1, (uint32_t)passSets.size(), passSets.data(), 0, nullptr);

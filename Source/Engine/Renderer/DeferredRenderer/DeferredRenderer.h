@@ -173,7 +173,8 @@ namespace Flower
 			RenderSceneData* scene,
 			BufferParamRefPointer& viewData,
 			BufferParamRefPointer& frameData,
-			PoolImageSharedRef bloomTex);
+			PoolImageSharedRef bloomTex,
+			BlueNoiseMisc& inBlueNoise);
 
 	private:
 		PoolImageSharedRef m_averageLum = nullptr;

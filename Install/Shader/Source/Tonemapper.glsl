@@ -17,6 +17,13 @@ layout (set = 0, binding = 3) uniform texture2D inAdaptedLumTex;
 layout (set = 2, binding = 0) uniform UniformView  { ViewData  viewData;  };
 layout (set = 3, binding = 0) uniform UniformFrame { FrameData frameData; };
 
+// Temporal blue noise jitter is hard to stable resolve. :(
+// Maybe simple blue noise is better.
+#define BLUE_NOISE_TEXTURE_SET 4
+#define BLUE_NOISE_BUFFER_SET 5
+#include "BlueNoiseCommon.glsl"
+#include "Deband16.glsl"
+
 layout (push_constant) uniform PushConsts 
 {  
     vec4 prefilterFactor;
@@ -62,6 +69,8 @@ vec3 encodeST2084(vec3 linearRGB)
 	vec3 P = pow(N, vec3(m2));
 	return P;
 }
+
+
 
 layout (local_size_x = 8, local_size_y = 8) in;
 void main()
@@ -156,7 +165,26 @@ void main()
         //
         // OETF = inverse pq
         mappingColor.xyz = encodeST2084(colorRec2020.xyz * LinearToNitsScale);
+
+        
     }
+
     
+    // TODO: Need jitter in R11G10B11 when in HDR display mode, but current looks good, so just use blue noise 8bit jitter.
+    // mappingColor.xyz = quantise(mappingColor.xyz, vec2(workPos), frameData);
+
+    // Offset retarget for new seeds each frame
+    uvec2 offset = uvec2(vec2(0.754877669, 0.569840296) * frameData.frameIndex.x * uvec2(colorSize));
+    uvec2 offsetId = dispatchId.xy + offset;
+    offsetId.x = offsetId.x % colorSize.x;
+    offsetId.y = offsetId.y % colorSize.y;
+
+    // Display is 8bit, so jitter with blue noise with [-1, 1] / 255.0.
+    // Current looks good in hdr display also.
+    mappingColor.x += 1.0 / 255.0 * (-1.0 + 2.0 * samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d(offsetId.x, offsetId.y, 0, 0u));
+    mappingColor.y += 1.0 / 255.0 * (-1.0 + 2.0 * samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d(offsetId.x, offsetId.y, 0, 1u));
+    mappingColor.z += 1.0 / 255.0 * (-1.0 + 2.0 * samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d(offsetId.x, offsetId.y, 0, 2u));
+    
+    mappingColor.xyz = max(mappingColor.xyz, vec3(0.0));
     imageStore(outLdrColor, workPos, vec4(mappingColor, 1.0));
 }

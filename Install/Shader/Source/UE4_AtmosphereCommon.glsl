@@ -50,6 +50,7 @@ layout (set = 2, binding = 0) uniform UniformFrame { FrameData frameData; };
 #include "RayCommon.glsl"
 #include "Sample.glsl"
 #include "Phase.glsl"
+#include "Deband16.glsl"
 
 // NOTE: When offset height is big, this value should be more bigger.
 // TODO: Compute this by camera height.
@@ -75,9 +76,12 @@ vec3 convertToCameraUnit(vec3 o)
 	return convertToCameraUnit(o, viewData);
 }  
 
-vec3 prepareOut(vec3 inColor, in const AtmosphereParameters atmosphere)
+vec3 prepareOut(vec3 inColor, in const AtmosphereParameters atmosphere, vec2 workPos)
 {
 	vec3 c = inColor * atmosphere.atmospherePreExposure * frameData.directionalLight.color * frameData.directionalLight.intensity; 
+
+	// Maybe add blue noise jitter is better.
+	// c = quantise(c, workPos, frameData);
 
 	return c;
 }

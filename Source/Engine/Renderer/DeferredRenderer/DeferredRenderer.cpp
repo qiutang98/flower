@@ -211,7 +211,7 @@ namespace Flower
 			auto bloomTex = renderBloom(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU);
 
 			
-			renderTonemapper(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, bloomTex);
+			renderTonemapper(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, bloomTex, blueNoiseMisc);
 		}
 
 

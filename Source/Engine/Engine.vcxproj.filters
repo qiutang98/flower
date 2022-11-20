@@ -72,7 +72,6 @@
     <ClInclude Include="AssetSystem\MMD\UnicodeUtil.h" />
     <ClInclude Include="Scene\Component\PMXComponent.h" />
     <ClInclude Include="Renderer\PMXRenderProxy.h" />
-    <ClInclude Include="Renderer\ColorConversion.h" />
     <ClInclude Include="RHI\AccelerateStructure.h" />
     <ClInclude Include="AssetSystem\AsyncQueueSchedule.h" />
   </ItemGroup>
@@ -143,7 +142,6 @@
     <ClCompile Include="AssetSystem\MMD\UnicodeUtil.cpp" />
     <ClCompile Include="Scene\Component\PMXComponent.cpp" />
     <ClCompile Include="Renderer\PMXRenderProxy.cpp" />
-    <ClCompile Include="Renderer\ColorConversion.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\SSRPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\PreZPass.cpp" />
     <ClCompile Include="RHI\AccelerateStructure.cpp" />

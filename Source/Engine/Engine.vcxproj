@@ -129,7 +129,6 @@
     <ClInclude Include="Pch.h" />
     <ClInclude Include="Core\ThreadPool.h" />
     <ClInclude Include="Renderer\BufferParameter.h" />
-    <ClInclude Include="Renderer\ColorConversion.h" />
     <ClInclude Include="Renderer\DeferredRenderer\DeferredRenderer.h" />
     <ClInclude Include="Renderer\DeferredRenderer\Pass\FSR2Pass.h" />
     <ClInclude Include="Renderer\PMXRenderProxy.h" />
@@ -200,7 +199,6 @@
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <ClCompile Include="Renderer\BufferParameter.cpp" />
-    <ClCompile Include="Renderer\ColorConversion.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\DeferredRenderer.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\AdaptiveExposurePass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\AtmospherePass.cpp" />

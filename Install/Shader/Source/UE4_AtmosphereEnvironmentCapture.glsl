@@ -85,6 +85,6 @@ void main()
         }
     }
 
-    imageStore(imageCubeEnv, cubeCoord, vec4(prepareOut(result, atmosphere), 1.0));
+    imageStore(imageCubeEnv, cubeCoord, vec4(prepareOut(result, atmosphere, vec2(pixPos)), 1.0));
     return;
 }

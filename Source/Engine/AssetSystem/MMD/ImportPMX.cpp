@@ -7,6 +7,11 @@ using namespace Flower;
 using namespace Importer;
 using namespace Importer::PMX;
 
+//
+// Copyright(c) 2016-2017 benikabocha.
+// Distributed under the MIT License (http://opensource.org/licenses/MIT)
+//
+
 bool PMX::readFile(::File& pmx, const char* fileName)
 {
 	if (!std::filesystem::exists(fileName))
