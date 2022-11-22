@@ -12,12 +12,24 @@ namespace Flower
 
 	class Scene : public std::enable_shared_from_this<Scene>
 	{
+		friend class cereal::access;
 		friend SceneNode;
-	private:
+
+	private: // Runtime update data.
 		SceneManager* m_manager = nullptr;
 
 		// Root node id.
 		const size_t ROOT_ID = 0;
+
+		// Is scene dirty?
+		bool m_bDirty = false;
+
+		// Is cache scene component dirty already. see m_cacheSceneComponents below.
+		std::unordered_map<const char*, bool> m_cacheSceneComponentsShrinkAlready;
+
+		
+
+	private: // Serialize area.
 
 		// Cache scene node index. use for runtime guid.
 		size_t m_currentId = ROOT_ID;
@@ -28,21 +40,17 @@ namespace Flower
 		// Init name.
 		std::string m_initName;
 
-		// Is scene dirty?
-		bool m_bDirty = false;
-
 		// Cache scene components, no include transform.
 		std::unordered_map<const char*, std::vector<std::weak_ptr<Component>>> m_cacheSceneComponents;
-		std::unordered_map<const char*, bool> m_cacheSceneComponentsShrinkAlready;
 
-		LazyDestroyObject<Component, GLazyDestroyTime> m_lazyDestroyComponents;
+		
 
 		size_t m_nodeCount = 0;
 
 	private:
 		// require guid of scene node in this scene.
 		size_t requireId();
-		Scene() = default;
+		
 
 		SceneManager* getManager();
 		void shrinkCacheComponent(const char* id);
@@ -52,12 +60,10 @@ namespace Flower
 		void tick(const RuntimeModuleTickData& tickData);
 
 	public:
-		virtual ~Scene();
+		// Just for cereal, don't use it in runtime.
+		Scene() = default;
 
-		auto& getLazyDestroyObjects()
-		{
-			return m_lazyDestroyComponents;
-		}
+		virtual ~Scene();
 
 		static std::shared_ptr<Scene> create(std::string name = "Untitled");
 
@@ -73,6 +79,8 @@ namespace Flower
 		void addChild(std::shared_ptr<SceneNode> child);
 		std::shared_ptr<SceneNode> getRootNode();
 		bool setParent(std::shared_ptr<SceneNode> parent, std::shared_ptr<SceneNode> son);
+
+		
 
 		// post-order loop.
 		void loopNodeDownToTop(

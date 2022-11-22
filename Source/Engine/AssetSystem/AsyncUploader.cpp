@@ -311,20 +311,6 @@ namespace Flower
 		}
 	}
 
-	void AsyncUploaderManager::tick()
-	{
-		// When exist one static load task, notify all thread to do work.
-		if (!staticLoadAssetTaskEmpty())
-		{
-			m_staticContext.cv.notify_all();
-		}
-
-		if (!dynamicLoadAssetTaskEmpty())
-		{
-			m_dynamicContext.cv.notify_all();
-		}
-	}
-
 	void AsyncUploaderManager::addTask(std::shared_ptr<AssetLoadTask> inTask)
 	{
 		if (inTask->uploadSize() >= GDynamicUploaderMinSize)
@@ -333,6 +319,8 @@ namespace Flower
 			{
 				queue.push(inTask);
 			});
+
+			m_dynamicContext.cv.notify_one();
 		}
 		else
 		{
@@ -341,6 +329,7 @@ namespace Flower
 			{
 				queue.push(inTask);
 			});
+			m_staticContext.cv.notify_one();
 		}
 	}
 

@@ -7,6 +7,8 @@ namespace Flower
 
 	class Transform : public Component
 	{
+		friend class cereal::access;
+
 	public:
 		Transform() = default;
 		virtual ~Transform() = default;

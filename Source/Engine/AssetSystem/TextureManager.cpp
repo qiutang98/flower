@@ -1,5 +1,7 @@
 #include "Pch.h"
 #include "TextureManager.h"
+#include "Engine.h"
+#include "AssetSystem.h"
 
 #include <stb/stb_image.h>
 #include <stb/stb_image_resize.h>
@@ -8,6 +10,7 @@
 
 namespace Flower
 {
+	std::weak_ptr<GPUImageAsset> EngineTextures::GWhiteTexturePtr = {};
 	const UUID EngineTextures::GWhiteTextureUUID = "0d6e103f-138a-482a-8a28-5116631a2e32";
 	const UUID EngineTextures::GGreyTextureUUID = "6caa6c06-3c71-4b36-bb88-e0c577a06c60";
 	const UUID EngineTextures::GBlackTextureUUID = "c11cc2f7-3c5d-458d-a2b4-68ebf7612948";
@@ -462,10 +465,18 @@ namespace Flower
 
 	GPUImageAsset::~GPUImageAsset()
 	{
-		if (m_bindlessIndex != ~0)
+		if (!m_bPersistent)
 		{
-			Bindless::Texture->freeBindless(m_bindlessIndex);
+			if (m_bindlessIndex != ~0)
+			{
+				Bindless::Texture->freeBindlessImpl(
+					m_bindlessIndex,
+					EngineTextures::GWhiteTexturePtr.lock() ? EngineTextures::GWhiteTexturePtr.lock()->m_image : nullptr);
+			}
 		}
+
+
+		m_image.reset();
 	}
 
 	void GPUImageAsset::prepareToUpload(RHICommandBufferBase& cmd, VkImageSubresourceRange range)
@@ -482,10 +493,19 @@ namespace Flower
 		CHECK(m_bindlessIndex != ~0);
 	}
 
+	void TextureContext::shrinkLRU()
+	{
+		// Find unused asset and push to lazy destory component.
+		size_t sizeReduce = m_lruCache->prune([&](std::shared_ptr<GPUImageAsset> removedAsset) {
+			
+			GEngine->getRuntimeModule<AssetSystem>()->addUnusedAsset(removedAsset);
+		});
+		LOG_INFO("Texture manager reduce {0} mesh size.", sizeReduce);
+	}
+
 	void TextureContext::init()
 	{
-		// 2 GB ~ 3 GB Texture
-		m_lruCache = std::make_unique<LRUAssetCache<GPUImageAsset>>(2048, 2048 + 1024);
+		m_lruCache = std::make_unique<LRUAssetCache<GPUImageAsset>>(1024, 512);
 	}
 
 	void TextureContext::release()
@@ -499,7 +519,7 @@ namespace Flower
 		if (!m_lruCache->contain(snapShotUUID))
 		{
 			auto newTask = SnapshotAssetTextureLoadTask::build(asset);
-			GpuUploader::get()->addTask(newTask);
+			GEngine->getRuntimeModule<AssetSystem>()->addUploadTask(newTask);
 		}
 
 		CHECK(m_lruCache->contain(snapShotUUID));
@@ -512,7 +532,7 @@ namespace Flower
 		if (!m_lruCache->contain(imageUUID))
 		{
 			auto newTask = ImageAssetTextureLoadTask::build(asset);
-			GpuUploader::get()->addTask(newTask);
+			GEngine->getRuntimeModule<AssetSystem>()->addUploadTask(newTask);
 		}
 
 		CHECK(m_lruCache->contain(imageUUID));
@@ -525,7 +545,7 @@ namespace Flower
 
 		// TODO: Sometimes it trigger race condition here when start editor. need to fix.
 		stageBuffer.map();
-		memcpy((void*)((char*)stageBuffer.mapped + stageBufferOffset), cacheRawData.data(), uploadSize());
+		memcpy((void*)((char*)stageBuffer.mapped + stageBufferOffset),  cacheRawData.data(), cacheRawData.size());
 		stageBuffer.unmap();
 
 		imageAssetGPU->prepareToUpload(commandBuffer, buildBasicImageSubresource());

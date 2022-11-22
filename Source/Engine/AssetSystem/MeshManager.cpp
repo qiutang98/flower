@@ -20,6 +20,8 @@
 namespace Flower
 {
 	const UUID EngineMeshes::GBoxUUID = "12a68c4e-8352-4d97-a914-a0f4f4d1fd28";
+
+	std::weak_ptr<GPUMeshAsset> EngineMeshes::GBoxPtrRef = {};
 	struct AssimpModelProcess
 	{
 	public:
@@ -358,14 +360,24 @@ namespace Flower
 
 	GPUMeshAsset::~GPUMeshAsset()
 	{
-		if (m_vertexBufferBindlessIndex != ~0)
+		if (!m_bPersistent)
 		{
-			MeshManager::get()->getBindlessVertexBuffers()->freeBindless(m_vertexBufferBindlessIndex);
+			if (m_vertexBufferBindlessIndex != ~0)
+			{
+				MeshManager::get()->getBindlessVertexBuffers()->freeBindlessImpl(
+					m_vertexBufferBindlessIndex,
+					EngineMeshes::GBoxPtrRef.lock() ? EngineMeshes::GBoxPtrRef.lock()->m_vertexBuffer : nullptr);
+			}
+			if (m_indexBufferBindlessIndex != ~0)
+			{
+				MeshManager::get()->getBindlessIndexBuffers()->freeBindlessImpl(
+					m_indexBufferBindlessIndex,
+					EngineMeshes::GBoxPtrRef.lock() ? EngineMeshes::GBoxPtrRef.lock()->m_indexBuffer : nullptr);
+			}
 		}
-		if (m_indexBufferBindlessIndex != ~0)
-		{
-			MeshManager::get()->getBindlessIndexBuffers()->freeBindless(m_indexBufferBindlessIndex);
-		}
+
+		m_indexBuffer.reset();
+		m_vertexBuffer.reset();
 	}
 
 	void GPUMeshAsset::prepareToUpload()
@@ -390,8 +402,7 @@ namespace Flower
 
 	void MeshContext::init()
 	{
-		// 1 GB ~ 1.5 GB Mesh
-		m_lruCache = std::make_unique<LRUAssetCache<GPUMeshAsset>>(1024, 1024 + 512);
+		m_lruCache = std::make_unique<LRUAssetCache<GPUMeshAsset>>(512, 256);
 
 		m_vertexBindlessBuffer = std::make_unique<BindlessStorageBuffer>();
 		m_indexBindlessBuffer = std::make_unique<BindlessStorageBuffer>();
@@ -615,7 +626,7 @@ namespace Flower
 			const auto& entryHeaderMap = AssetRegistryManager::get()->getEntryHeaderMap();
 			const auto& entryMap = AssetRegistryManager::get()->getEntryMap();
 			auto newTask = StaticMeshLoadTask::build(entryMap.at(entryHeaderMap.at(id)).lock(), false);
-			GpuUploader::get()->addTask(newTask);
+			GEngine->getRuntimeModule<AssetSystem>()->addUploadTask(newTask);
 		}
 
 		return getMesh(id);
@@ -624,5 +635,16 @@ namespace Flower
 	std::shared_ptr<GPUMeshAsset> MeshContext::getOrCreateLRUMesh(std::shared_ptr<StaticMeshAssetHeader> header)
 	{
 		return getOrCreateLRUMesh(header->getHeaderUUID());
+	}
+
+	void MeshContext::shrinkLRU()
+	{
+		// Find unused asset and push to lazy destory component.
+		size_t sizeReduce = m_lruCache->prune([&](std::shared_ptr<GPUMeshAsset> removedAsset) 
+		{
+			GEngine->getRuntimeModule<AssetSystem>()->addUnusedAsset(removedAsset);
+		});
+
+		LOG_INFO("Mesh manager reduce {0} mesh size.", sizeReduce);
 	}
 }

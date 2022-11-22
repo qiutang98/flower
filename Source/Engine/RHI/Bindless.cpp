@@ -82,7 +82,8 @@ namespace Flower
 		std::lock_guard lock(m_bindlessElementCountLock);
 
 		uint32_t index = 0;
-		if(m_freeIndex.empty()) 
+		static const auto maxFreeIndexSize = MAX_BINDLESS_COUNT / 4;
+		if(m_freeIndex.size() < maxFreeIndexSize)
 		{
 			// No free index, increment.
 			index = m_bindlessElementCount;
@@ -101,6 +102,7 @@ namespace Flower
 	void BindlessBase::freeBindless(uint32_t index)
 	{
 		std::lock_guard lock(m_bindlessElementCountLock);
+
 		CHECK(!m_freeIndex.contains(index));
 		m_freeIndex.insert(index);
 	}
@@ -147,6 +149,30 @@ namespace Flower
 		return write.dstArrayElement;
 	}
 
+	void BindlessSampler::freeBindlessImpl(uint32_t index, VkSampler fallback)
+	{
+		if (fallback != VK_NULL_HANDLE)
+		{
+			VkDescriptorImageInfo imageInfo{};
+			imageInfo.sampler = fallback;
+			imageInfo.imageView = VK_NULL_HANDLE;
+			imageInfo.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+			VkWriteDescriptorSet  write{};
+			write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			write.dstSet = getSet();
+			write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+			write.dstBinding = 0;
+			write.pImageInfo = &imageInfo;
+			write.descriptorCount = 1;
+			write.dstArrayElement = index;
+
+			vkUpdateDescriptorSets(RHI::Device, 1, &write, 0, nullptr);
+		}
+
+		BindlessBase::freeBindless(index);
+	}
+
 	void BindlessTexture::init()
 	{
 		initTemplate(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
@@ -174,6 +200,32 @@ namespace Flower
 		return write.dstArrayElement;
 	}
 
+	void BindlessTexture::freeBindlessImpl(uint32_t index, std::shared_ptr<VulkanImage> fallback)
+	{
+		if (fallback)
+		{
+			VkDescriptorImageInfo imageInfo{};
+			imageInfo.sampler = VK_NULL_HANDLE;
+
+			imageInfo.imageView = fallback->getView(buildBasicImageSubresource());
+			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+			VkWriteDescriptorSet  write{};
+			write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			write.dstSet = getSet();
+			write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+			write.dstBinding = 0;
+			write.pImageInfo = &imageInfo;
+			write.descriptorCount = 1;
+			write.dstArrayElement = index;
+
+			vkUpdateDescriptorSets(RHI::Device, 1, &write, 0, nullptr);
+		}
+		
+		BindlessBase::freeBindless(index);
+		
+	}
+
 	void BindlessStorageBuffer::init()
 	{
 		initTemplate(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
@@ -198,5 +250,28 @@ namespace Flower
 		vkUpdateDescriptorSets(RHI::Device, 1, &write, 0, nullptr);
 
 		return write.dstArrayElement;
+	}
+	void BindlessStorageBuffer::freeBindlessImpl(uint32_t index, std::shared_ptr<VulkanBuffer> fallback)
+	{
+		if (fallback != VK_NULL_HANDLE)
+		{
+			VkDescriptorBufferInfo bufferInfo{};
+			bufferInfo.buffer = fallback->getVkBuffer();
+			bufferInfo.offset = 0;
+			bufferInfo.range = fallback->getSize();
+
+			VkWriteDescriptorSet write{};
+			write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			write.dstSet = getSet();
+			write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			write.dstBinding = 0;
+			write.pBufferInfo = &bufferInfo;
+			write.descriptorCount = 1;
+			write.dstArrayElement = index;
+
+			vkUpdateDescriptorSets(RHI::Device, 1, &write, 0, nullptr);
+		}
+
+		BindlessBase::freeBindless(index);
 	}
 }

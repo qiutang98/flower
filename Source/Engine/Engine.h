@@ -6,6 +6,12 @@
 
 namespace Flower
 {
+	constexpr size_t GMinRenderDim = 64;
+	constexpr size_t GMaxRenderDim = 3840;
+	constexpr size_t GBackBufferCount = 3;
+
+	constexpr size_t GLazyDestroyTime = GBackBufferCount + 1;
+
 	struct EnginePreInitInfo
 	{
 		GLFWwindow* window;

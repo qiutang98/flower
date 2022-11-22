@@ -8,9 +8,8 @@ namespace Flower
 
     class SceneNode : public std::enable_shared_from_this<SceneNode>
     {
+        friend class cereal::access;
         friend Scene;
-    private:
-        SceneNode() = default;
 
     private:
         bool m_bVisibility = true;
@@ -44,6 +43,9 @@ namespace Flower
         void setStaticImpl(bool bState, bool bForce);
 
     public:
+        // Just provide for cereal, don't use it runtime.
+        SceneNode() = default;
+
         bool getVisibility() const { return m_bVisibility; }
         bool getStatic() const { return m_bStatic; }
 

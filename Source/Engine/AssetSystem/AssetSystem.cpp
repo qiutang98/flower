@@ -6,9 +6,26 @@
 #include "AsyncUploader.h"
 #include "MeshManager.h"
 #include "../MeshTool/MeshToolCommon.h"
+#include "LRUCache.h"
 
 namespace Flower
 {
+	void AssetSystem::addUnusedAsset(std::shared_ptr<LRUAssetInterface> asset)
+	{
+		m_unusedAseets.push_back(asset);
+	}
+
+	void AssetSystem::addUploadTask(std::shared_ptr<AssetLoadTask> inTask)
+	{
+		m_uploadTasks.push_back(inTask);
+	}
+
+	void AssetSystem::flushUploadTask()
+	{
+		submitAllUploadTask();
+		GpuUploader::get()->flushTask();
+	}
+
 	AssetSystem::AssetSystem(ModuleManager* in, std::string name)
 		: IRuntimeModule(in, name)
 	{
@@ -92,11 +109,28 @@ namespace Flower
 		GpuUploader::get()->flushTask();
 
 		EngineTextures::GWhiteTextureId = TextureManager::get()->getImage(EngineTextures::GWhiteTextureUUID)->getBindlessIndex();
+
 		EngineTextures::GGreyTextureId = TextureManager::get()->getImage(EngineTextures::GGreyTextureUUID)->getBindlessIndex();
 		EngineTextures::GBlackTextureId = TextureManager::get()->getImage(EngineTextures::GBlackTextureUUID)->getBindlessIndex();
 		EngineTextures::GTranslucentTextureId = TextureManager::get()->getImage(EngineTextures::GTranslucentTextureUUID)->getBindlessIndex();
 		EngineTextures::GNormalTextureId = TextureManager::get()->getImage(EngineTextures::GNormalTextureUUID)->getBindlessIndex();
 		EngineTextures::GDefaultSpecularId = TextureManager::get()->getImage(EngineTextures::GDefaultSpecularUUID)->getBindlessIndex();
+
+		EngineMeshes::GBoxPtrRef = MeshManager::get()->getMesh(EngineMeshes::GBoxUUID);
+		EngineTextures::GWhiteTexturePtr = TextureManager::get()->getImage(EngineTextures::GWhiteTextureUUID);
+
+	}
+
+	void AssetSystem::submitAllUploadTask()
+	{
+		if (m_uploadTasks.size() > 0)
+		{
+			for (auto& task : m_uploadTasks)
+			{
+				GpuUploader::get()->addTask(task);
+			}
+			m_uploadTasks.clear();
+		}
 	}
 
 	void AssetSystem::setupProject(const std::filesystem::path& path)
@@ -132,7 +166,17 @@ namespace Flower
 
 	void AssetSystem::tick(const RuntimeModuleTickData& tickData)
 	{
-		GpuUploader::get()->tick();
+		if (m_bCallGPULRUCacheShrink)
+		{
+			MeshManager::get()->shrinkLRU();
+			TextureManager::get()->shrinkLRU();
+
+			vkDeviceWaitIdle(RHI::Device);
+			m_unusedAseets.clear();
+			m_bCallGPULRUCacheShrink = false;
+		}
+
+		submitAllUploadTask();
 	}
 
 	void AssetSystem::release()

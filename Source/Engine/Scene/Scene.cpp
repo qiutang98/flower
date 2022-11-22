@@ -73,8 +73,6 @@ namespace Flower
 
 	void Scene::tick(const RuntimeModuleTickData& tickData)
 	{
-		m_lazyDestroyComponents.tick();
-
 		// update all transforms.
 		loopNodeTopToDown([tickData](std::shared_ptr<SceneNode> node)
 		{

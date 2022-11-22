@@ -5,6 +5,8 @@ namespace Flower
 {
 	class PMXComponent : public Component
 	{
+		friend class cereal::access;
+
 	public:
 		PMXComponent() = default;
 		virtual ~PMXComponent() = default;

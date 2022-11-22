@@ -7,12 +7,6 @@ namespace Flower
 {
 	class Renderer;
 
-	constexpr size_t GMinRenderDim = 64;
-	constexpr size_t GMaxRenderDim = 3840;
-	constexpr size_t GBackBufferCount = 3;
-
-	constexpr size_t GLazyDestroyTime = GBackBufferCount + 1;
-
 	inline uint32_t getGroupCount(uint32_t threadCount, uint32_t localSize)
 	{
 		return (threadCount + localSize - 1) / localSize;

@@ -6,6 +6,8 @@ namespace Flower
 {
 	class DirectionalLightComponent : public LightComponent
 	{
+		friend class cereal::access;
+
 	public:
 		DirectionalLightComponent() {}
 		virtual ~DirectionalLightComponent() = default;

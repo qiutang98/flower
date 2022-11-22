@@ -6,6 +6,8 @@ namespace Flower
 	class SceneNode;
 	class LandscapeComponent : public Component
 	{
+		friend class cereal::access;
+
 	public:
 		LandscapeComponent() = default;
 		virtual ~LandscapeComponent() = default;

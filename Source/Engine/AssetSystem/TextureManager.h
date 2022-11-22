@@ -6,8 +6,10 @@
 
 namespace Flower
 {
+	class GPUImageAsset;
 	namespace EngineTextures
 	{
+		extern std::weak_ptr<GPUImageAsset> GWhiteTexturePtr;
 		extern const UUID GWhiteTextureUUID; // 255, 255, 255, 255
 		extern uint32_t GWhiteTextureId; // BindlessIndex
 
@@ -213,6 +215,7 @@ namespace Flower
 
 		virtual ~GPUImageAsset();
 
+
 		uint32_t getBindlessIndex()
 		{
 			return getReadyAsset()->m_bindlessIndex;
@@ -252,6 +255,8 @@ namespace Flower
 
 	public:
 		TextureContext() = default;
+
+		void shrinkLRU();
 
 		void init();
 		void release();

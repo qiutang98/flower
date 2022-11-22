@@ -4,7 +4,12 @@
 
 namespace Flower
 {
-	class VulkanBuffer : NonCopyable
+	struct GpuResource : NonCopyable
+	{
+		virtual ~GpuResource() = default;
+	};
+
+	class VulkanBuffer : public GpuResource
 	{
 	protected:
 		std::string m_name;
@@ -88,7 +93,7 @@ namespace Flower
 		static std::shared_ptr<VulkanBuffer> createRTScratchBuffer(const char* name, VkDeviceSize size);
 	};
 
-	class VulkanImage : NonCopyable
+	class VulkanImage : public GpuResource
 	{
 	protected:
 		std::string m_name;

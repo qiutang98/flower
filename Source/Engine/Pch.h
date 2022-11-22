@@ -112,3 +112,5 @@ struct RunOnceObject
 		f(std::forward<Args>(args)...);
 	}
 };
+
+#include <entt/entt.hpp>

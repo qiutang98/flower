@@ -40,15 +40,15 @@ void WidgetContentViewer::onInit()
 			"Image/Folder.png",
 			GEditorFloderIconUUID,
 			VK_FORMAT_R8G8B8A8_SRGB);
-		GpuUploader::get()->addTask(GEditorFolderIconLoad);
+		GEngine->getRuntimeModule<AssetSystem>()->addUploadTask(GEditorFolderIconLoad);
 
 		auto GEditorFileIconLoad = RawAssetTextureLoadTask::build(
 			"Image/File.png",
 			GEditorFileIconUUID,
 			VK_FORMAT_R8G8B8A8_SRGB);
-		GpuUploader::get()->addTask(GEditorFileIconLoad);
+		GEngine->getRuntimeModule<AssetSystem>()->addUploadTask(GEditorFileIconLoad);
 
-		GpuUploader::get()->flushTask();
+		GEngine->getRuntimeModule<AssetSystem>()->flushUploadTask();
 	}
 }
 

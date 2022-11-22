@@ -5,6 +5,8 @@ namespace Flower
 {
 	class CameraInterface
 	{
+		friend class cereal::access;
+
 	protected:
 		// world space position.
 		glm::vec3 m_position = { 0.0f, 10.0f, 0.0f};

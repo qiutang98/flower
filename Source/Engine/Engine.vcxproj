@@ -157,6 +157,7 @@
     <ClInclude Include="RHI\Shader.h" />
     <ClInclude Include="RHI\SwapChain.h" />
     <ClInclude Include="RuntimeModule.h" />
+    <ClInclude Include="Scene\Api.h" />
     <ClInclude Include="Scene\CameraInterface.h" />
     <ClInclude Include="Scene\Component.h" />
     <ClInclude Include="Scene\Component\DirectionalLight.h" />
@@ -169,6 +170,7 @@
     <ClInclude Include="Scene\Scene.h" />
     <ClInclude Include="Scene\SceneManager.h" />
     <ClInclude Include="Scene\SceneNode.h" />
+    <ClInclude Include="Serialize\Serializer.h" />
     <ClInclude Include="UI\UICommon.h" />
     <ClInclude Include="UI\UIHelper.h" />
     <ClInclude Include="UI\UIManager.h" />
@@ -247,6 +249,7 @@
     <ClCompile Include="Scene\Scene.cpp" />
     <ClCompile Include="Scene\SceneManager.cpp" />
     <ClCompile Include="Scene\SceneNode.cpp" />
+    <ClCompile Include="Serialize\SceneSerializer.cpp" />
     <ClCompile Include="UI\UIHelper.cpp" />
     <ClCompile Include="UI\UIManager.cpp" />
     <ClCompile Include="UI\UICommon.cpp" />

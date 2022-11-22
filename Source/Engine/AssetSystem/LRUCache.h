@@ -8,6 +8,7 @@ namespace Flower
 	{
 	protected:
 		bool m_bPersistent;
+
 		UUID m_uuid;
 
 		std::atomic<bool> m_bAsyncLoading = true;
@@ -244,10 +245,8 @@ namespace Flower
 			return iter->second->second;
 		}
 
-	protected:
-
 		// Prune lru map.
-		size_t prune()
+		size_t prune(std::function<void(std::shared_ptr<ValueType>)>&& reduceFunction = nullptr)
 		{
 
 			size_t maxAllowed = m_capacity + m_elasticity;
@@ -260,6 +259,12 @@ namespace Flower
 			while (m_usedSize > m_capacity)
 			{
 				size_t eleSize = m_lruList.back().second->getSize();
+
+				if (reduceFunction)
+				{
+					reduceFunction(m_lruList.back().second);
+				}
+
 				m_lruMap.erase(m_lruList.back().first);
 				m_lruList.pop_back();
 

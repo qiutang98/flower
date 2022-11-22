@@ -120,19 +120,35 @@ namespace Flower
 	class LazyDestroyObject
 	{
 	private:
+		std::mutex m_mutex;
+
 		size_t m_tickCount = 0;
 		std::array<std::unordered_set<std::shared_ptr<T>>, cLazyFrame> m_container;
 
-
-
 	public:
+		bool existElement()
+		{
+			std::lock_guard<std::mutex> lock(m_mutex);
+
+			for (const auto& set : m_container)
+			{
+				if (!set.empty())
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+
 		void insert(std::shared_ptr<T> object)
 		{
+			std::lock_guard<std::mutex> lock(m_mutex);
 			m_container[m_tickCount].insert(object);
 		}
 
 		void tick()
 		{
+			std::lock_guard<std::mutex> lock(m_mutex);
 			m_tickCount ++;
 			if (m_tickCount >= cLazyFrame)
 			{
@@ -144,6 +160,7 @@ namespace Flower
 
 		void releaseAll()
 		{
+			std::lock_guard<std::mutex> lock(m_mutex);
 			for (auto& container : m_container)
 			{
 				container.clear();
@@ -154,7 +171,5 @@ namespace Flower
 		{
 			releaseAll();
 		}
-
-	
 	};
 }

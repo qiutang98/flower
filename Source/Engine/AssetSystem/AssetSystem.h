@@ -19,6 +19,7 @@ namespace Flower
 		std::optional<ImportTextureOptions> texOptions { };
 	};
 
+	class LRUAssetInterface;
 	class RegistryEntry;
 	class AssetSystem : public IRuntimeModule
 	{
@@ -30,8 +31,16 @@ namespace Flower
 		std::filesystem::path m_projectAssetHeaderFolderPath;
 		std::filesystem::path m_projectAssetBinFolderPath;
 
+		// Call gpu lru cache shrink next tick.
+		std::atomic<bool> m_bCallGPULRUCacheShrink = false;
+
+		std::vector<std::shared_ptr<struct AssetLoadTask>> m_uploadTasks;
+		std::vector<std::shared_ptr<LRUAssetInterface>> m_unusedAseets;
+
 	private:
 		void engineAssetInit();
+
+		void submitAllUploadTask();
 
 	public:
 		bool projectAlreadySet() const 
@@ -63,11 +72,23 @@ namespace Flower
 
 		UUID importAsset(const std::filesystem::path& path, EAssetType type, std::shared_ptr<RegistryEntry> entry, const ImportOptions& inOption = {});
 
+		void markCallGPULRUCacheShrink()
+		{
+			m_bCallGPULRUCacheShrink = true;
+		}
+
+		void addUnusedAsset(std::shared_ptr<LRUAssetInterface> asset);
+
+		void addUploadTask(std::shared_ptr<AssetLoadTask> inTask);
+
+		void flushUploadTask();
+
 	public:
 		AssetSystem(ModuleManager* in, std::string name = "AssetSystem");
 
 		virtual bool init() override;
 		virtual void release() override;
 		virtual void tick(const RuntimeModuleTickData& tickData) override;
+
 	};
 }

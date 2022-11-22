@@ -6,10 +6,14 @@
 #include "AsyncUploader.h"
 #include "../Renderer/MeshMisc.h"
 
+
 namespace Flower
 {
+	class GPUMeshAsset;
+
 	namespace EngineMeshes
 	{
+		extern std::weak_ptr<GPUMeshAsset> GBoxPtrRef;
 		extern const UUID GBoxUUID;
 	}
 
@@ -246,6 +250,8 @@ namespace Flower
 
 		std::shared_ptr<GPUMeshAsset> getOrCreateLRUMesh(const AssetHeaderUUID& id);
 		std::shared_ptr<GPUMeshAsset> getOrCreateLRUMesh(std::shared_ptr<StaticMeshAssetHeader> header);
+
+		void shrinkLRU();
 	};
 
 	using MeshManager = Singleton<MeshContext>;

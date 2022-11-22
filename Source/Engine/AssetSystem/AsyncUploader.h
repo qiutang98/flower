@@ -60,6 +60,8 @@ namespace Flower
 	protected:
 		virtual void threadFunction() = 0;
 
+
+
 		void resetProcessState();
 		void startRecord();
 		void endRecordAndSubmit();
@@ -147,6 +149,9 @@ namespace Flower
 		UploaderContext m_dynamicContext;
 		std::vector<std::unique_ptr<DynamicAsyncUploader>> m_dynamicUploaders;
 
+		friend class AssetSystem;
+		void addTask(std::shared_ptr<AssetLoadTask> inTask);
+		void flushTask();
 	public:
 		explicit AsyncUploaderManager();
 
@@ -196,11 +201,7 @@ namespace Flower
 
 		bool busy();
 
-		void tick();
-
-		void addTask(std::shared_ptr<AssetLoadTask> inTask);
-
-		void flushTask();
+		
 
 		void release();
 	};

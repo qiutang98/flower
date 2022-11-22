@@ -10,6 +10,8 @@ namespace Flower
 
 	class Component
 	{
+		friend class cereal::access;
+
 	protected:
 		std::weak_ptr<SceneNode> m_node;
 

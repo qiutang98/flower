@@ -14,12 +14,6 @@ namespace Flower
 
     void SceneNode::removeComponent(const char* type)
     {
-
-        // When component remove, move to scene's pending kill containers to avoid GPU resource fault.
-
-        m_scene.lock()->getLazyDestroyObjects().insert(m_components.at(type));
-
-
         m_components.erase(type);
     }
 

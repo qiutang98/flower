@@ -5,6 +5,8 @@ namespace Flower
 {
 	class LightComponent : public Component
 	{
+		friend class cereal::access;
+
 	public:
 		LightComponent() = default;
 		virtual ~LightComponent() = default;

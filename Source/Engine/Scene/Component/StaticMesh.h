@@ -13,6 +13,8 @@ namespace Flower
 
 	class StaticMeshGPUProxy
 	{
+		friend class cereal::access;
+
 		friend StaticMeshComponent;
 
 	public:
@@ -43,6 +45,8 @@ namespace Flower
 		void updateObjectCollectInfo();
 		void renderObjectCollect(std::vector<GPUPerObjectData>& collector);
 		bool setUUID(const Flower::UUID& in);
+
+		bool canReplaceMesh() const;
 	};
 
 	class StaticMeshComponent : public Component

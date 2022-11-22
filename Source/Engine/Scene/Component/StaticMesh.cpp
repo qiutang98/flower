@@ -92,18 +92,26 @@ namespace Flower
 		collector.insert(collector.end(), m_cachePerObjectData.begin(), m_cachePerObjectData.end());
 	}
 
+	bool StaticMeshGPUProxy::canReplaceMesh() const
+	{
+		return !GpuUploader::get()->busy();
+	}
+
 	bool StaticMeshGPUProxy::setUUID(const Flower::UUID& in)
 	{
-		if (in != m_staticMeshUUID)
+		// When load ready and uuid change, enable replace.
+		if (in != m_staticMeshUUID && canReplaceMesh()) 
 		{
 			// Mesh id set, require from Meshmanager.
 			m_staticMeshUUID = in;
-
 			
 			// Asset header is optional.
 			m_cacheStaticAssetHeader = AssetRegistryManager::get()->getHeaderMap().contains(m_staticMeshUUID) ?
 				std::dynamic_pointer_cast<StaticMeshAssetHeader>(AssetRegistryManager::get()->getHeaderMap().at(m_staticMeshUUID)) :
 				nullptr;
+
+			// When static mesh replace, toggle once asset system gpu lru cache clear.
+			GEngine->getRuntimeModule<AssetSystem>()->markCallGPULRUCacheShrink();
 		
 	
 			// Get gpu asset.
@@ -111,6 +119,8 @@ namespace Flower
 			m_bMeshReplace = true;
 			m_bMeshReady = m_cacheGPUMeshAsset->isAssetReady();
 			updateObjectCollectInfo();
+
+			
 
 			// Mesh replace.
 			return true;
@@ -127,6 +137,8 @@ namespace Flower
 
 	StaticMeshComponent::~StaticMeshComponent()
 	{
+		// When static mesh destroy, toggle once asset system gpu lru cache clear.
+		GEngine->getRuntimeModule<AssetSystem>()->markCallGPULRUCacheShrink();
 	}
 
 	void StaticMeshComponent::setMeshUUID(const Flower::UUID& in)

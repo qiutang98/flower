@@ -74,6 +74,8 @@
     <ClInclude Include="Renderer\PMXRenderProxy.h" />
     <ClInclude Include="RHI\AccelerateStructure.h" />
     <ClInclude Include="AssetSystem\AsyncQueueSchedule.h" />
+    <ClInclude Include="Serialize\Serializer.h" />
+    <ClInclude Include="Scene\Api.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Pch.cpp" />
@@ -148,5 +150,6 @@
     <ClCompile Include="AssetSystem\AsyncQueueSchedule.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\SSGIPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\SSGIPass.cpp" />
+    <ClCompile Include="Serialize\SceneSerializer.cpp" />
   </ItemGroup>
 </Project>

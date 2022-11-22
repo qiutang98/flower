@@ -54,13 +54,18 @@ namespace Flower
 			RHI::get()->recreateSwapChain();
 		}
 
-		// Update scene data.
-		m_sceneData->tick(tickData);
+
 
 		UIManager::get()->newFrame();
 
 		imguiTickFunctions.broadcast(tickData);
+
+		// Update scene data.
+		m_sceneData->tick(tickData);
+
 		ImGui::Render();
+
+
 
 		ImDrawData* mainDrawData = ImGui::GetDrawData();
 		const bool bMainMinimized = (mainDrawData->DisplaySize.x <= 0.0f || mainDrawData->DisplaySize.y <= 0.0f);
