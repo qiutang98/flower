@@ -117,6 +117,16 @@ namespace Flower
 		m_bMeshReady = m_cacheGPUMeshAsset->isAssetReady();
 	}
 
+	void StaticMeshComponent::clearCache()
+	{
+		m_bMeshReplace = true;
+		m_bMeshReady = false;
+		m_cacheGPUMeshAsset = nullptr;
+		m_cacheStaticAssetHeader = nullptr;
+		m_cachePerObjectData.clear();
+		m_cachePerObjectMaterials.clear();
+	}
+
 	void StaticMeshComponent::renderObjectCollect(std::vector<GPUPerObjectData>& collector)
 	{
 		glm::mat4 modelMatrix = getNode()->getTransform()->getWorldMatrix();
@@ -143,6 +153,8 @@ namespace Flower
 		{
 			// Mesh id set, require from Meshmanager.
 			m_staticMeshUUID = in;
+
+			clearCache();
 			
 			// Asset header is optional.
 			m_cacheStaticAssetHeader = AssetRegistryManager::get()->getHeaderMap().contains(m_staticMeshUUID) ?
@@ -151,12 +163,10 @@ namespace Flower
 
 			// When static mesh replace, toggle once asset system gpu lru cache clear.
 			GEngine->getRuntimeModule<AssetSystem>()->markCallGPULRUCacheShrink();
-		
-	
+			
+
 			// Get gpu asset.
 			updateObjectCollectInfo();
-
-			
 
 			// Mesh replace.
 			return true;

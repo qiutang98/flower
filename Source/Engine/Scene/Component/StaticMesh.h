@@ -84,6 +84,8 @@ namespace Flower
 		void updateObjectCollectInfo();
 
 		void loadAssetByUUID();
+
+		void clearCache();
 	};
 
 }

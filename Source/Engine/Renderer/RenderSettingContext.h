@@ -172,8 +172,9 @@ namespace Flower
 		float AUTOEXPOSURE_exposureCompensation = 0.0f;
 
 		int GTAO_sliceNum = 2;
-		int GTAO_stepNum = 8;
-		float GTAO_radius = 4.0f;
+		int GTAO_stepNum  = 8;
+
+		float GTAO_radius = 2.0f;
 		float GTAO_thickness = 1.0f;
 
 		float GTAO_Power = 1.0f;
