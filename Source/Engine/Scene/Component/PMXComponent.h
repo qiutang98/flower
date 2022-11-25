@@ -5,7 +5,14 @@ namespace Flower
 {
 	class PMXComponent : public Component
 	{
-		friend class cereal::access;
+		ARCHIVE_DECLARE;
+
+#pragma region SerializeField
+		////////////////////////////// Serialize area //////////////////////////////
+	protected:
+
+		////////////////////////////// Serialize area //////////////////////////////
+#pragma endregion SerializeField
 
 	public:
 		PMXComponent() = default;

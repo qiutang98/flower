@@ -3,7 +3,7 @@
 #include "TextureManager.h"
 #include "AssetSystem.h"
 #include "MeshManager.h"
-
+#include "AssetArchive.h"
 
 namespace Flower
 {

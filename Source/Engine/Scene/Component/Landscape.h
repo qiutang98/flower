@@ -6,7 +6,14 @@ namespace Flower
 	class SceneNode;
 	class LandscapeComponent : public Component
 	{
-		friend class cereal::access;
+		ARCHIVE_DECLARE;
+
+#pragma region SerializeField
+	////////////////////////////// Serialize area //////////////////////////////
+	protected:
+
+	////////////////////////////// Serialize area //////////////////////////////
+#pragma endregion SerializeField
 
 	public:
 		LandscapeComponent() = default;
@@ -22,3 +29,4 @@ namespace Flower
 		virtual void tick(const RuntimeModuleTickData& tickData) override;
 	};
 }
+

@@ -10,12 +10,15 @@ namespace Flower
 {
 	class SceneManager;
 
+	// Simple scene graph implement.
 	class Scene : public std::enable_shared_from_this<Scene>
 	{
-		friend class cereal::access;
+		ARCHIVE_DECLARE;
 		friend SceneNode;
 
 	private: // Runtime update data.
+
+		// Cache scene manager.
 		SceneManager* m_manager = nullptr;
 
 		// Root node id.
@@ -25,12 +28,13 @@ namespace Flower
 		bool m_bDirty = false;
 
 		// Is cache scene component dirty already. see m_cacheSceneComponents below.
-		std::unordered_map<const char*, bool> m_cacheSceneComponentsShrinkAlready;
+		// When some sence node remove component, need to call scene update cache in next tick.
+		std::unordered_map<std::string, bool> m_cacheSceneComponentsShrinkAlready = {};
 
-		
 
-	private: // Serialize area.
-
+#pragma region SerializeField
+	////////////////////////////// Serialize area //////////////////////////////
+	private: 
 		// Cache scene node index. use for runtime guid.
 		size_t m_currentId = ROOT_ID;
 
@@ -41,56 +45,129 @@ namespace Flower
 		std::string m_initName;
 
 		// Cache scene components, no include transform.
-		std::unordered_map<const char*, std::vector<std::weak_ptr<Component>>> m_cacheSceneComponents;
+		std::unordered_map<std::string, std::vector<std::weak_ptr<Component>>> m_cacheSceneComponents;
 
-		
-
+		// How many node exist here.
 		size_t m_nodeCount = 0;
 
-	private:
+		std::string m_savePath = {};
+
+	////////////////////////////// Serialize area //////////////////////////////
+#pragma endregion SerializeField
+	private: // Functions.
+
 		// require guid of scene node in this scene.
 		size_t requireId();
 		
-
+		// get scene manager.
 		SceneManager* getManager();
-		void shrinkCacheComponent(const char* id);
 
-	public:
-		bool init();
-		void tick(const RuntimeModuleTickData& tickData);
+		// shrink cache component.
+		void shrinkCacheComponent(const char* id);
 
 	public:
 		// Just for cereal, don't use it in runtime.
 		Scene() = default;
 
-		virtual ~Scene();
-
+		// Create scene function.
 		static std::shared_ptr<Scene> create(std::string name = "Untitled");
 
-		bool isDirty() const { return m_bDirty; }
-		auto getptr() { return shared_from_this(); }
-		size_t getCurrentGUID() const { return m_currentId; }
-		size_t getNodeCount() const { return m_nodeCount; }
-		const std::string& getName() const;
+		// Destroy call.
+		virtual ~Scene();
+
+		// Scene init.
+		bool init();
+
+		// Tick every frame.
+		void tick(const RuntimeModuleTickData& tickData);
+
+		const std::string& getSavePath() const
+		{
+			return m_savePath;
+		}
+
+	public: // Getter function.
+		
+		// This scene already edit? need save?
+		bool isDirty() const 
+		{ 
+			return m_bDirty; 
+		}
+
+		// Get shared ptr.
+		auto getptr() 
+		{ 
+			return shared_from_this(); 
+		}
+
+		// Current useful node guid.
+		size_t getCurrentGUID() const 
+		{ 
+			return m_currentId; 
+		}
+
+		// How many node exist.
+		size_t getNodeCount() const 
+		{ 
+			return m_nodeCount; 
+		}
+
+		// Get scene name.
+		const std::string& getName() const
+		{
+			return m_root->getName();
+		}
+
+		void setSavePath(const std::string& path)
+		{
+			m_savePath = path;
+		}
+
+		// Get root node.
+		std::shared_ptr<SceneNode> getRootNode()
+		{
+			return m_root;
+		}
+
+		// Get components.
+		const std::vector<std::weak_ptr<Component>>& getComponents(const char* id) const
+		{
+			return m_cacheSceneComponents.at(id);
+		}
+
+		// Check exist component or not.
+		bool hasComponent(const char* id) const
+		{
+			auto component = m_cacheSceneComponents.find(id);
+			return (component != m_cacheSceneComponents.end() && !component->second.empty());
+		}
+
+	
+	public: // Simple setter.
+
+		// Set scene dirty state.
 		bool setDirty(bool bDirty = true);
+
+		// Change scene name.
 		bool setName(const std::string& name);
+
+		// Delete one node, also include it's child nodes.
 		void deleteNode(std::shared_ptr<SceneNode> node);
+
+		// Create node.
 		std::shared_ptr<SceneNode> createNode(const std::string& name, std::shared_ptr<SceneNode> parent = nullptr);
+
+		// Add child for root node.
 		void addChild(std::shared_ptr<SceneNode> child);
-		std::shared_ptr<SceneNode> getRootNode();
+
+		// Set node's parent relationship.
 		bool setParent(std::shared_ptr<SceneNode> parent, std::shared_ptr<SceneNode> son);
 
-		
-
 		// post-order loop.
-		void loopNodeDownToTop(
-			const std::function<void(std::shared_ptr<SceneNode>)>& func, 
-			std::shared_ptr<SceneNode> node);
+		void loopNodeDownToTop(const std::function<void(std::shared_ptr<SceneNode>)>& func, std::shared_ptr<SceneNode> node);
 		
 		// pre-order loop.
-		void loopNodeTopToDown(
-			const std::function<void(std::shared_ptr<SceneNode>)>& func, 
-			std::shared_ptr<SceneNode> node);
+		void loopNodeTopToDown(const std::function<void(std::shared_ptr<SceneNode>)>& func, std::shared_ptr<SceneNode> node);
 
 		// loop the whole graph to find first same name scene node, this is a slow function.
 		std::shared_ptr<SceneNode> findNode(const std::string& name);
@@ -98,17 +175,11 @@ namespace Flower
 		// find all same name nodes, this is a slow function.
 		std::vector<std::shared_ptr<SceneNode>> findNodes(const std::string& name);
 
-		const std::vector<std::weak_ptr<Component>>& getComponents(const char* id) const
-		{
-			return m_cacheSceneComponents.at(id);
-		}
+		// update whole graph's transform.
+		void flushSceneNodeTransform();
 
-		bool hasComponent(const char* id) const
-		{
-			auto component = m_cacheSceneComponents.find(id);
-			return (component != m_cacheSceneComponents.end() && !component->second.empty());
-		}
-
+	public:
+		// Loop scene's components.
 		template<typename T>
 		void loopComponents(std::function<void(std::shared_ptr<T>)>&& func)
 		{
@@ -132,9 +203,6 @@ namespace Flower
 				}
 			}
 		}
-
-		// update whole graph's transform.
-		void flushSceneNodeTransform();
 
 		template<typename T>
 		void addComponent(std::shared_ptr<T> component, std::shared_ptr<SceneNode> node)

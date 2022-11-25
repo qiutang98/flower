@@ -2,6 +2,8 @@
 #include "SceneManager.h"
 #include "SceneNode.h"
 #include "Scene.h"
+#include "SceneArchive.h"
+#include "Project.h"
 
 namespace Flower
 {
@@ -32,6 +34,31 @@ namespace Flower
 	void SceneManager::releaseScene()
 	{
 		m_scene = nullptr;
+	}
+
+	void SceneManager::saveScene(const std::filesystem::path& savePath)
+	{
+		getScenes();
+		m_scene->setSavePath(savePath.string());
+
+		std::ofstream os(ProjectContext::get()->path / savePath);
+		cereal::JSONOutputArchive oarchive(os);
+
+		oarchive(m_scene);
+
+		
+		m_scene->setDirty(false);
+	}
+
+	void SceneManager::loadScene(const std::filesystem::path& loadPath)
+	{
+		getScenes();
+
+		std::ifstream is(ProjectContext::get()->path / loadPath);
+		cereal::JSONInputArchive iarchive(is);
+
+		iarchive(m_scene);
+		m_scene->setDirty(false);
 	}
 
 	Scene* SceneManager::getScenes()

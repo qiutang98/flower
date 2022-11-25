@@ -20,6 +20,11 @@ namespace Flower
 
 		void releaseScene();
 
+		void saveScene(const std::filesystem::path& savePath);
+
+		void loadScene(const std::filesystem::path& loadPath);
+
+
 	private:
 		std::shared_ptr<Scene> m_scene = nullptr;
 

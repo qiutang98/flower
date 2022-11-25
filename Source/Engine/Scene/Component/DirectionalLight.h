@@ -6,7 +6,28 @@ namespace Flower
 {
 	class DirectionalLightComponent : public LightComponent
 	{
-		friend class cereal::access;
+		ARCHIVE_DECLARE;
+
+#pragma region SerializeField
+	////////////////////////////// Serialize area //////////////////////////////
+	protected:
+		uint32_t m_percascadeDimXY = 2048;
+		uint32_t m_cascadeCount = 4;
+
+		float m_shadowFilterSize = 0.5f;
+		float m_maxFilterSize = 1.0f;
+
+		float m_cascadeSplitLambda = 1.0f;
+
+		float m_shadowBiasConst = -1.25f; // We reverse z, so bias const should be negative.
+		float m_shadowBiasSlope = -1.75f; // We reverse z, so bias slope should be negative.
+
+		float m_cascadeBorderAdopt = 0.006f;
+		float m_cascadeEdgeLerpThreshold = 0.8f;
+		float m_maxDrawDepthDistance = 200.0f;
+
+	////////////////////////////// Serialize area //////////////////////////////
+#pragma endregion SerializeField
 
 	public:
 		DirectionalLightComponent() {}
@@ -51,20 +72,8 @@ namespace Flower
 
 		
 
-	protected:
-		uint32_t m_percascadeDimXY = 2048;
-		uint32_t m_cascadeCount  = 4;
-
-		float m_shadowFilterSize = 0.5f;
-		float m_maxFilterSize = 1.0f;
-
-		float m_cascadeSplitLambda = 1.0f;
-
-		float m_shadowBiasConst = -1.25f; // We reverse z, so bias const should be negative.
-		float m_shadowBiasSlope = -1.75f; // We reverse z, so bias slope should be negative.
-
-		float m_cascadeBorderAdopt = 0.006f;
-		float m_cascadeEdgeLerpThreshold = 0.8f;
-		float m_maxDrawDepthDistance = 200.0f;
+	
 	};
 }
+
+

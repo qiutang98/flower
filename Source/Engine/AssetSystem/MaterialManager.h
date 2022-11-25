@@ -13,19 +13,9 @@ namespace Flower
 
 	class AssetMaterialHeader : public AssetHeaderInterface
 	{
+		ARCHIVE_DECLARE;
 	private:
 		EMaterialType m_materialType;
-
-		friend class cereal::access;
-		template<class Archive>
-		void serialize(Archive& archive)
-		{
-			archive(cereal::base_class<AssetHeaderInterface>(this));
-
-			size_t matType = size_t(m_materialType);
-			archive(matType);
-			m_materialType = EMaterialType(matType);
-		}
 
 	public:
 		AssetMaterialHeader() { }
@@ -47,20 +37,13 @@ namespace Flower
 
 	class StandardPBRMaterialHeader : public AssetMaterialHeader
 	{
+		ARCHIVE_DECLARE;
 	public:
 		UUID baseColorTexture = EngineTextures::GWhiteTextureUUID;
 		UUID normalTexture = EngineTextures::GNormalTextureUUID;
 		UUID specularTexture = EngineTextures::GDefaultSpecularUUID;
 		UUID emissiveTexture = EngineTextures::GTranslucentTextureUUID;
 		UUID aoTexture = EngineTextures::GWhiteTextureUUID;
-
-
-		template<class Archive>
-		void serialize(Archive& archive)
-		{
-			archive(cereal::base_class<AssetMaterialHeader>(this));
-			archive(baseColorTexture, normalTexture, specularTexture, emissiveTexture, aoTexture);
-		}
 
 		StandardPBRMaterialHeader() { }
 		StandardPBRMaterialHeader(const std::string& name)
@@ -70,10 +53,3 @@ namespace Flower
 		}
 	};
 }
-
-
-CEREAL_REGISTER_TYPE(Flower::AssetMaterialHeader);
-CEREAL_REGISTER_POLYMORPHIC_RELATION(Flower::AssetHeaderInterface, Flower::AssetMaterialHeader)
-
-CEREAL_REGISTER_TYPE(Flower::StandardPBRMaterialHeader);
-CEREAL_REGISTER_POLYMORPHIC_RELATION(Flower::AssetMaterialHeader, Flower::StandardPBRMaterialHeader)

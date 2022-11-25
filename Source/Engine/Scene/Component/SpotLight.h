@@ -5,7 +5,14 @@ namespace Flower
 {
 	class SpotLightComponent : public LightComponent
 	{
-		friend class cereal::access;
+		ARCHIVE_DECLARE;
+
+#pragma region SerializeField
+		////////////////////////////// Serialize area //////////////////////////////
+	protected:
+
+		////////////////////////////// Serialize area //////////////////////////////
+#pragma endregion SerializeField
 
 	public:
 		SpotLightComponent() = default;
@@ -21,3 +28,4 @@ namespace Flower
 
 	};
 }
+

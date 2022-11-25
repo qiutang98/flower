@@ -7,7 +7,27 @@ namespace Flower
 
 	class Transform : public Component
 	{
-		friend class cereal::access;
+		ARCHIVE_DECLARE;
+
+	protected:
+		// need update?
+		bool m_bUpdateFlag = true;
+
+		// world space matrix.
+		glm::mat4 m_worldMatrix = glm::mat4(1.0);
+
+		// Prev-frame world matrix.
+		glm::mat4 m_prevWorldMatrix = glm::mat4(1.0);
+
+#pragma region SerializeField
+		////////////////////////////// Serialize area //////////////////////////////
+	protected:
+		glm::vec3 m_translation = { .0f, .0f, .0f };
+		glm::quat m_rotation = { 1.f, .0f, .0f, .0f };
+		glm::vec3 m_scale = { 1.f, 1.f, 1.f };
+
+		////////////////////////////// Serialize area //////////////////////////////
+#pragma endregion SerializeField
 
 	public:
 		Transform() = default;
@@ -19,18 +39,6 @@ namespace Flower
 
 		}
 
-	private:
-		// need update?
-		bool m_bUpdateFlag = true;
-
-		glm::vec3 m_translation = { .0f, .0f, .0f };
-		glm::quat m_rotation    = { 1.f, .0f, .0f, .0f };
-		glm::vec3 m_scale       = { 1.f, 1.f, 1.f };
-
-		// world space matrix.
-		glm::mat4 m_worldMatrix = glm::mat4(1.0);
-		glm::mat4 m_prevWorldMatrix = glm::mat4(1.0);
-
 	public:
 		virtual void tick(const RuntimeModuleTickData& tickData) override;
 
@@ -38,8 +46,10 @@ namespace Flower
 		// getter
 		glm::vec3& getTranslation();
 		const glm::vec3& getTranslation() const;
+
 		glm::quat& getRotation();
 		const glm::quat& getRotation() const;
+
 		glm::vec3& getScale();
 		const glm::vec3& getScale() const;
 

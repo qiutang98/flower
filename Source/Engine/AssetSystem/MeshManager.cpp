@@ -4,7 +4,7 @@
 #include "MaterialManager.h"
 #include "AssetSystem.h"
 #include "AssetRegistry.h"
-
+#include "AssetArchive.h"
 #include <nlohmann/json.hpp>
 #include <stb/stb_image_write.h>
 #include <stb/stb_image.h>

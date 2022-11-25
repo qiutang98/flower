@@ -83,6 +83,127 @@ void WidgetContentViewer::onTick(const RuntimeModuleTickData& tickData)
 			}
 		}
 	}
+
+	{
+		const char* selectSceneId = "Select scene";
+		if (m_bSceneSelect)
+		{
+			ImGui::OpenPopup(selectSceneId);
+
+			m_bSceneSelect = false;
+		}
+
+		// Always center this window when appearing
+		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+		ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+		if (ImGui::BeginPopupModal(selectSceneId, NULL, ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			ImGui::Text("Select one scene to open.\n\n");
+			ImGui::Separator();
+
+			const auto& scenes = ProjectContext::get()->project.getScenes();
+
+			for (const auto& s : scenes)
+			{
+				if (ImGui::Selectable(s.c_str()))
+				{
+					GEngine->getRuntimeModule<SceneManager>()->loadScene(s);
+					ImGui::CloseCurrentPopup();
+				}
+			}
+
+			ImGui::EndPopup();
+		}
+	}
+
+
+	const char* saveSceneId = "Save scene";
+
+	auto saveAssetAction = [](const std::filesystem::path& sceneSavePath)
+	{
+		GEngine->getRuntimeModule<SceneManager>()->saveScene(sceneSavePath);
+		if (AssetRegistryManager::get()->isDirty())
+		{
+			AssetRegistryManager::get()->save();
+		}
+	};
+
+	if (m_bNeedSaveAsset)
+	{
+		auto* activeScene = GEngine->getRuntimeModule<SceneManager>()->getScenes();
+		const bool bNeedCreateScene = activeScene->getSavePath().empty();
+
+		if (bNeedCreateScene)
+		{
+			ImGui::OpenPopup(saveSceneId);
+		}
+		else
+		{
+			saveAssetAction(activeScene->getSavePath());
+		}
+		m_bNeedSaveAsset = false;
+	}
+
+	// Always center this window when appearing
+	ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+	ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+	if (ImGui::BeginPopupModal(saveSceneId, NULL, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::Text("Select one area to save the scene.\n\n");
+		ImGui::Separator();
+
+		ImGui::InputText("Name", m_createSceneName, GCreateScenePathSize);
+		ImGui::SameLine();
+
+		std::string sceneName = m_createSceneName;
+
+		bool bValidCanCreate = false;
+		if (!sceneName.empty())
+		{
+			if (!ProjectContext::get()->project.existScene(sceneName))
+			{
+				if (std::all_of(sceneName.begin(), sceneName.end(), [](char c)
+					{
+						return
+							(c >= 'a' && c <= 'z') ||
+							(c >= 'A' && c <= 'Z') ||
+							(c >= '0' && c <= '9');
+					}))
+				{
+					bValidCanCreate = true;
+				}
+			}
+		}
+
+		if (!bValidCanCreate)
+		{
+			ImGui::BeginDisabled();
+		}
+
+		auto* assetSys = GEngine->getRuntimeModule<AssetSystem>();
+		if (ImGui::Button("  Create  "))
+		{
+			auto sceneFolder = assetSys->getProjectSceneFolderPath();
+			sceneFolder /= sceneName;
+
+			sceneFolder = std::filesystem::relative(sceneFolder, ProjectContext::get()->path);
+			saveAssetAction(sceneFolder);
+
+			// Add scene to project.
+			ProjectContext::get()->project.addScene(sceneFolder.string());
+
+			saveActiveProject(assetSys->getProjectPathFilePath());
+			
+
+			ImGui::CloseCurrentPopup();
+		}
+		if (!bValidCanCreate)
+		{
+			ImGui::EndDisabled();
+		}
+
+		ImGui::EndPopup();
+	}
 }
 
 
@@ -302,9 +423,10 @@ void WidgetContentViewer::importAssetAction(EAssetType type, std::shared_ptr<Flo
 void WidgetContentViewer::drawMenu()
 {
 	const float sizeLable = ImGui::GetFontSize();
-	if (ImGui::BeginTable("Import UIC##", 4))
+	if (ImGui::BeginTable("Import UIC##", 5))
 	{
 		ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, sizeLable * 5.5f);
+		ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, sizeLable * 4.0f);
 		ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, sizeLable * 4.0f);
 		ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, sizeLable * 6.0f);
 		ImGui::TableSetupColumn("", ImGuiTableColumnFlags_None);
@@ -345,8 +467,19 @@ void WidgetContentViewer::drawMenu()
 
 		ImGui::TableNextColumn();
 
-		
-		bool bShouldPushDisableForSave = !AssetRegistryManager::get()->isDirty();
+		if (ImGui::Button("Scene"))
+		{
+			m_bSceneSelect = true;
+		}
+
+		ImGui::TableNextColumn();
+
+		auto* activeScene = GEngine->getRuntimeModule<SceneManager>()->getScenes();
+
+		bool bShouldPushDisableForSave = 
+			!AssetRegistryManager::get()->isDirty() && 
+			!activeScene->isDirty();
+
 		if (bShouldPushDisableForSave)
 		{
 			ImGui::BeginDisabled();
@@ -354,7 +487,7 @@ void WidgetContentViewer::drawMenu()
 
 		if (ImGui::Button((CONTENTVIEWR_SaveIcon).c_str()))
 		{
-			AssetRegistryManager::get()->save();
+			m_bNeedSaveAsset = true;
 		}
 		if (bShouldPushDisableForSave)
 		{

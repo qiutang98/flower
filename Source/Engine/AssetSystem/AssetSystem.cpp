@@ -143,11 +143,17 @@ namespace Flower
 		m_projectPath = path;
 		m_projectAssetBinFolderPath = path / "Cache";
 		m_projectAssetHeaderFolderPath = path / "Header";
+		m_projectAssetSceneFolderPath = path / "Scene";
 		m_projectAssetEntryPath = path / "Registry.tree";
 
 		if (!std::filesystem::exists(m_projectAssetBinFolderPath))
 		{
 			std::filesystem::create_directory(m_projectAssetBinFolderPath);
+		}
+
+		if (!std::filesystem::exists(m_projectAssetSceneFolderPath))
+		{
+			std::filesystem::create_directory(m_projectAssetSceneFolderPath);
 		}
 
 		if (!std::filesystem::exists(m_projectAssetHeaderFolderPath))

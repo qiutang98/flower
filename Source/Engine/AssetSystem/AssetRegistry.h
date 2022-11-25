@@ -7,12 +7,17 @@ namespace Flower
 	using RegistryUUID = UUID;
 	using AssetTypeKey = size_t;
 
+
+
 	// Asset registry is an asset tree.
 	// We also cache some asset info map for quick search.
 
 	class RegistryEntry : public std::enable_shared_from_this<RegistryEntry>
 	{
+		ARCHIVE_DECLARE;
+
 		friend class AssetRegistry;
+
 	private:
 		std::string m_name;
 		RegistryUUID m_uuid;
@@ -23,17 +28,6 @@ namespace Flower
 
 		// Asset header uuid.
 		AssetHeaderUUID m_assetHeader;
-
-		// Serialize function.
-		friend class cereal::access;
-		template<class Archive>
-		void serialize(Archive& archive)
-		{
-			archive(m_name);
-			archive(m_parent);
-			archive(m_children);
-			archive(m_assetHeader, m_uuid);
-		}
 
 	public:
 		RegistryEntry() = default;
@@ -187,9 +181,17 @@ namespace Flower
 			const std::function<void(std::shared_ptr<RegistryEntry>)>& func, 
 			std::shared_ptr<RegistryEntry> node);
 
-		AssetHeaderUUID importAssetTexture(const std::filesystem::path& inPath, std::shared_ptr<RegistryEntry> entry, bool bSRGB, float cutoff, bool bBuildMipmap, bool bHdr);
+		AssetHeaderUUID importAssetTexture(
+			const std::filesystem::path& inPath, 
+			std::shared_ptr<RegistryEntry> entry, 
+			bool bSRGB, 
+			float cutoff, 
+			bool bBuildMipmap, 
+			bool bHdr);
 
-		AssetHeaderUUID importStaticMesh(const std::filesystem::path& inPath, std::shared_ptr<RegistryEntry> entry);
+		AssetHeaderUUID importStaticMesh(
+			const std::filesystem::path& inPath, 
+			std::shared_ptr<RegistryEntry> entry);
 
 		void registerAssetMap(std::shared_ptr<AssetHeaderInterface> asset, EAssetType type);
 

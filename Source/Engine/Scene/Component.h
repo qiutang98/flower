@@ -10,10 +10,15 @@ namespace Flower
 
 	class Component
 	{
-		friend class cereal::access;
-
+		ARCHIVE_DECLARE;
+		
+#pragma region SerializeField
+	////////////////////////////// Serialize area //////////////////////////////
 	protected:
 		std::weak_ptr<SceneNode> m_node;
+
+	////////////////////////////// Serialize area //////////////////////////////
+#pragma endregion SerializeField
 
 	public:
 		Component() = default;

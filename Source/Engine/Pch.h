@@ -114,3 +114,8 @@ struct RunOnceObject
 };
 
 #include <entt/entt.hpp>
+
+#define ARCHIVE_DECLARE \
+	friend class cereal::access; \
+	template<class Archive> \
+	void serialize(Archive& archive, std::uint32_t const version);

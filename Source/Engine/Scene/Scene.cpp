@@ -80,11 +80,6 @@ namespace Flower
 		}, m_root);
 	}
 
-	const std::string& Scene::getName() const
-	{
-		return m_root->getName();
-	}
-
 	void Scene::deleteNode(std::shared_ptr<SceneNode> node)
 	{
 		node->selfDelete();
@@ -197,11 +192,6 @@ namespace Flower
 		}
 
 		return results;
-	}
-
-	std::shared_ptr<SceneNode> Scene::getRootNode()
-	{
-		return m_root;
 	}
 
 	bool Scene::setParent(std::shared_ptr<SceneNode> parent, std::shared_ptr<SceneNode> son)

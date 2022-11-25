@@ -3,6 +3,7 @@
 #include "../RuntimeModule.h"
 #include "../Engine.h"
 #include "AssetCommon.h"
+#include "../Project.h"
 
 namespace Flower
 {
@@ -29,6 +30,7 @@ namespace Flower
 
 		std::filesystem::path m_projectAssetEntryPath;
 		std::filesystem::path m_projectAssetHeaderFolderPath;
+		std::filesystem::path m_projectAssetSceneFolderPath;
 		std::filesystem::path m_projectAssetBinFolderPath;
 
 		// Call gpu lru cache shrink next tick.
@@ -58,6 +60,16 @@ namespace Flower
 		const auto& getProjectBinFolderPath() const
 		{
 			return m_projectAssetBinFolderPath;
+		}
+
+		const auto& getProjectSceneFolderPath() const
+		{
+			return m_projectAssetSceneFolderPath;
+		}
+
+		auto getProjectPathFilePath() const
+		{
+			return m_projectPath / ProjectContext::get()->project.getNameWithSuffix();
 		}
 
 		const auto& getProjectHeaderFolderPath() const

@@ -101,4 +101,12 @@ private:
 
 	std::weak_ptr<Flower::RegistryEntry> m_workingEntry;
 
+
+	bool m_bNeedSaveAsset = false;
+
+	// Save scene info.
+	static const auto GCreateScenePathSize = 256;
+	char m_createSceneName[GCreateScenePathSize] = "";
+
+	bool m_bSceneSelect = false;
 };

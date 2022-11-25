@@ -38,6 +38,7 @@ namespace Flower
 	class ImageAssetBin;
 	class ImageAssetHeader : public AssetHeaderInterface
 	{
+		ARCHIVE_DECLARE;
 	private:
 		uint32_t m_width;
 		uint32_t m_height;
@@ -55,25 +56,6 @@ namespace Flower
 		UUID m_snapshotUUID;
 
 	private:
-		friend class cereal::access;
-
-		template<class Archive>
-		void serialize(Archive& archive)
-		{
-			archive(
-				cereal::base_class<AssetHeaderInterface>(this),
-				m_width, m_widthSnapShot,
-				m_height, m_heightSnapShot,
-				m_depth,
-				m_format,
-				m_mipmapCount,
-				m_bSrgb,
-				m_bHdr,
-				m_snapshotData,
-				m_snapshotUUID
-			);
-		}
-
 		void buildSnapshotData2D(std::shared_ptr<ImageAssetBin> inBin);
 
 	public:
@@ -150,6 +132,7 @@ namespace Flower
 
 	class ImageAssetBin : public AssetBinInterface
 	{
+		ARCHIVE_DECLARE;
 	private:
 		friend ImageAssetHeader;
 
@@ -159,16 +142,6 @@ namespace Flower
 		std::vector<std::vector<uint8_t>> m_mipmapData;
 
 	private:
-		friend class cereal::access;
-
-		template<class Archive>
-		void serialize(Archive& archive)
-		{
-			archive(cereal::base_class<AssetBinInterface>(this));
-			archive(m_rawData);
-			archive(m_mipmapData);
-		}
-
 		void buildMipmapDataRGBA8(ImageAssetHeader* header, float cutOff);
 
 	public:
@@ -375,9 +348,3 @@ namespace Flower
 		static std::shared_ptr<ImageAssetTextureLoadTask> build(std::shared_ptr<ImageAssetHeader> inHeader);
 	};
 }
-
-CEREAL_REGISTER_TYPE(Flower::ImageAssetHeader)
-CEREAL_REGISTER_POLYMORPHIC_RELATION(Flower::AssetHeaderInterface, Flower::ImageAssetHeader)
-
-CEREAL_REGISTER_TYPE(Flower::ImageAssetBin)
-CEREAL_REGISTER_POLYMORPHIC_RELATION(Flower::AssetBinInterface, Flower::ImageAssetBin)

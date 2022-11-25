@@ -22,6 +22,7 @@ namespace Flower
 
 	class AssetBinInterface
 	{
+		ARCHIVE_DECLARE;
 	protected:
 		AssetBinUUID m_uuid;
 
@@ -40,19 +41,12 @@ namespace Flower
 		}
 
 		virtual EAssetType getType() const = 0;
-
-	private:
-		friend class cereal::access;
-		template<class Archive>
-		void serialize(Archive& archive)
-		{
-			archive(m_uuid);
-		}
 	};
 
 
 	class AssetHeaderInterface
 	{
+		ARCHIVE_DECLARE;
 	protected:
 		std::string m_assetName;
 
@@ -61,16 +55,6 @@ namespace Flower
 
 		// Bin UUID.
 		AssetBinUUID m_binDataUUID;
-
-	private:
-		friend class cereal::access;
-		template<class Archive>
-		void serialize(Archive& archive)
-		{
-			archive(m_assetName);
-			archive(m_uuid);
-			archive(m_binDataUUID);
-		}
 
 	protected:
 		// Some runtime states.

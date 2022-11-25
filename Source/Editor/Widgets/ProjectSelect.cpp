@@ -201,7 +201,7 @@ bool WidgetProjectSelect::loadProject()
         if (std::filesystem::exists(fp))
         {
             // Load project info.
-            std::ifstream is(fp, std::ios::binary);
+            std::ifstream is(fp);
             cereal::JSONInputArchive archive(is);
             archive(ProjectContext::get()->project);
 
@@ -227,9 +227,7 @@ void WidgetProjectSelect::createProject(const std::filesystem::path& path)
     std::string projectFilePath = fn.string() + ".flower";
 
     // Also archive.
-    std::ofstream os(projectFilePath, std::ios::binary);
-    cereal::JSONOutputArchive archive(os);
-    archive(ProjectContext::get()->project);
+    saveActiveProject(projectFilePath);
 
     // This process should always sucess.
     CHECK(GEditor->setProjectPath(projectFilePath));

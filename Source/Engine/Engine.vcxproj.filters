@@ -74,8 +74,10 @@
     <ClInclude Include="Renderer\PMXRenderProxy.h" />
     <ClInclude Include="RHI\AccelerateStructure.h" />
     <ClInclude Include="AssetSystem\AsyncQueueSchedule.h" />
-    <ClInclude Include="Serialize\Serializer.h" />
-    <ClInclude Include="Scene\Api.h" />
+    <ClInclude Include="Scene\SceneArchive.h" />
+    <ClInclude Include="Version.h" />
+    <ClInclude Include="AssetSystem\AssetArchive.h" />
+    <ClInclude Include="AssetSystem\PMXMeshAsset.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Pch.cpp" />
@@ -150,6 +152,6 @@
     <ClCompile Include="AssetSystem\AsyncQueueSchedule.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\SSGIPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\SSGIPass.cpp" />
-    <ClCompile Include="Serialize\SceneSerializer.cpp" />
+    <ClCompile Include="AssetSystem\PMXMeshAsset.cpp" />
   </ItemGroup>
 </Project>

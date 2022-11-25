@@ -7,7 +7,33 @@
 
 namespace Flower
 {
-	void StaticMeshGPUProxy::updateObjectCollectInfo()
+	StaticMeshComponent::StaticMeshComponent()
+	{
+
+	}
+
+	StaticMeshComponent::~StaticMeshComponent()
+	{
+		// When static mesh destroy, toggle once asset system gpu lru cache clear.
+		GEngine->getRuntimeModule<AssetSystem>()->markCallGPULRUCacheShrink();
+	}
+
+	void StaticMeshComponent::tick(const RuntimeModuleTickData& tickData)
+	{
+		if (m_cacheGPUMeshAsset == nullptr)
+		{
+			auto tempStore = m_staticMeshUUID;
+			m_staticMeshUUID = {};
+			setUUID(tempStore);
+		}
+		else
+		{
+			updateObjectCollectInfo();
+		}
+
+	}
+
+	void StaticMeshComponent::updateObjectCollectInfo()
 	{
 		if (m_staticMeshUUID.empty())
 		{
@@ -15,11 +41,17 @@ namespace Flower
 			return;
 		}
 
+		if (m_cacheGPUMeshAsset == nullptr)
+		{
+			loadAssetByUUID();
+		}
+
 		// Pre-return if no mesh replace and no mesh loading state change.
 		if (!m_bMeshReplace && m_bMeshReady)
 		{
 			return;
 		}
+
 
 		// Update mesh loading state.
 		// If mesh replace, update proxys.
@@ -78,10 +110,17 @@ namespace Flower
 		m_bMeshReplace = false;
 	}
 
-	void StaticMeshGPUProxy::renderObjectCollect(std::vector<GPUPerObjectData>& collector)
+	void StaticMeshComponent::loadAssetByUUID()
 	{
-		glm::mat4 modelMatrix = m_staticMeshComp->getNode()->getTransform()->getWorldMatrix();
-		glm::mat4 modelMatrixPrev = m_staticMeshComp->getNode()->getTransform()->getPrevWorldMatrix();
+		m_cacheGPUMeshAsset = MeshManager::get()->getOrCreateLRUMesh(m_staticMeshUUID);
+		m_bMeshReplace = true;
+		m_bMeshReady = m_cacheGPUMeshAsset->isAssetReady();
+	}
+
+	void StaticMeshComponent::renderObjectCollect(std::vector<GPUPerObjectData>& collector)
+	{
+		glm::mat4 modelMatrix = getNode()->getTransform()->getWorldMatrix();
+		glm::mat4 modelMatrixPrev = getNode()->getTransform()->getPrevWorldMatrix();
 
 		for (auto& object : m_cachePerObjectData)
 		{
@@ -92,12 +131,12 @@ namespace Flower
 		collector.insert(collector.end(), m_cachePerObjectData.begin(), m_cachePerObjectData.end());
 	}
 
-	bool StaticMeshGPUProxy::canReplaceMesh() const
+	bool StaticMeshComponent::canReplaceMesh() const
 	{
 		return !GpuUploader::get()->busy();
 	}
 
-	bool StaticMeshGPUProxy::setUUID(const Flower::UUID& in)
+	bool StaticMeshComponent::setUUID(const Flower::UUID& in)
 	{
 		// When load ready and uuid change, enable replace.
 		if (in != m_staticMeshUUID && canReplaceMesh()) 
@@ -115,9 +154,6 @@ namespace Flower
 		
 	
 			// Get gpu asset.
-			m_cacheGPUMeshAsset = MeshManager::get()->getOrCreateLRUMesh(m_staticMeshUUID);
-			m_bMeshReplace = true;
-			m_bMeshReady = m_cacheGPUMeshAsset->isAssetReady();
 			updateObjectCollectInfo();
 
 			
@@ -130,56 +166,36 @@ namespace Flower
 		return false;
 	}
 
-	StaticMeshComponent::StaticMeshComponent()
-	{
-		m_gpuProxy = std::make_unique<StaticMeshGPUProxy>(this);
-	}
-
-	StaticMeshComponent::~StaticMeshComponent()
-	{
-		// When static mesh destroy, toggle once asset system gpu lru cache clear.
-		GEngine->getRuntimeModule<AssetSystem>()->markCallGPULRUCacheShrink();
-	}
-
 	void StaticMeshComponent::setMeshUUID(const Flower::UUID& in)
 	{
-		if (m_gpuProxy->setUUID(in))
+		if (setUUID(in))
 		{
 			m_node.lock()->getScene()->setDirty(true);
 		}
 	}
 
-	void StaticMeshComponent::tick(const RuntimeModuleTickData& tickData)
-	{
-		m_gpuProxy->updateObjectCollectInfo();
-	}
-
-	void StaticMeshComponent::renderObjectCollect(std::vector<GPUPerObjectData>& collector)
-	{
-		m_gpuProxy->renderObjectCollect(collector);
-	}
 
 	uint32_t StaticMeshComponent::getVerticesCount() const
 	{
-		return uint32_t(m_gpuProxy->m_cacheGPUMeshAsset->getVerticesCount());
+		return uint32_t(m_cacheGPUMeshAsset->getVerticesCount());
 	}
 
 	uint32_t StaticMeshComponent::getIndicesCount() const
 	{
-		return uint32_t(m_gpuProxy->m_cacheGPUMeshAsset->getIndicesCount());
+		return uint32_t(m_cacheGPUMeshAsset->getIndicesCount());
 	}
 
 	uint32_t StaticMeshComponent::getSubmeshCount() const
 	{
-		return uint32_t(m_gpuProxy->m_cachePerObjectData.size());
+		return uint32_t(m_cachePerObjectData.size());
 	}
 
 	const std::string& StaticMeshComponent::getMeshAssetName() const
 	{
 		static const std::string engineName = "EngineMesh";
-		if (m_gpuProxy->m_cacheStaticAssetHeader)
+		if (m_cacheStaticAssetHeader)
 		{
-			return m_gpuProxy->m_cacheStaticAssetHeader->getName();
+			return m_cacheStaticAssetHeader->getName();
 		}
 		else
 		{

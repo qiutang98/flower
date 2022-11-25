@@ -20,20 +20,11 @@ namespace Flower
 	class StaticMeshAssetBin;
 	class StaticMeshAssetHeader : public AssetHeaderInterface
 	{
+		ARCHIVE_DECLARE;
 	private:
-		friend class cereal::access;
 		std::vector<StaticMeshSubMesh> m_subMeshes = {};
 		size_t m_indicesCount;
 		size_t m_verticesCount;
-
-		template<class Archive>
-		void serialize(Archive& archive)
-		{
-			archive(cereal::base_class<AssetHeaderInterface>(this));
-			archive(m_subMeshes);
-			archive(m_indicesCount);
-			archive(m_verticesCount);
-		}
 
 	public:
 		StaticMeshAssetHeader() { }
@@ -64,21 +55,12 @@ namespace Flower
 
 	class StaticMeshAssetBin : public AssetBinInterface
 	{
+		ARCHIVE_DECLARE;
 	private:
 		friend StaticMeshAssetHeader;
 		std::vector<StaticMeshVertex> m_vertices;
 		std::vector<VertexIndexType> m_indices{ };
 
-	private:
-		friend class cereal::access;
-
-		template<class Archive>
-		void serialize(Archive& archive)
-		{
-			archive(cereal::base_class<AssetBinInterface>(this));
-			archive(m_indices);
-			archive(m_vertices);
-		}
 
 	public:
 		StaticMeshAssetBin() { }
@@ -317,9 +299,3 @@ namespace Flower
 	};
 
 }
-
-CEREAL_REGISTER_TYPE(Flower::StaticMeshAssetHeader);
-CEREAL_REGISTER_POLYMORPHIC_RELATION(Flower::AssetHeaderInterface, Flower::StaticMeshAssetHeader)
-
-CEREAL_REGISTER_TYPE(Flower::StaticMeshAssetBin);
-CEREAL_REGISTER_POLYMORPHIC_RELATION(Flower::AssetBinInterface, Flower::StaticMeshAssetBin)

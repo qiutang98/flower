@@ -61,6 +61,7 @@
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>$(SolutionDir)Source/$(ProjectName)/;$(SolutionDir)External/;$(SolutionDir)Source/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -100,6 +101,7 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="AssetSystem\AssetArchive.h" />
     <ClInclude Include="AssetSystem\AssetRegistry.h" />
     <ClInclude Include="AssetSystem\AssetSystem.h" />
     <ClInclude Include="AssetSystem\AsyncQueueSchedule.h" />
@@ -111,6 +113,7 @@
     <ClInclude Include="AssetSystem\MMD\FormatDefine.h" />
     <ClInclude Include="AssetSystem\MMD\SjisToUnicode.h" />
     <ClInclude Include="AssetSystem\MMD\UnicodeUtil.h" />
+    <ClInclude Include="AssetSystem\PMXMeshAsset.h" />
     <ClInclude Include="MeshTool\MeshToolCommon.h" />
     <ClInclude Include="Project.h" />
     <ClInclude Include="AssetSystem\TextureManager.h" />
@@ -157,7 +160,7 @@
     <ClInclude Include="RHI\Shader.h" />
     <ClInclude Include="RHI\SwapChain.h" />
     <ClInclude Include="RuntimeModule.h" />
-    <ClInclude Include="Scene\Api.h" />
+    <ClInclude Include="Scene\SceneArchive.h" />
     <ClInclude Include="Scene\CameraInterface.h" />
     <ClInclude Include="Scene\Component.h" />
     <ClInclude Include="Scene\Component\DirectionalLight.h" />
@@ -170,10 +173,10 @@
     <ClInclude Include="Scene\Scene.h" />
     <ClInclude Include="Scene\SceneManager.h" />
     <ClInclude Include="Scene\SceneNode.h" />
-    <ClInclude Include="Serialize\Serializer.h" />
     <ClInclude Include="UI\UICommon.h" />
     <ClInclude Include="UI\UIHelper.h" />
     <ClInclude Include="UI\UIManager.h" />
+    <ClInclude Include="Version.h" />
     <ClInclude Include="WindowData.h" />
   </ItemGroup>
   <ItemGroup>
@@ -187,6 +190,7 @@
     <ClCompile Include="AssetSystem\MMD\ImportPMX.cpp" />
     <ClCompile Include="AssetSystem\MMD\SjisToUnicode.cpp" />
     <ClCompile Include="AssetSystem\MMD\UnicodeUtil.cpp" />
+    <ClCompile Include="AssetSystem\PMXMeshAsset.cpp" />
     <ClCompile Include="AssetSystem\TextureManager.cpp" />
     <ClCompile Include="MeshTool\Box.cpp" />
     <ClCompile Include="Project.cpp" />
@@ -249,7 +253,6 @@
     <ClCompile Include="Scene\Scene.cpp" />
     <ClCompile Include="Scene\SceneManager.cpp" />
     <ClCompile Include="Scene\SceneNode.cpp" />
-    <ClCompile Include="Serialize\SceneSerializer.cpp" />
     <ClCompile Include="UI\UIHelper.cpp" />
     <ClCompile Include="UI\UIManager.cpp" />
     <ClCompile Include="UI\UICommon.cpp" />

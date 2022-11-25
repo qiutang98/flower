@@ -2,7 +2,7 @@
 #include "TextureManager.h"
 #include "Engine.h"
 #include "AssetSystem.h"
-
+#include "AssetArchive.h"
 #include <stb/stb_image.h>
 #include <stb/stb_image_resize.h>
 

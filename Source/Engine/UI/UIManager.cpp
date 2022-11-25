@@ -52,7 +52,7 @@ namespace Flower
 		style.TabBorderSize = 1;
 		style.WindowRounding = 0;
 		style.ChildRounding = 0;
-		style.FrameRounding = 5;
+		style.FrameRounding = 3;
 		style.PopupRounding = 0;
 		style.ScrollbarRounding = 0;
 		style.GrabRounding = 0;

@@ -6,53 +6,43 @@
 namespace Flower
 {
 	class SceneNode;
-	class StaticMeshComponent;
 	class GPUMeshAsset;
-	class StaticMeshGPUProxy;
 	class StaticMeshAssetHeader;
 
-	class StaticMeshGPUProxy
+	class StaticMeshComponent : public Component
 	{
 		friend class cereal::access;
 
-		friend StaticMeshComponent;
+	protected:
+		// Mesh already replace?
+		bool m_bMeshReplace = true;
 
-	public:
-		StaticMeshGPUProxy(StaticMeshComponent* in)
-			: m_staticMeshComp(in)
-		{
+		// Mesh load ready?
+		bool m_bMeshReady = false;
 
-		}
+		// Cache gpu mesh asset.
+		std::shared_ptr<GPUMeshAsset> m_cacheGPUMeshAsset;
 
-	private:
-		StaticMeshComponent* m_staticMeshComp;
+		// header is optional, some asset no exist header, we store mesh info in gpu mesh asset directly.
+		std::shared_ptr<StaticMeshAssetHeader> m_cacheStaticAssetHeader = nullptr;
+
+		// Cache perobject data.
+		std::vector<GPUPerObjectData> m_cachePerObjectData;
+
+		// Cache perobject material.
+		std::vector<std::shared_ptr<CPUStaticMeshStandardPBRMaterial>> m_cachePerObjectMaterials;
+
+#pragma region SerializeField
+	////////////////////////////// Serialize area //////////////////////////////
+	protected:
+		template<class Archive>
+		void serialize(Archive& archive, std::uint32_t const version);
 
 		// Asset uuid.
 		UUID m_staticMeshUUID = {};
 
-		bool m_bMeshReplace = true;
-		bool m_bMeshReady = false;
-		std::shared_ptr<GPUMeshAsset> m_cacheGPUMeshAsset;
-
-		// header is optional, some asset no exist header, we store mesh info in gpu mesh asset directly.
-
-		std::shared_ptr<StaticMeshAssetHeader> m_cacheStaticAssetHeader = nullptr;
-		std::vector<GPUPerObjectData> m_cachePerObjectData;
-
-		std::vector<std::shared_ptr<CPUStaticMeshStandardPBRMaterial>> m_cachePerObjectMaterials;
-
-	public:
-		void updateObjectCollectInfo();
-		void renderObjectCollect(std::vector<GPUPerObjectData>& collector);
-		bool setUUID(const Flower::UUID& in);
-
-		bool canReplaceMesh() const;
-	};
-
-	class StaticMeshComponent : public Component
-	{
-	private:
-		std::unique_ptr<StaticMeshGPUProxy> m_gpuProxy = nullptr;
+	////////////////////////////// Serialize area //////////////////////////////
+#pragma endregion SerializeField
 
 	public:
 		StaticMeshComponent();
@@ -65,14 +55,15 @@ namespace Flower
 		}
 
 		void setMeshUUID(const Flower::UUID& in);
+
 		const UUID& getUUID() const
 		{
-			return m_gpuProxy->m_staticMeshUUID;
+			return m_staticMeshUUID;
 		}
 
 		bool isMeshAlreadySet() const
 		{
-			return !m_gpuProxy->m_staticMeshUUID.empty();
+			return !m_staticMeshUUID.empty();
 		}
 
 		uint32_t getVerticesCount() const;
@@ -81,10 +72,18 @@ namespace Flower
 
 		const std::string& getMeshAssetName() const;
 
-	public:
 		virtual void tick(const RuntimeModuleTickData& tickData) override;
 
 		void renderObjectCollect(std::vector<GPUPerObjectData>& collector);
+
+		bool canReplaceMesh() const;
+
+	private:
+		bool setUUID(const Flower::UUID& in);
+
+		void updateObjectCollectInfo();
+
+		void loadAssetByUUID();
 	};
 
 }
