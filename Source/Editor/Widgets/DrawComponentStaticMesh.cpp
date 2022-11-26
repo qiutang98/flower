@@ -19,7 +19,7 @@ void drawStaticMeshSelect(std::shared_ptr<SceneNode> node, std::shared_ptr<Stati
 		};
 
 		meshItemShow(EngineMeshes::GBoxUUID, ICON_FA_CHESS"   Box");
-
+		meshItemShow(EngineMeshes::GSphereUUID, ICON_FA_CHESS"   Sphere");
 		ImGui::EndMenu();
 	}
 

@@ -5,7 +5,6 @@
 #include "MeshManager.h"
 #include "AsyncUploader.h"
 #include "MeshManager.h"
-#include "../MeshTool/MeshToolCommon.h"
 #include "LRUCache.h"
 
 namespace Flower
@@ -92,19 +91,21 @@ namespace Flower
 		GpuUploader::get()->addTask(GEngineTextureClouGradient);
 
 		// Mesh upload.
-		MeshBuilder::MeshData unitBox = MeshBuilder::buildBox();
-		auto GEngineMeshBoxLoad = StaticMeshRawDataLoadTask::buildFromData(
+		auto GEngineMeshBoxLoad = StaticMeshRawDataLoadTask::buildFromPath(
 			"EngineMeshBox",
+			"./Mesh/Box.obj",
 			EngineMeshes::GBoxUUID,
-			true,
-			(uint8_t*)(unitBox.indices.data()),
-			unitBox.getIndexSize(),
-			VK_INDEX_TYPE_UINT32,
-			(uint8_t*)(unitBox.vertices.data()),
-			unitBox.getVertexSize(),
-			sizeof(unitBox.vertices[0])
+			true
 		);
 		GpuUploader::get()->addTask(GEngineMeshBoxLoad);
+
+		auto GEngineMeshSphereLoad = StaticMeshRawDataLoadTask::buildFromPath(
+			"EngineMeshBox",
+			"./Mesh/Sphere.obj",
+			EngineMeshes::GSphereUUID,
+			true
+		);
+		GpuUploader::get()->addTask(GEngineMeshSphereLoad);
 
 		GpuUploader::get()->flushTask();
 
@@ -117,8 +118,9 @@ namespace Flower
 		EngineTextures::GDefaultSpecularId = TextureManager::get()->getImage(EngineTextures::GDefaultSpecularUUID)->getBindlessIndex();
 
 		EngineMeshes::GBoxPtrRef = MeshManager::get()->getMesh(EngineMeshes::GBoxUUID);
+		EngineMeshes::GSpherePtrRef = MeshManager::get()->getMesh(EngineMeshes::GSphereUUID);
 		EngineTextures::GWhiteTexturePtr = TextureManager::get()->getImage(EngineTextures::GWhiteTextureUUID);
-
+		
 	}
 
 	void AssetSystem::submitAllUploadTask()

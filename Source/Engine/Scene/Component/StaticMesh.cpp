@@ -2,7 +2,6 @@
 #include "StaticMesh.h"
 #include "Scene/SceneNode.h"
 #include "Scene/Scene.h"
-#include "../../MeshTool/MeshToolCommon.h"
 #include "../../AssetSystem/MeshManager.h"
 
 namespace Flower
@@ -100,6 +99,9 @@ namespace Flower
 			}
 			else
 			{
+				static const glm::vec4 BuildInSphereBounds = { 0.0f, 0.0f, 0.0f, 2.0f };
+				static const glm::vec4 BuildInExtent = glm::vec4{ 1.0f, 1.0f, 1.0f, 0.0f };
+
 				object.indexStartPosition = 0;
 				object.indexCount = asset->getIndicesCount();
 				object.sphereBounds = BuildInSphereBounds;

@@ -110,7 +110,7 @@ layout(location = 0) out vec4 outHDRSceneColor;
 // GBuffer A: r8g8b8a8 unorm, .rgb store base color, .a is shading model id.
 layout(location = 1) out vec4 outGBufferA;
 
-// GBuffer B: r16g16b16a16 sfloat, .rgb store worldspace normal, .a is mesh id.
+// GBuffer B: r16g16b16a16 sfloat, .rgb store worldspace normal, .a is object id.
 layout(location = 2) out vec4 outGBufferB;
 
 // GBuffer S: r8g8b8a8 unorm, .r is metal, .g is roughness, .b is mesh ao.
@@ -155,7 +155,7 @@ void main()
         worldNormal = normalize(tbn * vec3(xy, z));
     }
     outGBufferB.rgb = worldNormal; // Output world normal in GBuffer B rgb channel.
-    outGBufferB.a = float(inTriangleId); // float 16 is enough? need some pack here?
+    outGBufferB.a = float(inObjectId);
 
     // Specular texture.
     vec4 specularTex = tex(mat.specTexId, mat.specSampler, vsIn.uv0);

@@ -15,6 +15,9 @@ namespace Flower
 	{
 		extern std::weak_ptr<GPUMeshAsset> GBoxPtrRef;
 		extern const UUID GBoxUUID;
+
+		extern std::weak_ptr<GPUMeshAsset> GSpherePtrRef;
+		extern const UUID GSphereUUID;
 	}
 
 	class StaticMeshAssetBin;
@@ -276,6 +279,13 @@ namespace Flower
 			uint8_t* vertices,
 			size_t vertexSize,
 			size_t singleVertexSize
+		);
+
+		static std::shared_ptr<StaticMeshRawDataLoadTask> buildFromPath(
+			const std::string& name,
+			const std::filesystem::path& path,
+			const UUID& uuid,
+			bool bPersistent
 		);
 	};
 

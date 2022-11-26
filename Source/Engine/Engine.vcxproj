@@ -114,7 +114,6 @@
     <ClInclude Include="AssetSystem\MMD\SjisToUnicode.h" />
     <ClInclude Include="AssetSystem\MMD\UnicodeUtil.h" />
     <ClInclude Include="AssetSystem\PMXMeshAsset.h" />
-    <ClInclude Include="MeshTool\MeshToolCommon.h" />
     <ClInclude Include="Project.h" />
     <ClInclude Include="AssetSystem\TextureManager.h" />
     <ClInclude Include="Core\Core.h" />
@@ -192,7 +191,6 @@
     <ClCompile Include="AssetSystem\MMD\UnicodeUtil.cpp" />
     <ClCompile Include="AssetSystem\PMXMeshAsset.cpp" />
     <ClCompile Include="AssetSystem\TextureManager.cpp" />
-    <ClCompile Include="MeshTool\Box.cpp" />
     <ClCompile Include="Project.cpp" />
     <ClCompile Include="Core\Delegates.cpp" />
     <ClCompile Include="Core\Log.cpp" />

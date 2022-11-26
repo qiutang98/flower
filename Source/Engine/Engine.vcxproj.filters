@@ -59,7 +59,6 @@
     <ClInclude Include="Renderer\RendererInterface.h" />
     <ClInclude Include="Renderer\PassCollector.h" />
     <ClInclude Include="Renderer\SceneTextures.h" />
-    <ClInclude Include="MeshTool\MeshToolCommon.h" />
     <ClInclude Include="RHI\Query.h" />
     <ClInclude Include="Scene\Component\Light.h" />
     <ClInclude Include="Scene\Component\DirectionalLight.h" />
@@ -123,7 +122,6 @@
     <ClCompile Include="Renderer\BufferParameter.cpp" />
     <ClCompile Include="Renderer\RendererInterface.cpp" />
     <ClCompile Include="Renderer\SceneTextures.cpp" />
-    <ClCompile Include="MeshTool\Box.cpp" />
     <ClCompile Include="Renderer\Parameters.cpp" />
     <ClCompile Include="RHI\Query.cpp" />
     <ClCompile Include="Scene\Component\Light.cpp" />

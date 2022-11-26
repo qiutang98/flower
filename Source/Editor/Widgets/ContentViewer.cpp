@@ -727,12 +727,15 @@ void AssetSnapShotDrawer::draw(float drawDimSize)
 		for (const auto& id : viewer->m_dragDropObjects->selectAssets)
 		{
 			auto loopEntryPtr = AssetRegistryManager::get()->getEntryMap().at(id).lock();
-			auto loopassetHeader = AssetRegistryManager::get()->getHeaderMap().at(loopEntryPtr->getAssetHeaderID());
-			const std::string& typeName = typeMaps.at(loopassetHeader->getType());
+			if (!loopEntryPtr->getAssetHeaderID().empty())
+			{
+				auto loopassetHeader = AssetRegistryManager::get()->getHeaderMap().at(loopEntryPtr->getAssetHeaderID());
+				const std::string& typeName = typeMaps.at(loopassetHeader->getType());
 
-			ImGui::Text(filterMaps.at(typeName).iconName.c_str());
-			ImGui::SameLine();
-			ImGui::Text(loopassetHeader->getName().c_str());
+				ImGui::Text(filterMaps.at(typeName).iconName.c_str());
+				ImGui::SameLine();
+				ImGui::Text(loopassetHeader->getName().c_str());
+			}
 		}
 
 		ImGui::EndDragDropSource();

@@ -20,8 +20,11 @@
 namespace Flower
 {
 	const UUID EngineMeshes::GBoxUUID = "12a68c4e-8352-4d97-a914-a0f4f4d1fd28";
-
 	std::weak_ptr<GPUMeshAsset> EngineMeshes::GBoxPtrRef = {};
+
+	const UUID EngineMeshes::GSphereUUID = "45f0d878-6d3f-11ed-a1eb-0242ac120002";
+	std::weak_ptr<GPUMeshAsset> EngineMeshes::GSpherePtrRef = {};
+
 	struct AssimpModelProcess
 	{
 	public:
@@ -159,7 +162,7 @@ namespace Flower
 				}
 			};
 
-			if (mesh->mMaterialIndex >= 0)
+			if (mesh->mMaterialIndex >= 0 && materialFolderEntry)
 			{
 				aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 				static const std::string materialName = "_mat";
@@ -233,6 +236,60 @@ namespace Flower
 			}
 		}
 	};
+
+	std::shared_ptr<StaticMeshRawDataLoadTask> StaticMeshRawDataLoadTask::buildFromPath(
+		const std::string& name,
+		const std::filesystem::path& path, 
+		const UUID& uuid, 
+		bool bPersistent)
+	{
+		Assimp::Importer importer;
+		const aiScene* scene = importer.ReadFile(path.string(),
+			aiProcessPreset_TargetRealtime_Fast | aiProcess_FlipUVs | aiProcess_GenBoundingBoxes);
+		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
+		{
+			LOG_ERROR("ERROR::ASSIMP::{0}", importer.GetErrorString());
+			return nullptr;
+		}
+
+		AssimpModelProcess processor(path.parent_path());
+		processor.processNode(scene->mRootNode, scene, nullptr, nullptr);
+
+		if (bPersistent)
+		{
+			CHECK(!MeshManager::get()->isAssetExist(uuid) && "Persistent asset has exist, don't register repeatly.");
+		}
+
+		auto newTask = std::make_shared<StaticMeshRawDataLoadTask>();
+		newTask->cacheVertexData.resize(processor.m_vertices.size() * sizeof(processor.m_vertices[0]));
+		newTask->cacheIndexData.resize(processor.m_indices.size() * sizeof(processor.m_indices[0]));
+
+		memcpy((void*)(newTask->cacheVertexData.data()), (void*)processor.m_vertices.data(), newTask->cacheVertexData.size());
+		memcpy((void*)(newTask->cacheIndexData.data()), (void*)processor.m_indices.data(), newTask->cacheIndexData.size());
+
+		GPUMeshAsset* fallback = nullptr;
+		if (!bPersistent)
+		{
+			fallback = MeshManager::get()->getMesh(EngineMeshes::GBoxUUID).get();
+			CHECK(fallback && "Non persistent asset must exist one fallback mesh.");
+		}
+
+		CHECK(sizeof(VertexIndexType) == 4); // uint32
+		auto newAsset = std::shared_ptr<GPUMeshAsset>(new GPUMeshAsset(
+			bPersistent,
+			fallback,
+			name,
+			processor.m_vertices.size() * sizeof(processor.m_vertices[0]),
+			sizeof(processor.m_vertices[0]),
+			processor.m_indices.size() * sizeof(processor.m_indices[0]),
+			VK_INDEX_TYPE_UINT32));
+
+		MeshManager::get()->insertGPUAsset(uuid, newAsset);
+
+		newTask->meshAssetGPU = newAsset;
+
+		return newTask;
+	}
 
 	bool StaticMeshAssetHeader::initFromRawStaticMesh(const std::filesystem::path& rawPath, std::shared_ptr<RegistryEntry> parentEntry)
 	{
