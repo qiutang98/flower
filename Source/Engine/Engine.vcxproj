@@ -110,9 +110,6 @@
     <ClInclude Include="AssetSystem\LRUCache.h" />
     <ClInclude Include="AssetSystem\MaterialManager.h" />
     <ClInclude Include="AssetSystem\MeshManager.h" />
-    <ClInclude Include="AssetSystem\MMD\FormatDefine.h" />
-    <ClInclude Include="AssetSystem\MMD\SjisToUnicode.h" />
-    <ClInclude Include="AssetSystem\MMD\UnicodeUtil.h" />
     <ClInclude Include="AssetSystem\PMXMeshAsset.h" />
     <ClInclude Include="Project.h" />
     <ClInclude Include="AssetSystem\TextureManager.h" />
@@ -132,6 +129,7 @@
     <ClInclude Include="Core\ThreadPool.h" />
     <ClInclude Include="Renderer\BufferParameter.h" />
     <ClInclude Include="Renderer\DeferredRenderer\DeferredRenderer.h" />
+    <ClInclude Include="Renderer\DeferredRenderer\Pass\BloomCommon.h" />
     <ClInclude Include="Renderer\DeferredRenderer\Pass\FSR2Pass.h" />
     <ClInclude Include="Renderer\PMXRenderProxy.h" />
     <ClInclude Include="Renderer\RenderSettingContext.h" />
@@ -159,6 +157,8 @@
     <ClInclude Include="RHI\Shader.h" />
     <ClInclude Include="RHI\SwapChain.h" />
     <ClInclude Include="RuntimeModule.h" />
+    <ClInclude Include="Scene\Component\PostprocessingVolume.h" />
+    <ClInclude Include="Scene\Component\SkyLight.h" />
     <ClInclude Include="Scene\SceneArchive.h" />
     <ClInclude Include="Scene\CameraInterface.h" />
     <ClInclude Include="Scene\Component.h" />
@@ -186,9 +186,6 @@
     <ClCompile Include="AssetSystem\AssetCommon.cpp" />
     <ClCompile Include="AssetSystem\MaterialManager.cpp" />
     <ClCompile Include="AssetSystem\MeshManager.cpp" />
-    <ClCompile Include="AssetSystem\MMD\ImportPMX.cpp" />
-    <ClCompile Include="AssetSystem\MMD\SjisToUnicode.cpp" />
-    <ClCompile Include="AssetSystem\MMD\UnicodeUtil.cpp" />
     <ClCompile Include="AssetSystem\PMXMeshAsset.cpp" />
     <ClCompile Include="AssetSystem\TextureManager.cpp" />
     <ClCompile Include="Project.cpp" />
@@ -214,7 +211,6 @@
     <ClCompile Include="Renderer\DeferredRenderer\Pass\HierarchyZBufferBuild.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\PreZPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\SampleDistributionShadowMap.cpp" />
-    <ClCompile Include="Renderer\DeferredRenderer\Pass\SSGIPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\SSRPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\StaticMeshPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\TonemapperPass.cpp" />
@@ -245,6 +241,8 @@
     <ClCompile Include="Scene\Component\Landscape.cpp" />
     <ClCompile Include="Scene\Component\Light.cpp" />
     <ClCompile Include="Scene\Component\PMXComponent.cpp" />
+    <ClCompile Include="Scene\Component\PostprocessingVolume.cpp" />
+    <ClCompile Include="Scene\Component\SkyLight.cpp" />
     <ClCompile Include="Scene\Component\SpotLight.cpp" />
     <ClCompile Include="Scene\Component\StaticMesh.cpp" />
     <ClCompile Include="Scene\Component\Transform.cpp" />
@@ -262,6 +260,9 @@
     </ProjectReference>
     <ProjectReference Include="..\NativeFileDialog\NativeFileDialog.vcxproj">
       <Project>{e33e61a3-4c3a-4137-a85e-1001cb60fb19}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\Saba\Saba.vcxproj">
+      <Project>{29099e97-9815-4cc1-862f-129995162985}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

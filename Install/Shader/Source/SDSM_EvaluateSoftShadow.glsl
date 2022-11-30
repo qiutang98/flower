@@ -281,6 +281,12 @@ void main()
         activeCascadeId ++;
     }
 
+    if(activeCascadeId == light.cascadeCount)
+    {
+        imageStore(imageShadowMask, workPos, vec4(1.0f));
+        return;
+    }
+
     const float shadowTexelSize = 1.0f / float(light.perCascadeXYDim);
     const vec3 offsetPos = biasNormalOffset(N, safeNoL, shadowTexelSize); // Offset position align normal direction.
     const float perCascadeOffsetUV = 1.0f / light.cascadeCount;

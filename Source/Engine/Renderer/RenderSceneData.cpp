@@ -1,10 +1,7 @@
 #include "Pch.h"
 #include "RenderSceneData.h"
-#include "../Scene/Scene.h"
-#include "../Scene/Component/StaticMesh.h"
-#include "../Scene/Component/DirectionalLight.h"
+#include "../Scene/SceneArchive.h"
 #include "../Scene/SceneManager.h"
-#include "../Scene/Component/DirectionalLight.h"
 #include "RenderSettingContext.h"
 
 namespace Flower
@@ -15,11 +12,15 @@ namespace Flower
 	{
 		// TODO: Don't collect every tick, add some cache method.
 		m_collectStaticMeshes.clear();
-		scene->loopComponents<StaticMeshComponent>([&](std::shared_ptr<StaticMeshComponent> comp) 
+		scene->loopComponents<StaticMeshComponent>([&](std::shared_ptr<StaticMeshComponent> comp) -> bool
 		{
 			comp->renderObjectCollect(m_collectStaticMeshes);
+
+			// We need to loop all static mesh component.
+			return false;
 		});
 
+		// Now update all static mesh info.
 		if (!m_collectStaticMeshes.empty())
 		{
 			m_staticMeshesObjectsPtr = m_bufferParametersRing->getStaticStorage("StaticMeshObjects", sizeof(GPUPerObjectData) * m_collectStaticMeshes.size());
@@ -29,13 +30,13 @@ namespace Flower
 
 	void RenderSceneData::lightCollect(Scene* scene)
 	{
-		// Load all directional light.
+		// Load first directional light.
 		std::vector<GPUDirectionalLightInfo> directionalLights = {};
-		scene->loopComponents<DirectionalLightComponent>([&](std::shared_ptr<DirectionalLightComponent> comp)
+		scene->loopComponents<DirectionalLightComponent>([&](std::shared_ptr<DirectionalLightComponent> comp) -> bool
 		{
 			GPUDirectionalLightInfo newDirectionalLight{};
 			newDirectionalLight.intensity = comp->getIntensity();
-			newDirectionalLight.color = colorspace::srgb_2_rec2020(comp->getColor());
+			newDirectionalLight.color = comp->getColor();
 			newDirectionalLight.direction = comp->getDirection();
 			newDirectionalLight.shadowFilterSize = comp->getShadowFilterSize();
 			newDirectionalLight.cascadeCount = comp->getCascadeCount();
@@ -48,9 +49,12 @@ namespace Flower
 			newDirectionalLight.maxDrawDistance = comp->getMaxDrawDepthDistance();
 			newDirectionalLight.maxFilterSize = comp->getMaxFilterSize();
 			directionalLights.push_back(newDirectionalLight);
+
+			// NOTE: current we only support one directional light, so pre-return when first directional light collect finish.
+			return true;
 		});
 
-		// Fill directional light infos.
+		// Fill directional light infos. Current only support one directional light.
 		{
 			m_importanceLights.directionalLightCount = 0;
 
@@ -60,11 +64,11 @@ namespace Flower
 				m_importanceLights.directionalLights = directionalLights[0];
 
 				m_earthAtmosphereInfo = RenderSettingManager::get()->earthAtmosphere.earthAtmosphere;
-				m_earthAtmosphereInfo.absorptionExtinction = colorspace::srgb_2_rec2020(m_earthAtmosphereInfo.absorptionExtinction);
-				m_earthAtmosphereInfo.rayleighScattering = colorspace::srgb_2_rec2020(m_earthAtmosphereInfo.rayleighScattering);
-				m_earthAtmosphereInfo.mieScattering = colorspace::srgb_2_rec2020(m_earthAtmosphereInfo.mieScattering);
-				m_earthAtmosphereInfo.mieAbsorption = colorspace::srgb_2_rec2020(m_earthAtmosphereInfo.mieAbsorption);
-				m_earthAtmosphereInfo.groundAlbedo = colorspace::srgb_2_rec2020(m_earthAtmosphereInfo.groundAlbedo);
+				m_earthAtmosphereInfo.absorptionExtinction = m_earthAtmosphereInfo.absorptionExtinction;
+				m_earthAtmosphereInfo.rayleighScattering = m_earthAtmosphereInfo.rayleighScattering;
+				m_earthAtmosphereInfo.mieScattering = m_earthAtmosphereInfo.mieScattering;
+				m_earthAtmosphereInfo.mieAbsorption = m_earthAtmosphereInfo.mieAbsorption;
+				m_earthAtmosphereInfo.groundAlbedo = m_earthAtmosphereInfo.groundAlbedo;
 
 				m_importanceLights.directionalLightCount ++;
 			}
@@ -74,16 +78,25 @@ namespace Flower
 			if (m_importanceLights.directionalLightCount > 0)
 			{
 				cascadeCount = m_importanceLights.directionalLights.cascadeCount;
-
-				
 			}
 
 			// At least we create one cascade count buffer for feedback set.
-			m_cascsadeBufferInfos = m_bufferParametersRing->getStaticStorageGPUOnly("CascadeInfos",
-				sizeof(GPUCascadeInfo)* cascadeCount);
+			m_cascsadeBufferInfos = m_bufferParametersRing->getStaticStorageGPUOnly("CascadeInfos", sizeof(GPUCascadeInfo) * cascadeCount);
 		}
 
 		// TODO: Other light type gather.
+	}
+
+	void RenderSceneData::postprocessVolumeCollect(Scene* scene)
+	{
+		// TODO: post process volunme lerp.
+		scene->loopComponents<PostprocessVolumeComponent>([&](std::shared_ptr<PostprocessVolumeComponent> comp) -> bool
+		{
+			m_postprocessVolumeInfo = comp->getSetting();
+
+			// NOTE: current only use first postprocess volume.
+			return true;
+		});
 	}
 
 	RenderSceneData::RenderSceneData()
@@ -104,6 +117,9 @@ namespace Flower
 
 		// Collect light.
 		lightCollect(activeScene);
+
+		// Collect post process volume.
+		postprocessVolumeCollect(activeScene);
 	}
 }
 

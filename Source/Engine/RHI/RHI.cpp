@@ -943,11 +943,12 @@ namespace Flower
 			deviceExtensionNames.push_back(VK_KHR_8BIT_STORAGE_EXTENSION_NAME);
 			deviceExtensionNames.push_back(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
 			deviceExtensionNames.push_back(VK_EXT_HDR_METADATA_EXTENSION_NAME); // push once here, query later. bad design. :(
+#if 0
 			deviceExtensionNames.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME); // RTX.
 			deviceExtensionNames.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
 			deviceExtensionNames.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
 			deviceExtensionNames.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
-			
+#endif		
 
 
 			// Current only nvidia support Meshshader, so we don't use it, we simulate by compute shader.
@@ -1052,6 +1053,8 @@ namespace Flower
 				existDeviceExtension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) &&
 				existDeviceExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) &&
 				existDeviceExtension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+
+			RHI::bSupportRayTrace = false;
 		}
 
 		if(RHI::bSupportRayTrace)

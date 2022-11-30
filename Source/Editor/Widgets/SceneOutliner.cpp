@@ -1,7 +1,7 @@
 #include "Pch.h"
 #include "SceneOutliner.h"
 #include <ImGui/ImGuiInternal.h>
-#include "DrawComponent.h"
+#include "DrawComponent/DrawComponent.h"
 
 using namespace Flower;
 using namespace Flower::UI;
@@ -329,6 +329,11 @@ void WidgetSceneOutliner::popupMenu()
 			auto newNode = m_scene->createNode("SpotLight", node);
 			newNode->getTransform()->setRotation(glm::quat(glm::radians(glm::vec3(45, 45, 0))));
 			newNode->getScene()->addComponent<SpotLightComponent>(std::make_shared<SpotLightComponent>(), newNode);
+		}
+		if (ImGui::MenuItem(GIconPostprocessVolume.c_str()))
+		{
+			auto newNode = m_scene->createNode("PostprocessVolume", node);
+			newNode->getScene()->addComponent<PostprocessVolumeComponent>(std::make_shared<PostprocessVolumeComponent>(), newNode);
 		}
 
 		ImGui::EndPopup();

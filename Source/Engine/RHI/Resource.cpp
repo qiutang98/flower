@@ -78,8 +78,9 @@ namespace Flower
 			{
 				memoryAllocateFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
 				memoryAllocateFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
+				allocInfo.pNext = &memoryAllocateFlagsInfo;
 			}
-			allocInfo.pNext = &memoryAllocateFlagsInfo;
+			
 
 			if (vkAllocateMemory(RHI::Device, &allocInfo, nullptr, &m_memory) != VK_SUCCESS)
 			{

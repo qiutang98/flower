@@ -181,7 +181,7 @@ namespace Flower
 	public:
 		// Loop scene's components.
 		template<typename T>
-		void loopComponents(std::function<void(std::shared_ptr<T>)>&& func)
+		void loopComponents(std::function<bool(std::shared_ptr<T>)>&& func)
 		{
 			static_assert(std::is_base_of_v<Component, T>, "T must derive from Component.");
 			if (hasComponent<T>() && !m_cacheSceneComponentsShrinkAlready[typeid(T).name()])
@@ -197,7 +197,10 @@ namespace Flower
 					{
 						if (pShared->getNode()->hasComponent<T>())
 						{
-							func(pShared);
+							if (func(pShared))
+							{
+								return;
+							}
 						}
 					}
 				}

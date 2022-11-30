@@ -64,33 +64,6 @@ namespace Flower
 		float pad2;
 	};
 
-	struct TonemapperParam
-	{
-		float tonemapper_P = 500.0f;  // Max brightness.
-		float tonemapper_a = 1.0f;  // contrast
-		float tonemapper_m = 0.22f; // linear section start
-		float tonemapper_l = 0.4f;  // linear section length
-
-		float tonemapper_c = 1.33f; // black
-		float tonemapper_b = 0.0f;  // pedestal
-		float tonemmaper_s = 500.0f; // scale 
-		float pad1;
-
-
-		uint32_t shoulder;
-		uint32_t con;
-		uint32_t soft;
-		uint32_t con2;
-
-		uint32_t clip;
-		uint32_t scaleOnly;
-		uint32_t displayMode;
-		uint32_t bHdr10;
-
-		glm::mat4 inputToOutputMatrix;
-		glm::ivec4 ctl[24 * 4];
-	};
-
 	// See FrameData struct in Common.glsl
 	struct GPUFrameData
 	{
@@ -129,8 +102,6 @@ namespace Flower
 		GPUDirectionalLightInfo directionalLight;
 
 		EarthAtmosphere earthAtmosphere;
-
-		TonemapperParam toneMapper;
 	};
 
 	// See ViewData struct in Common.glsl

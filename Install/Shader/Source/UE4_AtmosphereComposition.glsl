@@ -10,8 +10,8 @@ vec3 drawSun(vec3 rayDir, vec3 sunDir)
 {
     const float dT = dot(rayDir, sunDir);
 
-    const float theta = 0.15 * kPI / 180.0;
-    const vec3 sunCenterColor = vec3(1.0f, 0.92549, 0.87843) * 39.0f * 1000;
+    const float theta = 0.1 * kPI / 180.0;
+    const vec3 sunCenterColor = vec3(1.0f, 0.92549, 0.87843) * 39.0f * 100;
 
     const float cT = cos(theta);
     if (dT >= cT) 

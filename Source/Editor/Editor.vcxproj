@@ -65,6 +65,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -89,6 +90,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -101,11 +103,14 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Widgets\DrawComponent\DrawComponentLandscape.cpp" />
+    <ClCompile Include="Widgets\DrawComponent\DrawComponentPostprocessVolume.cpp" />
     <ClCompile Include="EditorAsset.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ClCompile Include="Widgets\Console.cpp" />
     <ClCompile Include="Widgets\ContentViewer.cpp" />
@@ -113,12 +118,13 @@
     <ClCompile Include="Widgets\Dockspace.cpp" />
     <ClCompile Include="Widgets\Downbar.cpp" />
     <ClCompile Include="Editor.cpp" />
-    <ClCompile Include="Widgets\DrawComponent.cpp" />
-    <ClCompile Include="Widgets\DrawComponentDirectionalLight.cpp" />
-    <ClCompile Include="Widgets\DrawComponentLight.cpp" />
-    <ClCompile Include="Widgets\DrawComponentPMX.cpp" />
-    <ClCompile Include="Widgets\DrawComponentSpotLight.cpp" />
-    <ClCompile Include="Widgets\DrawComponentStaticMesh.cpp" />
+    <ClCompile Include="Widgets\DrawComponent\DrawComponent.cpp" />
+    <ClCompile Include="Widgets\DrawComponent\DrawComponentDirectionalLight.cpp" />
+    <ClCompile Include="Widgets\DrawComponent\DrawComponentLight.cpp" />
+    <ClCompile Include="Widgets\DrawComponent\DrawComponentPMX.cpp" />
+    <ClCompile Include="Widgets\DrawComponent\DrawComponentSkyLight.cpp" />
+    <ClCompile Include="Widgets\DrawComponent\DrawComponentSpotLight.cpp" />
+    <ClCompile Include="Widgets\DrawComponent\DrawComponentStaticMesh.cpp" />
     <ClCompile Include="Widgets\MainMenu.cpp" />
     <ClCompile Include="Widgets\ProjectSelect.cpp" />
     <ClCompile Include="Widgets\RenderSetting.cpp" />
@@ -136,7 +142,7 @@
     <ClInclude Include="Widgets\Dockspace.h" />
     <ClInclude Include="Widgets\Downbar.h" />
     <ClInclude Include="Editor.h" />
-    <ClInclude Include="Widgets\DrawComponent.h" />
+    <ClInclude Include="Widgets\DrawComponent\DrawComponent.h" />
     <ClInclude Include="Widgets\MainMenu.h" />
     <ClInclude Include="Widgets\ProjectSelect.h" />
     <ClInclude Include="Widgets\RenderSetting.h" />

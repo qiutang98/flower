@@ -109,7 +109,14 @@ namespace Flower
         }
     };
 
-    void DeferredRenderer::adaptiveExposure(VkCommandBuffer cmd, Renderer* renderer, SceneTextures* inTextures, RenderSceneData* scene, BufferParamRefPointer& viewData, BufferParamRefPointer& frameData, const RuntimeModuleTickData& tickData)
+    void DeferredRenderer::adaptiveExposure(
+        VkCommandBuffer cmd, 
+        Renderer* renderer, 
+        SceneTextures* inTextures, 
+        RenderSceneData* scene, 
+        BufferParamRefPointer& viewData, 
+        BufferParamRefPointer& frameData, 
+        const RuntimeModuleTickData& tickData)
     {
         if (!m_averageLum)
         {
@@ -175,37 +182,27 @@ namespace Flower
 
         const float maxEv = 9.0f;
         const float minEv = -9.0f;
-
         const float diff = maxEv - minEv;
         const float scale = 1.0f / diff;
         const float offset = -minEv * scale;
 
-        RenderSettingManager::get()->AUTOEXPOSURE_minBrightness = glm::clamp(RenderSettingManager::get()->AUTOEXPOSURE_minBrightness, minEv, maxEv);
-        RenderSettingManager::get()->AUTOEXPOSURE_maxBrightness = glm::clamp(RenderSettingManager::get()->AUTOEXPOSURE_maxBrightness, minEv, maxEv);
-        
-
-        RenderSettingManager::get()->AUTOEXPOSURE_lowPercent = glm::clamp(RenderSettingManager::get()->AUTOEXPOSURE_lowPercent, 0.01f, 0.99f);
-        RenderSettingManager::get()->AUTOEXPOSURE_highPercent = glm::clamp(RenderSettingManager::get()->AUTOEXPOSURE_highPercent, 0.01f, 0.99f);
+        const auto& postProcessVolumeSetting = scene->getPostprocessVolumeSetting();
 
         AdaptiveExposurePush pushConst
         {
             .scale = scale,
             .offset = offset,
 
-            .lowPercent = RenderSettingManager::get()->AUTOEXPOSURE_lowPercent,
-            .highPercent = RenderSettingManager::get()->AUTOEXPOSURE_highPercent,
-
-            .minBrightness = glm::exp2(RenderSettingManager::get()->AUTOEXPOSURE_minBrightness),
-            .maxBrightness = glm::exp2(RenderSettingManager::get()->AUTOEXPOSURE_maxBrightness),
-
-            .speedDown = RenderSettingManager::get()->AUTOEXPOSURE_speedDown,
-            .speedUp = RenderSettingManager::get()->AUTOEXPOSURE_speedUp,
-            .exposureCompensation = RenderSettingManager::get()->AUTOEXPOSURE_exposureCompensation,
+            .lowPercent = glm::clamp(postProcessVolumeSetting.autoExposureLowPercent, 0.01f, 0.99f),
+            .highPercent = glm::clamp(postProcessVolumeSetting.autoExposureHighPercent, 0.01f, 0.99f),
+            .minBrightness = glm::clamp(postProcessVolumeSetting.autoExposureMinBrightness,minEv, maxEv),
+            .maxBrightness = glm::clamp(postProcessVolumeSetting.autoExposureMaxBrightness,minEv, maxEv),
+            .speedDown = postProcessVolumeSetting.autoExposureSpeedDown,
+            .speedUp = postProcessVolumeSetting.autoExposureSpeedUp,
+            .exposureCompensation = postProcessVolumeSetting.autoExposureExposureCompensation,
             .deltaTime = tickData.smoothDeltaTime,
         };
         vkCmdPushConstants(cmd, pass->pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pushConst), &pushConst);
-
-        
 
         {
             RHI::ScopePerframeMarker marker(cmd, "AdaptiveExposure Histogram", { 1.0f, 1.0f, 0.0f, 1.0f });

@@ -2,6 +2,7 @@
 #include "RendererCommon.h"
 #include "Parameters.h"
 #include "BufferParameter.h"
+#include "../Scene/Component/PostprocessingVolume.h"
 
 // Cross multi renderer scene data.
 // Update every frame.
@@ -26,6 +27,9 @@ namespace Flower
 		// Earth atmosphere info.
 		EarthAtmosphere m_earthAtmosphereInfo;
 
+		// Scene postprocessing volume info.
+		PostprocessVolumeSetting m_postprocessVolumeInfo;
+
 		std::unique_ptr<BufferParametersRing> m_bufferParametersRing;
 
 		BufferParamRefPointer m_cascsadeBufferInfos;
@@ -37,6 +41,7 @@ namespace Flower
 
 		void lightCollect(Scene* scene);
 		
+		void postprocessVolumeCollect(Scene* scene);
 
 	public:
 		RenderSceneData();
@@ -77,6 +82,11 @@ namespace Flower
 		bool isStaticMeshExist() const
 		{
 			return !m_collectStaticMeshes.empty();
+		}
+
+		const auto& getPostprocessVolumeSetting() const
+		{
+			return m_postprocessVolumeInfo;
 		}
 
 		// Upadte collect scene infos. often call before all renderer logic.

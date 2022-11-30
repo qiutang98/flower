@@ -1,0 +1,156 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Base\File.cpp" />
+    <ClCompile Include="Base\Log.cpp" />
+    <ClCompile Include="Base\Path.cpp" />
+    <ClCompile Include="Base\Singleton.cpp" />
+    <ClCompile Include="Base\Time.cpp" />
+    <ClCompile Include="Base\UnicodeUtil.cpp" />
+    <ClCompile Include="Model\MMD\MMDCamera.cpp" />
+    <ClCompile Include="Model\MMD\MMDIkSolver.cpp" />
+    <ClCompile Include="Model\MMD\MMDMaterial.cpp" />
+    <ClCompile Include="Model\MMD\MMDModel.cpp" />
+    <ClCompile Include="Model\MMD\MMDMorph.cpp" />
+    <ClCompile Include="Model\MMD\MMDNode.cpp" />
+    <ClCompile Include="Model\MMD\MMDPhysics.cpp" />
+    <ClCompile Include="Model\MMD\PMDFile.cpp" />
+    <ClCompile Include="Model\MMD\PMDModel.cpp" />
+    <ClCompile Include="Model\MMD\PMXFile.cpp" />
+    <ClCompile Include="Model\MMD\PMXModel.cpp" />
+    <ClCompile Include="Model\MMD\SjisToUnicode.cpp" />
+    <ClCompile Include="Model\MMD\VMDAnimation.cpp" />
+    <ClCompile Include="Model\MMD\VMDCameraAnimation.cpp" />
+    <ClCompile Include="Model\MMD\VMDFile.cpp" />
+    <ClCompile Include="Model\MMD\VPDFile.cpp" />
+    <ClCompile Include="Model\OBJ\OBJModel.cpp" />
+    <ClCompile Include="Model\OBJ\tinyobjloader.cpp" />
+    <ClCompile Include="Model\XFile\XFileModel.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Base\File.h" />
+    <ClInclude Include="Base\Log.h" />
+    <ClInclude Include="Base\Path.h" />
+    <ClInclude Include="Base\Singleton.h" />
+    <ClInclude Include="Base\Time.h" />
+    <ClInclude Include="Base\to_glm.h" />
+    <ClInclude Include="Base\UnicodeUtil.h" />
+    <ClInclude Include="Model\MMD\MMDCamera.h" />
+    <ClInclude Include="Model\MMD\MMDFileString.h" />
+    <ClInclude Include="Model\MMD\MMDIkSolver.h" />
+    <ClInclude Include="Model\MMD\MMDMaterial.h" />
+    <ClInclude Include="Model\MMD\MMDModel.h" />
+    <ClInclude Include="Model\MMD\MMDMorph.h" />
+    <ClInclude Include="Model\MMD\MMDNode.h" />
+    <ClInclude Include="Model\MMD\MMDPhysics.h" />
+    <ClInclude Include="Model\MMD\PMDFile.h" />
+    <ClInclude Include="Model\MMD\PMDModel.h" />
+    <ClInclude Include="Model\MMD\PMXFile.h" />
+    <ClInclude Include="Model\MMD\PMXModel.h" />
+    <ClInclude Include="Model\MMD\SjisToUnicode.h" />
+    <ClInclude Include="Model\MMD\VMDAnimation.h" />
+    <ClInclude Include="Model\MMD\VMDAnimationCommon.h" />
+    <ClInclude Include="Model\MMD\VMDCameraAnimation.h" />
+    <ClInclude Include="Model\MMD\VMDFile.h" />
+    <ClInclude Include="Model\MMD\VPDFile.h" />
+    <ClInclude Include="Model\OBJ\OBJModel.h" />
+    <ClInclude Include="Model\XFile\XFileModel.h" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{29099e97-9815-4cc1-862f-129995162985}</ProjectGuid>
+    <RootNamespace>saba</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)Build\$(ProjectName)-$(Configuration)-Binary\</OutDir>
+    <IntDir>$(SolutionDir)Build\$(ProjectName)-$(Configuration)-Intermediate\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(SolutionDir)Build\$(ProjectName)-$(Configuration)-Binary\</OutDir>
+    <IntDir>$(SolutionDir)Build\$(ProjectName)-$(Configuration)-Intermediate\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>SABA_LIB;_DEBUG;_CONSOLE;UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(SolutionDir)Source/$(ProjectName)/;$(SolutionDir)External/;$(SolutionDir)Source/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <Lib>
+      <AdditionalLibraryDirectories>$(SolutionDir)External\bullet\lib\bullet\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Bullet2FileLoader.lib;Bullet3Collision.lib;Bullet3Common.lib;Bullet3Dynamics.lib;Bullet3Geometry.lib;Bullet3OpenCL_clew.lib;BulletCollision.lib;BulletDynamics.lib;BulletFileLoader.lib;BulletInverseDynamics.lib;BulletInverseDynamicsUtils.lib;BulletRobotics.lib;BulletRoboticsGUI.lib;BulletSoftBody.lib;BulletWorldImporter.lib;BulletXmlWorldImporter.lib;ConvexDecomposition.lib;GIMPACTUtils.lib;HACD.lib;LinearMath.lib</AdditionalDependencies>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>SABA_LIB;NDEBUG;_CONSOLE;UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(SolutionDir)Source/$(ProjectName)/;$(SolutionDir)External/;$(SolutionDir)Source/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <Lib>
+      <AdditionalLibraryDirectories>$(SolutionDir)external\lib\bullet\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Bullet2FileLoader.lib;Bullet3Collision.lib;Bullet3Common.lib;Bullet3Dynamics.lib;Bullet3Geometry.lib;Bullet3OpenCL_clew.lib;BulletCollision.lib;BulletDynamics.lib;BulletFileLoader.lib;BulletInverseDynamics.lib;BulletInverseDynamicsUtils.lib;BulletRobotics.lib;BulletRoboticsGUI.lib;BulletSoftBody.lib;BulletWorldImporter.lib;BulletXmlWorldImporter.lib;ConvexDecomposition.lib;GIMPACTUtils.lib;HACD.lib;LinearMath.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Lib>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

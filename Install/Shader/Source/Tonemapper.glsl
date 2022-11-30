@@ -29,6 +29,15 @@ layout (push_constant) uniform PushConsts
     vec4 prefilterFactor;
     float bloomIntensity;
     float bloomBlur;
+
+    float tonemapper_P;  // Max brightness.
+    float tonemapper_a;    // contrast
+    float tonemapper_m;   // linear section start
+    float tonemapper_l;    // linear section length
+    float tonemapper_c;   // black
+    float tonemapper_b;    // pedestal
+    float tonemmaper_s;  // scale 
+    uint bDisplayHDR_rec2020_PQ;     // HDR display?
 };
 
 #include "TonemapperFunction.glsl"
@@ -122,33 +131,31 @@ void main()
     hdrColor.xyz += bloomColor * bloomIntensity;
 #endif
 
-    // Linear rec 2020 color space.
-    vec3 colorRec2020 = max(hdrColor.xyz, vec3(0.0));
+    // Linear srgb color space.
+    vec3 colorSrgb = max(hdrColor.xyz, vec3(0.0));
 
 
     
     // TODO: Maybe use ACES color space in the future. then we can do some hdr color gradient in aces color space.
     //
 
-    const bool bSrgb = frameData.toneMapper.displayMode == 0;
+    const bool bSrgb = bDisplayHDR_rec2020_PQ == 0;
 
-    const float P = bSrgb ? min(1.0, frameData.toneMapper.tonemapper_P) : frameData.toneMapper.tonemapper_P; // max display brightness.
-    const float a = frameData.toneMapper.tonemapper_a;  // contrast
-    const float m = frameData.toneMapper.tonemapper_m; // linear section start
-    const float l = frameData.toneMapper.tonemapper_l;  // linear section length
-    const float c = frameData.toneMapper.tonemapper_c; // black
-    const float b = frameData.toneMapper.tonemapper_b;  // pedestal
+    const float P = bSrgb ? min(1.0, tonemapper_P) : tonemapper_P; // max display brightness.
+    const float a = tonemapper_a;  // contrast
+    const float m = tonemapper_m; // linear section start
+    const float l = tonemapper_l;  // linear section length
+    const float c = tonemapper_c; // black
+    const float b = tonemapper_b;  // pedestal
 
-    // Tonemapper in rec 2020 color space.
-    colorRec2020.x = uchimuraTonemapper(colorRec2020.x, P, a, m, l, c, b);
-    colorRec2020.y = uchimuraTonemapper(colorRec2020.y, P, a, m, l, c, b);
-    colorRec2020.z = uchimuraTonemapper(colorRec2020.z, P, a, m, l, c, b);
+    // Tonemapper in srgb color space.
+    colorSrgb.x = uchimuraTonemapper(colorSrgb.x, P, a, m, l, c, b);
+    colorSrgb.y = uchimuraTonemapper(colorSrgb.y, P, a, m, l, c, b);
+    colorSrgb.z = uchimuraTonemapper(colorSrgb.z, P, a, m, l, c, b);
 
     vec3 mappingColor;
     if(bSrgb) // Gamma encode srgb
     {
-        vec3 colorSrgb = Rec2020_2_sRGB * colorRec2020;
-
         // OETF = gamma(1.0/2.2)
         mappingColor.xyz = encodeSRGB(colorSrgb.xyz);
     }   
@@ -159,14 +166,13 @@ void main()
         // The purpose is to make good use of PQ lut entries. A scale factor of 100 conveniently places 
         // about half of the PQ lut indexing below 1.0, with the other half for input values over 1.0.
         // Also, 100nits is the expected monitor brightness for a 1.0 pixel value without a tone curve.
-        const float LinearToNitsScale = 100.0 * frameData.toneMapper.tonemmaper_s;
+        const float LinearToNitsScale = 100.0 * tonemmaper_s;
         const float LinearToNitsScaleInverse = 1.0 / LinearToNitsScale;
 
+        vec3 colorRec2020 = sRGB_2_Rec2020 * colorSrgb;
         //
         // OETF = inverse pq
         mappingColor.xyz = encodeST2084(colorRec2020.xyz * LinearToNitsScale);
-
-        
     }
 
     

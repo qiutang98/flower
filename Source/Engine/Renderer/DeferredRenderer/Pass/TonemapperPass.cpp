@@ -4,15 +4,26 @@
 #include "../../RenderSceneData.h"
 #include "../../SceneTextures.h"
 #include "../../RenderSettingContext.h"
-
+#include "BloomCommon.h"
 
 namespace Flower
 {
     struct TonemapperPushComposite
     {
         glm::vec4 prefilterFactor;
+
         float bloomIntensity;
         float bloomBlur;
+        float tonemapper_P = 500.0f;  // Max brightness.
+        float tonemapper_a = 1.0f;    // contrast
+
+        float tonemapper_m = 0.22f;   // linear section start
+        float tonemapper_l = 0.4f;    // linear section length
+        float tonemapper_c = 1.33f;   // black
+        float tonemapper_b = 0.0f;    // pedestal
+
+        float tonemmaper_s = 500.0f;  // scale 
+        uint32_t bDisplayHDR_rec2020_PQ = 0;     // HDR display?
     };
 
     class TonemapperPass : public PassInterface
@@ -142,18 +153,23 @@ namespace Flower
             vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->pipelineLayout,
                 1, (uint32_t)passSets.size(), passSets.data(), 0, nullptr);
 
+            const auto& postProcessVolumeSetting = scene->getPostprocessVolumeSetting();
+
+
             TonemapperPushComposite compositePush
             {
-                .bloomIntensity = RenderSettingManager::get()->bloomIntensity,
-                .bloomBlur = RenderSettingManager::get()->bloomRadius
+                .prefilterFactor = getBloomPrefilter(postProcessVolumeSetting.bloomThreshold, postProcessVolumeSetting.bloomThresholdSoft),
+                .bloomIntensity = postProcessVolumeSetting.bloomIntensity,
+                .bloomBlur = postProcessVolumeSetting.bloomRadius,
+                .tonemapper_P = postProcessVolumeSetting.tonemapper_P,  // Max brightness.
+                .tonemapper_a = postProcessVolumeSetting.tonemapper_a,  // contrast
+                .tonemapper_m = postProcessVolumeSetting.tonemapper_m, // linear section start
+                .tonemapper_l = postProcessVolumeSetting.tonemapper_l,  // linear section length
+                .tonemapper_c = postProcessVolumeSetting.tonemapper_c, // black
+                .tonemapper_b = postProcessVolumeSetting.tonemapper_b,  // pedestal
+                .tonemmaper_s = postProcessVolumeSetting.tonemmaper_s, // scale 
+                .bDisplayHDR_rec2020_PQ = uint32_t(RenderSettingManager::get()->displayMode),
             };
-
-            float knee = RenderSettingManager::get()->bloomThreshold * RenderSettingManager::get()->bloomThresholdSoft;
-
-            compositePush.prefilterFactor.x = RenderSettingManager::get()->bloomThreshold;
-            compositePush.prefilterFactor.y = compositePush.prefilterFactor.x - knee;
-            compositePush.prefilterFactor.z = 2.0f * knee;
-            compositePush.prefilterFactor.w = 0.25f / (knee + 0.00001f);
 
             vkCmdPushConstants(cmd, pass->pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compositePush), &compositePush);
 

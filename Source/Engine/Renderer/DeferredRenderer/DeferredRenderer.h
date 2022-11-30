@@ -81,8 +81,6 @@ namespace Flower
 			PoolImageSharedRef inHiz,
 			BlueNoiseMisc& inBlueNoise);
 
-
-
 		void renderVolumetricCloud(
 			VkCommandBuffer cmd,
 			Renderer* renderer,
@@ -108,17 +106,6 @@ namespace Flower
 			BufferParamRefPointer& viewData,
 			BufferParamRefPointer& frameData,
 			PoolImageSharedRef inGTAO);
-
-		void renderSSGI(
-			VkCommandBuffer cmd,
-			Renderer* renderer,
-			SceneTextures* inTextures,
-			RenderSceneData* scene,
-			BufferParamRefPointer& viewData,
-			BufferParamRefPointer& frameData,
-			PoolImageSharedRef inHiz,
-			PoolImageSharedRef inGTAO,
-			BlueNoiseMisc& inBlueNoise);
 
 		void renderSSR(
 			VkCommandBuffer cmd,

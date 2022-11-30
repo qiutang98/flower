@@ -8,7 +8,8 @@
 #include "Component/PMXComponent.h"
 #include "Component/SpotLight.h"
 #include "Component/Transform.h"
-
+#include "Component/SkyLight.h"
+#include "Component/PostprocessingVolume.h"
 
 #include "../Version.h"
 
@@ -27,11 +28,14 @@ void Flower::CompNameXX::serialize(Archive& archive, std::uint32_t const version
 SCENE_ARCHIVE_IMPL_BASIC(CompNameXX); \
 CEREAL_REGISTER_POLYMORPHIC_RELATION(Flower::CompNamePP, Flower::CompNameXX)\
 template<class Archive> \
-void Flower::CompNameXX::serialize(Archive& archive, std::uint32_t const version) { \
+void Flower::CompNameXX::serialize(Archive& archive, std::uint32_t const version){ \
 archive(cereal::base_class<Flower::CompNamePP>(this));
 
 #define SCENE_ARCHIVE_IMPL_INHERIT_END }
 
+
+// Scene archive start.
+///////////////////////////////////////////////////////////////////////////////////
 
 SCENE_ARCHIVE_IMPL(Component)
 {
@@ -90,6 +94,44 @@ SCENE_ARCHIVE_IMPL_INHERIT_END
 SCENE_ARCHIVE_IMPL_INHERIT(PMXComponent, Component)
 {
 
+}
+SCENE_ARCHIVE_IMPL_INHERIT_END
+
+SCENE_ARCHIVE_IMPL_INHERIT(SkyLightComponent, Component)
+{
+	archive(m_bRealtimeCapture);
+}
+SCENE_ARCHIVE_IMPL_INHERIT_END
+
+SCENE_ARCHIVE_IMPL_INHERIT(PostprocessVolumeComponent, Component)
+{
+	archive(m_settings.bloomIntensity);
+	archive(m_settings.bloomRadius);
+	archive(m_settings.bloomThreshold);
+	archive(m_settings.bloomThresholdSoft);
+
+	archive(m_settings.autoExposureLowPercent);
+	archive(m_settings.autoExposureHighPercent);
+	archive(m_settings.autoExposureMinBrightness);
+	archive(m_settings.autoExposureMaxBrightness);
+	archive(m_settings.autoExposureSpeedDown);
+	archive(m_settings.autoExposureSpeedUp);
+	archive(m_settings.autoExposureExposureCompensation);
+
+	archive(m_settings.gtaoSliceNum);
+	archive(m_settings.gtaoStepNum);
+	archive(m_settings.gtaoRadius);
+	archive(m_settings.gtaoThickness);
+	archive(m_settings.gtaoPower);
+	archive(m_settings.gtaoIntensity);
+
+	archive(m_settings.tonemapper_P);
+	archive(m_settings.tonemapper_a);
+	archive(m_settings.tonemapper_m);
+	archive(m_settings.tonemapper_l);
+	archive(m_settings.tonemapper_c);
+	archive(m_settings.tonemapper_b);
+	archive(m_settings.tonemmaper_s);
 }
 SCENE_ARCHIVE_IMPL_INHERIT_END
 

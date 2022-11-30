@@ -140,56 +140,12 @@ namespace Flower
 			
 	};
 
-	enum class LummapCase
-	{
-		Campfire,
-		Lamp,
-		P3_1000_nits,
-		Rec2020_1000_nits,
-		Rec709_5000_nits,
-	};
-
 	struct RenderSetting
 	{
 		IBLLightingContext ibl;
 		EarthAtmosphereContext earthAtmosphere;
 
-		float bloomIntensity = 1.0f;
-		float bloomRadius = 0.75f;
-
-		float bloomThreshold = 0.4f;
-		float bloomThresholdSoft = 0.6f;
-
-		float AUTOEXPOSURE_lowPercent = 0.5f;
-		float AUTOEXPOSURE_highPercent = 0.95f;
-
-		float AUTOEXPOSURE_minBrightness = -5.0f;
-		float AUTOEXPOSURE_maxBrightness = 7.0f;
-
-		float AUTOEXPOSURE_speedDown = 1.0f;
-		float AUTOEXPOSURE_speedUp = 2.0f;
-
-		float AUTOEXPOSURE_exposureCompensation = 0.0f;
-
-		int GTAO_sliceNum = 2;
-		int GTAO_stepNum  = 8;
-
-		float GTAO_radius = 2.0f;
-		float GTAO_thickness = 1.0f;
-
-		float GTAO_Power = 1.0f;
-		float GTAO_Intensity = 1.0f;
-
 		RHI::DisplayMode displayMode = RHI::DisplayMode::DISPLAYMODE_SDR;
-		LummapCase lummapCase = LummapCase::Campfire;
-
-		float tonemmaper_s = 4.0f; // scale 
-		float tonemapper_P = 1000.0f;  // Max brightness.
-		float tonemapper_a = 1.2f;  // contrast
-		float tonemapper_m = 0.22f; // linear section start
-		float tonemapper_l = 0.4f;  // linear section length
-		float tonemapper_c = 1.33f; // black
-		float tonemapper_b = 0.0f;  // pedestal
 
 		void reset()
 		{

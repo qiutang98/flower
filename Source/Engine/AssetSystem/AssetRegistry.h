@@ -37,6 +37,11 @@ namespace Flower
 
 		}
 
+		bool isFoleder() const
+		{
+			return m_assetHeader.empty();
+		}
+
 		bool isLeaf() const
 		{
 			return m_children.size() == 0;

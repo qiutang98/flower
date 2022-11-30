@@ -57,28 +57,37 @@
     <ClCompile Include="EditorAsset.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Widgets\DrawComponent.cpp">
+    <ClCompile Include="Widgets\DrawComponent\DrawComponent.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="Widgets\ViewportCamera.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Widgets\DrawComponentStaticMesh.cpp">
+    <ClCompile Include="Widgets\DrawComponent\DrawComponentStaticMesh.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Widgets\DrawComponentDirectionalLight.cpp">
+    <ClCompile Include="Widgets\DrawComponent\DrawComponentDirectionalLight.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Widgets\DrawComponentSpotLight.cpp">
+    <ClCompile Include="Widgets\DrawComponent\DrawComponentSpotLight.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Widgets\DrawComponentLight.cpp">
+    <ClCompile Include="Widgets\DrawComponent\DrawComponentLight.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="Widgets\RenderSetting.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Widgets\DrawComponentPMX.cpp">
+    <ClCompile Include="Widgets\DrawComponent\DrawComponentPMX.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Widgets\DrawComponent\DrawComponentSkyLight.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Widgets\DrawComponent\DrawComponentPostprocessVolume.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Widgets\DrawComponent\DrawComponentLandscape.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
@@ -125,7 +134,7 @@
     <ClInclude Include="EditorAsset.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Widgets\DrawComponent.h">
+    <ClInclude Include="Widgets\DrawComponent\DrawComponent.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="Widgets\ViewportCamera.h">

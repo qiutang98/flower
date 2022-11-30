@@ -30,5 +30,9 @@ const mat3 Rec2020_2_sRGB = XYZ_2_sRGB * Rec2020_2_XYZ;
 
 vec3 inputColorPrepare(vec3 src)
 {
+    // All art resource produced in srgb color space. :(
+    // So it is no meaning to compute in rec2020 color space.
+    return src;
+
     return sRGB_2_Rec2020 * src;
 }

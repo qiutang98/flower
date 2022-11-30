@@ -4,6 +4,7 @@
 #include "Scene.h"
 #include "SceneArchive.h"
 #include "Project.h"
+#include "../Renderer/Renderer.h"
 
 namespace Flower
 {

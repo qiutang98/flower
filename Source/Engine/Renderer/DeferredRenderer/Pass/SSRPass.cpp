@@ -7,8 +7,6 @@
 
 namespace Flower
 {
-
-
     struct SSRPush
     {
         uint32_t samplesPerQuad;

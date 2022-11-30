@@ -1,7 +1,7 @@
 #include "Pch.h"
 #include "Detail.h"
 #include "../Editor.h"
-#include "DrawComponent.h"
+#include "DrawComponent/DrawComponent.h"
 
 using namespace Flower;
 using namespace Flower::UI;
@@ -175,7 +175,8 @@ void WidgetDetail::drawComponent(std::shared_ptr<SceneNode> node)
 			drawAddNode.template operator()<LandscapeComponent>(GIconLandscape);
 			drawAddNode.template operator()<DirectionalLightComponent>(GIconDirectionalLight);
 			drawAddNode.template operator()<SpotLightComponent>(GIconSpotLight);
-
+			drawAddNode.template operator()<SkyLightComponent>(GIconSkyLight);
+			drawAddNode.template operator()< PostprocessVolumeComponent>(GIconPostprocessVolume);
 			if (!bExistOneNewComponent)
 			{
 				ImGui::TextDisabled("Non-Component");

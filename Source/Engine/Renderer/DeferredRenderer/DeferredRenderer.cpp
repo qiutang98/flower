@@ -124,17 +124,6 @@ namespace Flower
 		// Fill atmosphere info.
 		frame.earthAtmosphere = renderScene->getEarthAtmosphere();
 
-		// Display mode update.
-		frame.toneMapper.displayMode = uint32_t(RenderSettingManager::get()->displayMode);
-
-		frame.toneMapper.tonemapper_P = RenderSettingManager::get()->tonemapper_P;  // Max brightness.
-		frame.toneMapper.tonemapper_a = RenderSettingManager::get()->tonemapper_a;  // contrast
-		frame.toneMapper.tonemapper_m = RenderSettingManager::get()->tonemapper_m; // linear section start
-		frame.toneMapper.tonemapper_l = RenderSettingManager::get()->tonemapper_l;  // linear section length
-		frame.toneMapper.tonemapper_c = RenderSettingManager::get()->tonemapper_c; // black
-		frame.toneMapper.tonemapper_b = RenderSettingManager::get()->tonemapper_b;  // pedestal
-		frame.toneMapper.tonemmaper_s = RenderSettingManager::get()->tonemmaper_s;  // pedestal
-
 		auto& ibl = RenderSettingManager::get()->ibl;
 		frame.globalIBLEnable = ibl.iblEnable() ? 1u : 0u;
 		frame.globalIBLIntensity = ibl.intensity;
@@ -190,11 +179,8 @@ namespace Flower
 
 			// Prepare sky lut.
 			renderAtmosphere(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, false);
-			renderBasicLighting(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, GTAOTex);
 
-			// SSGI is a bad global illumination solution for realtime rendering.
-			// We use RTX DDGI.
-			// renderSSGI(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, hizTex, GTAOTex, blueNoiseMisc);
+			renderBasicLighting(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, GTAOTex);
 
 			renderSSR(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, hizTex, GTAOTex, blueNoiseMisc);
 

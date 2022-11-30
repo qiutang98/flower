@@ -11,6 +11,7 @@
 namespace Flower
 {
 	std::weak_ptr<GPUImageAsset> EngineTextures::GWhiteTexturePtr = {};
+
 	const UUID EngineTextures::GWhiteTextureUUID = "0d6e103f-138a-482a-8a28-5116631a2e32";
 	const UUID EngineTextures::GGreyTextureUUID = "6caa6c06-3c71-4b36-bb88-e0c577a06c60";
 	const UUID EngineTextures::GBlackTextureUUID = "c11cc2f7-3c5d-458d-a2b4-68ebf7612948";
@@ -58,75 +59,55 @@ namespace Flower
 			m_widthSnapShot = m_width;
 		}
 
+		m_snapshotData.resize(m_widthSnapShot * m_heightSnapShot * GAssetTextureChannels);
+
 		if (m_bHdr)
 		{
-			m_snapshotData.resize(m_widthSnapShot * m_heightSnapShot * GAssetTextureChannels * 4);
+			std::vector<float> hdrData(m_widthSnapShot * m_heightSnapShot * GAssetTextureChannels);
 
 			stbir_resize_float(
 				(float*)inBin->m_rawData.data(),
 				m_width,
 				m_height,
 				0,
-				(float*)m_snapshotData.data(),
+				hdrData.data(),
 				m_widthSnapShot,
 				m_heightSnapShot,
 				0,
 				GAssetTextureChannels
 			);
 
-			// Post process.
-			for (size_t i = 0; i < m_snapshotData.size(); i += GAssetTextureChannels * 4)
+			// Post process tonemapper.
+			for (size_t i = 0; i < hdrData.size(); i += GAssetTextureChannels)
 			{
-				//... TODO:
+				hdrData[i + 0] = std::pow(hdrData[i + 0] / (1.0f + hdrData[i + 0]), 1.0 / 2.2f);
+				hdrData[i + 1] = std::pow(hdrData[i + 1] / (1.0f + hdrData[i + 1]), 1.0 / 2.2f);
+				hdrData[i + 2] = std::pow(hdrData[i + 2] / (1.0f + hdrData[i + 2]), 1.0 / 2.2f);
+
+				m_snapshotData[i + 0] = uint8_t(hdrData[i + 0] * 255.0f);
+				m_snapshotData[i + 1] = uint8_t(hdrData[i + 1] * 255.0f);
+				m_snapshotData[i + 2] = uint8_t(hdrData[i + 2] * 255.0f);
+				m_snapshotData[i + 3] = uint8_t(255);
 			}
 		}
 		else
 		{
-			m_snapshotData.resize(m_widthSnapShot * m_heightSnapShot * GAssetTextureChannels);
-
-			if (m_bSrgb)
-			{
-				stbir_resize_uint8_srgb_edgemode(
-					inBin->m_rawData.data(),
-					m_width,
-					m_height,
-					0,
-					m_snapshotData.data(),
-					m_widthSnapShot,
-					m_heightSnapShot,
-					0,
-					GAssetTextureChannels,
-					GAssetTextureChannels - 1,
-					STBIR_FLAG_ALPHA_PREMULTIPLIED,
-					STBIR_EDGE_CLAMP
-				);
-
-				// Post process.
-				for (size_t i = 0; i < m_snapshotData.size(); i += GAssetTextureChannels)
-				{
-					m_snapshotData[i + 0] = linearToSrgb(m_snapshotData[i + 0]);
-					m_snapshotData[i + 1] = linearToSrgb(m_snapshotData[i + 1]);
-					m_snapshotData[i + 2] = linearToSrgb(m_snapshotData[i + 2]);
-				}
-			}
-			else
-			{
-				stbir_resize_uint8(
-					inBin->m_rawData.data(),
-					m_width,
-					m_height,
-					0,
-					m_snapshotData.data(),
-					m_widthSnapShot,
-					m_heightSnapShot,
-					0,
-					GAssetTextureChannels
-				);
-			}
+			// Do srgb convert for all texture, so they will looks same with browser editor.
+			stbir_resize_uint8_srgb_edgemode(
+				inBin->m_rawData.data(),
+				m_width,
+				m_height,
+				0,
+				m_snapshotData.data(),
+				m_widthSnapShot,
+				m_heightSnapShot,
+				0,
+				GAssetTextureChannels,
+				GAssetTextureChannels - 1,
+				STBIR_FLAG_ALPHA_PREMULTIPLIED,
+				STBIR_EDGE_CLAMP
+			);
 		}
-
-		
-
 	}
 
 	float getAlphaCoverageRGBA8(const unsigned char* data, uint32_t width, uint32_t height, float scale, int cutoff)
@@ -338,12 +319,12 @@ namespace Flower
 
 		if (bBuildMipmap)
 		{
+			// NOTE: Current we don't do any gpu compression in runtime, we use toKtx tool if need.
 			processingImageBin->buildMipmapDataRGBA8(this, cutOff);
 		}
 
 		// Build snapshot data from bin.
 		buildSnapshotData2D(processingImageBin);
-
 
 		stbi_image_free(pixels);
 
@@ -543,7 +524,6 @@ namespace Flower
 	{
 		CHECK(cacheRawData.size() <= uploadSize());
 
-		// TODO: Sometimes it trigger race condition here when start editor. need to fix.
 		stageBuffer.map();
 		memcpy((void*)((char*)stageBuffer.mapped + stageBufferOffset),  cacheRawData.data(), cacheRawData.size());
 		stageBuffer.unmap();
@@ -671,7 +651,7 @@ namespace Flower
 		std::shared_ptr<GPUImageAsset> newAsset = std::shared_ptr<GPUImageAsset>(new GPUImageAsset(
 			false,
 			fallbackWhite,
-			inHeader->getFormat(),
+			VK_FORMAT_R8G8B8A8_UNORM, // All snapshot is unorm.
 			inHeader->getName(),
 			1,
 			inHeader->getSnapShotWidth(),

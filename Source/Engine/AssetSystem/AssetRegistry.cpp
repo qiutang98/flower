@@ -151,6 +151,9 @@ namespace Flower
 
 		// Loop asset entry tree ensure all entry header is valid.
 		{
+#if 0
+			// Don't loop with delete. this is illegal.
+			// Can fix with a temp vector store delte result.
 			loopNodeDownToTop([this](std::shared_ptr<RegistryEntry> entry)
 			{
 				// Unvalid leaf entry which store unvalid asset header id.
@@ -163,6 +166,7 @@ namespace Flower
 					}
 				}
 			}, m_registryEntryRoot);
+#endif
 
 			// Copy asset map to erase.
 			std::unordered_map<UUID, std::shared_ptr<AssetHeaderInterface>> entryAssetSet = m_assetMap;

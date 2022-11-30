@@ -271,7 +271,7 @@ void WidgetContentViewer::drawContent()
 
 void WidgetContentViewer::drawContentTreeView(const std::shared_ptr<Flower::RegistryEntry>& entry)
 {
-	const bool bTreeNode = !entry->isLeaf();
+	const bool bTreeNode = !entry->isLeaf() || entry->getAssetHeaderID().empty();
 
 	ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_AllowItemOverlap | ImGuiTreeNodeFlags_SpanFullWidth;
 	nodeFlags |= bTreeNode ? ImGuiTreeNodeFlags_OpenOnArrow : ImGuiTreeNodeFlags_Leaf;
@@ -638,50 +638,51 @@ void AssetSnapShotDrawer::draw(float drawDimSize)
 	
 	set = EditorAssetSystem::get()->getSetByAssetAsSnapShot(TextureManager::get()->getImage(EngineTextures::GWhiteTextureUUID).get());
 
-	if (entryPtr->isLeaf())
+	if (!entryPtr->isFoleder())
 	{
-		
-		auto assetHeader = AssetRegistryManager::get()->getHeaderMap().at(entryPtr->getAssetHeaderID());
-		if (assetHeader->getType() == EAssetType::Texture)
+		if (auto assetHeader = AssetRegistryManager::get()->getHeaderMap().at(entryPtr->getAssetHeaderID()))
 		{
-			auto imageAsset = std::dynamic_pointer_cast<ImageAssetHeader>(assetHeader);
-
-			if (!cacheAsset)
+			if (assetHeader->getType() == EAssetType::Texture)
 			{
-				cacheAsset = TextureManager::get()->getOrCreateLRUSnapShot(imageAsset);
+				auto imageAsset = std::dynamic_pointer_cast<ImageAssetHeader>(assetHeader);
+
+				if (!cacheAsset)
+				{
+					cacheAsset = TextureManager::get()->getOrCreateLRUSnapShot(imageAsset);
+				}
+
+				set = EditorAssetSystem::get()->getSetByAssetAsSnapShot(cacheAsset->getReadyAsset());
+
+				const auto w = imageAsset->getSnapShotWidth();
+				const auto h = imageAsset->getSnapShotHeight();
+
+				if (w < h)
+				{
+					uv0.x = 0.0f - (1.0f - float(w) / float(h)) * 0.5f;
+					uv1.x = 1.0f + (1.0f - float(w) / float(h)) * 0.5f;
+
+					uv0.y = -uvScale;
+					uv1.y = 1.0f + uvScale;
+
+				}
+				else if (w > h)
+				{
+					uv0.y = 0.0f - (1.0f - float(h) / float(w)) * 0.5f;
+					uv1.y = 1.0f + (1.0f - float(h) / float(w)) * 0.5f;
+
+					uv0.x = -uvScale;
+					uv1.x = 1.0f + uvScale;
+				}
 			}
-
-			set = EditorAssetSystem::get()->getSetByAssetAsSnapShot(cacheAsset->getReadyAsset());
-
-			const auto w = imageAsset->getSnapShotWidth();
-			const auto h = imageAsset->getSnapShotHeight();
-
-			if (w < h)
+			else
 			{
-				uv0.x = 0.0f - (1.0f - float(w) / float(h)) * 0.5f;
-				uv1.x = 1.0f + (1.0f - float(w) / float(h)) * 0.5f;
-
-				uv0.y = -uvScale;
-				uv1.y = 1.0f + uvScale;
-
-			}
-			else if (w > h)
-			{
-				uv0.y = 0.0f - (1.0f - float(h) / float(w)) * 0.5f;
-				uv1.y = 1.0f + (1.0f - float(h) / float(w)) * 0.5f;
+				set = EditorAssetSystem::get()->getSetByAssetAsSnapShot(TextureManager::get()->getImage(GEditorFileIconUUID).get());
 
 				uv0.x = -uvScale;
 				uv1.x = 1.0f + uvScale;
+				uv0.y = -uvScale;
+				uv1.y = 1.0f + uvScale;
 			}
-		}
-		else
-		{
-			set = EditorAssetSystem::get()->getSetByAssetAsSnapShot(TextureManager::get()->getImage(GEditorFileIconUUID).get());
-			
-			uv0.x = -uvScale;
-			uv1.x = 1.0f + uvScale;
-			uv0.y = -uvScale;
-			uv1.y = 1.0f + uvScale;
 		}
 	}
 	else

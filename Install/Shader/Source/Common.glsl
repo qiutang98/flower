@@ -192,32 +192,6 @@ struct DirectionalLightInfo
     float pad2;
 };
 
-struct TonemapperParam
-{
-    float tonemapper_P;  // Max brightness.
-    float tonemapper_a;  // contrast
-    float tonemapper_m; // linear section start
-    float tonemapper_l;  // linear section length
-
-    float tonemapper_c; // black
-    float tonemapper_b;  // pedestal
-    float tonemmaper_s;
-    float pad1;
-
-    uint shoulder;
-    uint con;
-    uint soft;
-    uint con2;
-
-    uint clip;
-    uint scaleOnly;
-    uint displayMode;
-    uint bHdr10;
-
-    mat4 inputToOutputMatrix;
-    ivec4 ctl[24 * 4];
-};
-
 // One frame data, cache some common info for rendering.
 struct FrameData
 {
@@ -259,8 +233,6 @@ struct FrameData
 
     // atmosphere of current earth.
     EarthAtmosphere earthAtmosphere;
-
-    TonemapperParam toneMapper;
 };
 
 // All units in kilometers
@@ -314,8 +286,6 @@ struct AtmosphereParameters
 
     float cloudAreaStartHeight; // km
     float cloudAreaThickness;
-	
-    
 };
 
 // All units in kilometers

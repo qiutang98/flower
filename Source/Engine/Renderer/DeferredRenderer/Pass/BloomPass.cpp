@@ -4,6 +4,7 @@
 #include "../../RenderSceneData.h"
 #include "../../SceneTextures.h"
 #include "../../RenderSettingContext.h"
+#include "BloomCommon.h"
 
 #include <glm/gtc/integer.hpp>
 
@@ -142,9 +143,13 @@ namespace Flower
         }
 	};
 
-    
-
-    PoolImageSharedRef DeferredRenderer::renderBloom(VkCommandBuffer cmd, Renderer* renderer, SceneTextures* inTextures, RenderSceneData* scene, BufferParamRefPointer& viewData, BufferParamRefPointer& frameData)
+    PoolImageSharedRef DeferredRenderer::renderBloom(
+        VkCommandBuffer cmd, 
+        Renderer* renderer, 
+        SceneTextures* inTextures, 
+        RenderSceneData* scene, 
+        BufferParamRefPointer& viewData, 
+        BufferParamRefPointer& frameData)
 	{
         auto& hdrSceneColor = inTextures->getHdrSceneColorUpscale()->getImage();
         hdrSceneColor.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
@@ -189,17 +194,14 @@ namespace Flower
                 1, (uint32_t)passSets.size(), passSets.data(), 0, nullptr);
 
 
-            // CHECK(m_averageLum && "Must call adaptive exposure before tonemapper."); // TODO: 
+            CHECK(m_averageLum && "Must call adaptive exposure before tonemapper.");
             VkDescriptorImageInfo lumImgInfo = RHIDescriptorImageInfoSample(m_averageLum->getImage().getView(buildBasicImageSubresource()));
 
             BloomDownsample downsamplePush{};
 
-            float knee = RenderSettingManager::get()->bloomThreshold * RenderSettingManager::get()->bloomThresholdSoft;
+            const auto& postProcessVolumeSetting = scene->getPostprocessVolumeSetting();
 
-            downsamplePush.prefilterFactor.x = RenderSettingManager::get()->bloomThreshold;
-            downsamplePush.prefilterFactor.y = downsamplePush.prefilterFactor.x - knee;
-            downsamplePush.prefilterFactor.z = 2.0f * knee;
-            downsamplePush.prefilterFactor.w = 0.25f / (knee + 0.00001f);
+            downsamplePush.prefilterFactor = getBloomPrefilter(postProcessVolumeSetting.bloomThreshold, postProcessVolumeSetting.bloomThresholdSoft);
 
             VkDescriptorImageInfo inImageInfo{};
             VkDescriptorImageInfo outImageInfo{};
@@ -274,7 +276,9 @@ namespace Flower
                     RHIPushWriteDescriptorSetImage(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &outImageInfo),
                 };
 
-                BloomPushUpscale upscalePush{ .bBlurX = 1u, .blurRadius = RenderSettingManager::get()->bloomRadius, };
+                const auto& postProcessVolumeSetting = scene->getPostprocessVolumeSetting();
+
+                BloomPushUpscale upscalePush{ .bBlurX = 1u, .blurRadius = postProcessVolumeSetting.bloomRadius, };
                 vkCmdPushConstants(cmd, pass->upscalePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(upscalePush), &upscalePush);
                 RHI::PushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->upscalePipelineLayout, 0, uint32_t(writes.size()), writes.data());
 
@@ -284,7 +288,7 @@ namespace Flower
 
                 inImageInfo = RHIDescriptorImageInfoSample(blurX->getImage().getView(buildBasicImageSubresource()));
 
-                upscalePush = { .bBlurX = 0u, .bFinalBlur = (bHighestUpscale ? 1u : 0u), .upscaleTime = workMip - 1,.blurRadius = RenderSettingManager::get()->bloomRadius,};
+                upscalePush = { .bBlurX = 0u, .bFinalBlur = (bHighestUpscale ? 1u : 0u), .upscaleTime = workMip - 1,.blurRadius = postProcessVolumeSetting.bloomRadius,};
                 vkCmdPushConstants(cmd, pass->upscalePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(upscalePush), &upscalePush);
                 auto blurY = m_rtPool->createPoolImage("blurY", workWidth, workHeight, hdrSceneColor.getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
 

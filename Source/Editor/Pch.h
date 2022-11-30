@@ -23,8 +23,6 @@
 #include "../Engine/Scene/CameraInterface.h"
 #include "../Engine/AssetSystem/MeshManager.h"
 #include "../Engine/Renderer/DeferredRenderer/DeferredRenderer.h"
-#include "../Engine/Scene/Component/PMXComponent.h"
-#include "../Engine/Scene/Component/DirectionalLight.h"
-#include "../Engine/Scene/Component/SpotLight.h"
+#include "../Engine/Scene/SceneArchive.h"
 
 #include "../Engine/Renderer/RenderSettingContext.h"

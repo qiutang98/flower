@@ -258,14 +258,16 @@ namespace Flower
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->pipelineLayout,
             1, (uint32_t)passSets.size(), passSets.data(), 0, nullptr);
 
+        const auto& postProcessVolumeSetting = scene->getPostprocessVolumeSetting();
+
         GTAOPush pushConst
         {
-            .sliceNum = (uint32_t)RenderSettingManager::get()->GTAO_sliceNum,
-            .stepNum = (uint32_t)RenderSettingManager::get()->GTAO_stepNum,
-            .radius = RenderSettingManager::get()->GTAO_radius,
-            .thickness = RenderSettingManager::get()->GTAO_thickness,
-            .power = RenderSettingManager::get()->GTAO_Power,
-            .intensity = RenderSettingManager::get()->GTAO_Intensity,
+            .sliceNum = (uint32_t)postProcessVolumeSetting.gtaoSliceNum,
+            .stepNum = (uint32_t)postProcessVolumeSetting.gtaoStepNum,
+            .radius = postProcessVolumeSetting.gtaoRadius,
+            .thickness = postProcessVolumeSetting.gtaoThickness,
+            .power = postProcessVolumeSetting.gtaoPower,
+            .intensity = postProcessVolumeSetting.gtaoIntensity,
         };
         vkCmdPushConstants(cmd, pass->pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pushConst), &pushConst);
 

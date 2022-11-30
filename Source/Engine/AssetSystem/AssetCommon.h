@@ -63,8 +63,6 @@ namespace Flower
 		std::shared_ptr<AssetBinInterface> m_cacheBinData = nullptr;
 		std::weak_ptr<AssetBinInterface>   m_cacheBinDataRef;
 
-
-
 	public:
 		AssetHeaderInterface() = default;
 		AssetHeaderInterface(AssetHeaderUUID uuid, const std::string& name)

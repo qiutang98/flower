@@ -1,7 +1,7 @@
 #include "Pch.h"
 #include "RenderSetting.h"
 #include "../Editor.h"
-#include "DrawComponent.h"
+#include "DrawComponent/DrawComponent.h"
 #include "ViewportCamera.h"
 
 using namespace Flower;
@@ -35,7 +35,6 @@ void WidgetRenderSetting::onTick(const RuntimeModuleTickData& tickData)
 	m_viewportCamera = GEditor->getWidgetViewport()->getCamera();
 }
 
-
 void WidgetRenderSetting::onVisibleTick(const RuntimeModuleTickData& tickData)
 {
 	ImGui::Spacing();
@@ -45,55 +44,16 @@ void WidgetRenderSetting::onVisibleTick(const RuntimeModuleTickData& tickData)
 	ImGui::Separator();
 	ImGui::Spacing();
 
-	if (ImGui::CollapsingHeader("Bloom Setting"))
-	{
-		ImGui::PushID("BloomSetting");
-		ImGui::Spacing();
-		ImGui::Indent();
-		ImGui::PushItemWidth(100.0f);
-
-		ImGui::DragFloat("Intensity", &RenderSettingManager::get()->bloomIntensity, 0.01f, 0.0f, 1.0);
-		ImGui::DragFloat("Radius", &RenderSettingManager::get()->bloomRadius, 0.01f, 0.0f, 1.0);
-
-		ImGui::DragFloat("Threshold", &RenderSettingManager::get()->bloomThreshold, 0.01f, 0.0f, 1.0);
-		ImGui::DragFloat("Threshold soft", &RenderSettingManager::get()->bloomThresholdSoft, 0.01f, 0.0f, 1.0);
-
-		ImGui::PopItemWidth();
-		ImGui::Unindent();
-		ImGui::Spacing();
-		ImGui::PopID();
-	}
-
-	if (ImGui::CollapsingHeader("Exposure setting"))
-	{
-		ImGui::PushID("ExposureSetting");
-		ImGui::Spacing();
-		ImGui::Indent();
-		ImGui::PushItemWidth(100.0f);
-
-
-		ImGui::DragFloat("Low Percent", &RenderSettingManager::get()->AUTOEXPOSURE_lowPercent, 1e-3f, 0.01f, 0.5f);
-		ImGui::DragFloat("High Percent", &RenderSettingManager::get()->AUTOEXPOSURE_highPercent, 1e-3f, 0.5f, 0.99f);
-
-		ImGui::DragFloat("Min Brightness", &RenderSettingManager::get()->AUTOEXPOSURE_minBrightness, 0.5f, -9.0f, 9.0f);
-		ImGui::DragFloat("Max Brightness", &RenderSettingManager::get()->AUTOEXPOSURE_maxBrightness, 0.5f, -9.0f, 9.0f);
-
-		ImGui::DragFloat("Speed Down", &RenderSettingManager::get()->AUTOEXPOSURE_speedDown, 0.1f, 0.0f);
-		ImGui::DragFloat("Speed Up", &RenderSettingManager::get()->AUTOEXPOSURE_speedUp, 0.1f, 0.0f);
-
-		ImGui::DragFloat("Exposure Compensation", &RenderSettingManager::get()->AUTOEXPOSURE_exposureCompensation, 1.0f, 0.0f);
-
-		ImGui::PopItemWidth();
-		ImGui::Unindent();
-		ImGui::Spacing();
-		ImGui::PopID();
-	}
+	bool bHDR = RenderSettingManager::get()->displayMode == RHI::DISPLAYMODE_HDR10_2084;
+	ImGui::Checkbox("Hdr10_2084", &bHDR);
+	RenderSettingManager::get()->displayMode = bHDR ? RHI::DISPLAYMODE_HDR10_2084 : RHI::DISPLAYMODE_SDR;
 
 	if (ImGui::CollapsingHeader("IBL Setting"))
 	{
 		ImGui::Spacing();
 		ImGui::Indent();
 		ImGui::PushItemWidth(100.0f);
+
 
 
 		ImGui::Checkbox("IBL Lighting", &RenderSettingManager::get()->ibl.bEnableIBLLight);
@@ -148,34 +108,7 @@ void WidgetRenderSetting::onVisibleTick(const RuntimeModuleTickData& tickData)
 		ImGui::Spacing();
 	}
 
-	if (ImGui::CollapsingHeader("GTAO Setting"))
-	{
-		ImGui::Spacing();
-		ImGui::Indent();
-		ImGui::PushItemWidth(100.0f);
-
-		ImGui::DragInt("slice num", &RenderSettingManager::get()->GTAO_sliceNum, 1, 1, 8);
-		if (RenderSettingManager::get()->GTAO_sliceNum >= 1)
-		{
-			RenderSettingManager::get()->GTAO_sliceNum = (int)glm::clamp(getNextPOT(RenderSettingManager::get()->GTAO_sliceNum), 1u, 8u);
-		}
-		else
-		{
-			RenderSettingManager::get()->GTAO_sliceNum = 1;
-		}
-
-		ImGui::DragInt("step times", &RenderSettingManager::get()->GTAO_stepNum, 1, 1, 12);
-		ImGui::DragFloat("radius", &RenderSettingManager::get()->GTAO_radius, 0.1f, 0.5f, 4.0f);
-		ImGui::DragFloat("thickness", &RenderSettingManager::get()->GTAO_thickness, 0.1f, 0.1f, 1.0f);
-
-		ImGui::DragFloat("ao power", &RenderSettingManager::get()->GTAO_Power, 0.1f, 0.1f, 3.0f);
-		ImGui::DragFloat("ao intensity", &RenderSettingManager::get()->GTAO_Intensity, 0.1f, 0.0f, 1.0f);
-
-		ImGui::PopItemWidth();
-		ImGui::Unindent();
-		ImGui::Spacing();
-	}
-
+	
 	if (ImGui::CollapsingHeader("Viewport Camera Control"))
 	{
 		ImGui::Spacing();
@@ -191,46 +124,6 @@ void WidgetRenderSetting::onVisibleTick(const RuntimeModuleTickData& tickData)
 		ImGui::DragFloat("ISO", &m_viewportCamera->iso, 1.0f, 50.0f, 1000.0f);
 		ImGui::DragFloat("shutter speed", &m_viewportCamera->shutterSpeed, 0.01f, 1.0f / 360.0f, 20.0f);
 		ImGui::DragFloat("exposure compensation", &m_viewportCamera->exposureCompensation, 1.0f, -100.0f, 100.0f);
-
-		ImGui::PopItemWidth();
-		ImGui::Unindent();
-		ImGui::Spacing();
-	}
-
-	if (ImGui::CollapsingHeader("Global Tonemmaper Setting"))
-	{
-		ImGui::Spacing();
-		ImGui::Indent();
-		ImGui::PushItemWidth(100.0f);
-
-#if 0
-		const char* listbox_items[] = { "Campfire", "Lamp", "P3_1000_nits", "Rec2020_1000_nits", "Rec709_5000_nits"};
-		int listbox_item_current = int(RenderSettingManager::get()->lummapCase);
-		ImGui::ListBox("Case", &listbox_item_current, listbox_items, IM_ARRAYSIZE(listbox_items), 5);
-
-		RenderSettingManager::get()->lummapCase = LummapCase(listbox_item_current);
-#endif
-
-
-		bool bHDR = RenderSettingManager::get()->displayMode == RHI::DISPLAYMODE_HDR10_2084;
-		ImGui::Checkbox("Hdr10_2084", &bHDR);
-
-		RenderSettingManager::get()->displayMode = bHDR ? RHI::DISPLAYMODE_HDR10_2084 : RHI::DISPLAYMODE_SDR;
-
-		ImGui::DragFloat("Max brightness", &RenderSettingManager::get()->tonemapper_P, 1.0f, 1.0f);
-
-		if (bHDR)
-		{
-			ImGui::DragFloat("scale", &RenderSettingManager::get()->tonemmaper_s, 1.0f, 1.0f);
-		}
-
-		ImGui::DragFloat("contrast", &RenderSettingManager::get()->tonemapper_a, 1.0f, 1.0f);
-		ImGui::DragFloat("linear section start", &RenderSettingManager::get()->tonemapper_m, 1.0f, 1.0f);
-		ImGui::DragFloat("linear section length", &RenderSettingManager::get()->tonemapper_l, 1.0f, 1.0f);
-		ImGui::DragFloat("black", &RenderSettingManager::get()->tonemapper_c, 1.0f, 1.0f);
-		ImGui::DragFloat("pedestal", &RenderSettingManager::get()->tonemapper_b, 1.0f, 1.0f);
-
-		
 
 		ImGui::PopItemWidth();
 		ImGui::Unindent();

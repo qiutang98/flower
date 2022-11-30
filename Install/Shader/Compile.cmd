@@ -43,6 +43,3 @@ call CompileAtmosphere.cmd
 
 : SSR 
 call CompileSSR.cmd
-
-: SSGI
-call CompileSSGI.cmd
