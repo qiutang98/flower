@@ -1,6 +1,10 @@
 #ifndef DEBAND_16_GLSL
 #define DEBAND_16_GLSL
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 // A single iteration of Bob Jenkins' One-At-A-Time hashing algorithm.
 uint hash( uint x ) 
 {

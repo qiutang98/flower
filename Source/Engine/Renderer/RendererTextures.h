@@ -70,10 +70,10 @@ namespace Flower
 	{
 		inline VkImageUsageFlags hdrSceneColor() 
 		{
-			return 
+			return
 				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
 				VK_IMAGE_USAGE_STORAGE_BIT |
-				VK_IMAGE_USAGE_SAMPLED_BIT;
+				VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 		}
 
 		inline VkImageUsageFlags gbuffer()
@@ -87,9 +87,9 @@ namespace Flower
 
 		inline VkImageUsageFlags depth()
 		{ 
-			return 
+			return
 				VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
-				VK_IMAGE_USAGE_SAMPLED_BIT;
+				VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 		}
 
 		inline VkImageUsageFlags displayOutput()

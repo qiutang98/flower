@@ -1,6 +1,10 @@
 #ifndef COMMON_GLSL
 #define COMMON_GLSL
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 #include "Schedule.glsl"
 
 /**
@@ -45,12 +49,6 @@
 //       See linearizeDepth function and viewspaceDepth function.
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-float remap(float v, float s, float e) { return (v - s) / (e - s); }
-float remap(float x, float a, float b, float c, float d) { return (((x - a) / (b - a)) * (d - c)) + c; }
-
-float linearstep(const float s, const float e, float v) { return clamp((v - s) / (e - s), 0., 1. );}
-float linearstep0(const float e, float v) { return min(v / e, 1.0); }
 
 float mean(vec2 v) { return dot(v, vec2(1.0f / 2.0f)); }
 float mean(vec3 v) { return dot(v, vec3(1.0f / 3.0f)); }
@@ -165,7 +163,15 @@ struct EarthAtmosphere // Color space 2020
     float cloudAreaStartHeight; // km
     float cloudAreaThickness;
     float atmospherePreExposure;
-    float pad1;
+    float cloudShadowExtent;
+
+    vec3 camWorldPos; // cameraworld Position, in atmosphere space unit.
+    float pad2;
+
+    // World space to cloud space view project matrix.
+    // Unit also is km.
+    mat4 cloudSpaceViewProject;
+    mat4 cloudSpaceViewProjectInverse;
 };
 
 struct DirectionalLightInfo
@@ -212,7 +218,7 @@ struct FrameData
     uint staticMeshCount;
     uint bSdsmDraw;
 
-	float pad0;
+	uint bCameraCut;
 	uint  globalIBLEnable;
 	float globalIBLIntensity;
 	float pad2;
@@ -286,6 +292,9 @@ struct AtmosphereParameters
 
     float cloudAreaStartHeight; // km
     float cloudAreaThickness;
+
+    mat4 cloudShadowViewProj;
+    mat4 cloudShadowViewProjInverse;
 };
 
 // All units in kilometers
@@ -321,6 +330,10 @@ AtmosphereParameters getAtmosphereParameters(in const FrameData frameData)
     parameters.cloudAreaStartHeight = frameData.earthAtmosphere.cloudAreaStartHeight;
     parameters.cloudAreaThickness = frameData.earthAtmosphere.cloudAreaThickness;
     parameters.atmospherePreExposure = frameData.earthAtmosphere.atmospherePreExposure;
+
+
+    parameters.cloudShadowViewProj = frameData.earthAtmosphere.cloudSpaceViewProject;
+    parameters.cloudShadowViewProjInverse = frameData.earthAtmosphere.cloudSpaceViewProjectInverse;
 
 	return parameters;
 }
@@ -424,22 +437,27 @@ struct ViewData
 bool cameraCut(in const FrameData frameData)
 {
     // When camera cut, frame index reset to zero.
-    return frameData.frameIndex.x == 0; 
+    return frameData.bCameraCut == 0; 
 }
 
+// Air perspective.
+const float kAirPerspectiveKmPerSlice = 4.0f; // total 32 * 4 = 128 km.
+float aerialPerspectiveDepthToSlice(float depth) { return depth * (1.0f / kAirPerspectiveKmPerSlice); }
+float aerialPerspectiveSliceToDepth(float slice) { return slice * kAirPerspectiveKmPerSlice; }
 
-// Camera unit to atmosphere unit convert.
+// Same with cpp.
+// Camera unit to atmosphere unit convert. meter -> kilometers.
 vec3 convertToAtmosphereUnit(vec3 o, in const ViewData viewData)
 {
 	const float cameraOffset = viewData.cameraAtmosphereOffsetHeight;
-	return o * 0.001f * viewData.cameraAtmosphereMoveScale + cameraOffset;
+	return o * 0.001f * viewData.cameraAtmosphereMoveScale + vec3(0.0, cameraOffset, 0.0);
 }  
-
+// Same with cpp.
 vec3 convertToCameraUnit(vec3 o, in const ViewData viewData)
 {
 	const float cameraOffset = viewData.cameraAtmosphereOffsetHeight;
 
-	vec3 o1 = o - cameraOffset;
+	vec3 o1 = o - vec3(0.0, cameraOffset, 0.0);
 	return o1 / (0.001f * viewData.cameraAtmosphereMoveScale);
 }  
 

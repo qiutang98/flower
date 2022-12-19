@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
@@ -103,6 +103,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Undo.cpp" />
     <ClCompile Include="Widgets\DrawComponent\DrawComponentLandscape.cpp" />
     <ClCompile Include="Widgets\DrawComponent\DrawComponentPostprocessVolume.cpp" />
     <ClCompile Include="EditorAsset.cpp" />
@@ -122,6 +123,7 @@
     <ClCompile Include="Widgets\DrawComponent\DrawComponentDirectionalLight.cpp" />
     <ClCompile Include="Widgets\DrawComponent\DrawComponentLight.cpp" />
     <ClCompile Include="Widgets\DrawComponent\DrawComponentPMX.cpp" />
+    <ClCompile Include="Widgets\DrawComponent\DrawComponentReflectionCapture.cpp" />
     <ClCompile Include="Widgets\DrawComponent\DrawComponentSkyLight.cpp" />
     <ClCompile Include="Widgets\DrawComponent\DrawComponentSpotLight.cpp" />
     <ClCompile Include="Widgets\DrawComponent\DrawComponentStaticMesh.cpp" />
@@ -143,6 +145,7 @@
     <ClInclude Include="Widgets\Downbar.h" />
     <ClInclude Include="Editor.h" />
     <ClInclude Include="Widgets\DrawComponent\DrawComponent.h" />
+    <ClInclude Include="Undo.h" />
     <ClInclude Include="Widgets\MainMenu.h" />
     <ClInclude Include="Widgets\ProjectSelect.h" />
     <ClInclude Include="Widgets\RenderSetting.h" />

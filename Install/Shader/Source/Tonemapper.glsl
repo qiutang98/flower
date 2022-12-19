@@ -1,5 +1,9 @@
 #version 460
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 #extension GL_EXT_samplerless_texture_functions : enable
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
@@ -186,7 +190,7 @@ void main()
     offsetId.y = offsetId.y % colorSize.y;
 
     // Display is 8bit, so jitter with blue noise with [-1, 1] / 255.0.
-    // Current looks good in hdr display also.
+    // Current also looks good in hdr display even it under 11bit.
     mappingColor.x += 1.0 / 255.0 * (-1.0 + 2.0 * samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d(offsetId.x, offsetId.y, 0, 0u));
     mappingColor.y += 1.0 / 255.0 * (-1.0 + 2.0 * samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d(offsetId.x, offsetId.y, 0, 1u));
     mappingColor.z += 1.0 / 255.0 * (-1.0 + 2.0 * samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d(offsetId.x, offsetId.y, 0, 2u));

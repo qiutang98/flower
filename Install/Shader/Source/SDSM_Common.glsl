@@ -1,6 +1,10 @@
 #ifndef SDSM_COMMON_GLSL
 #define SDSM_COMMON_GLSL
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 // My personal sample distribution shadow map tech implement.
 // Total four pass.
 // pass #0. evaluate scene depth z min max uint value. See SDSMDepthRange.glsl file.

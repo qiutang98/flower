@@ -1,6 +1,10 @@
 #ifndef FAST_MATH_GLSL
 #define FAST_MATH_GLSL
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 #include "Common.glsl"
 
 // Relative error : ~3.4% over full

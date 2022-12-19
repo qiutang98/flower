@@ -1,5 +1,9 @@
 #version 460
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 #extension GL_GOOGLE_include_directive : enable
 
 // Smapler blue noise from Eric Heitz at Siggraph 2019 unity course.

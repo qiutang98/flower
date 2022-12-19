@@ -12,6 +12,8 @@ namespace Flower
 	static AutoCVarInt32 cVarEnableFSR2RCAS("r.FSR2.RCAS", "Enable RCAS", "FSR2", 1, CVarFlags::ReadAndWrite);
 	static AutoCVarFloat cVarFSR2RCASSharp("r.FSR2.RCASSharpe", "RCAS shapern", "FSR2", 0.5f, CVarFlags::ReadAndWrite);
 
+	static AutoCVarCmd cVarFSRReset("cmd.fsr.reset", "Reset fsr.");
+
 	static VkDeviceSize getMemoryUsageSnapshot(VkPhysicalDevice physicalDevice)
 	{
 		// check if VK_EXT_memory_budget is enabled
@@ -311,6 +313,7 @@ namespace Flower
 		BufferParamRefPointer& frameData,
 		const RuntimeModuleTickData& tickData)
 	{
+
 		// Config setup.
 		auto& config = m_fsr2->config;
 		{
@@ -324,11 +327,19 @@ namespace Flower
 			config.fovV = m_cacheViewData.camInfo.x;
 			config.deltaTime = tickData.deltaTime;
 
+			bool bForceCameraCut = false;
+			CVarCmdHandle(cVarFSRReset, [&]() { bForceCameraCut = true; });
+
+			// When camera cut, tick count reset 0.
+			config.bCameraReset = bForceCameraCut || (m_cameraCutState == 0); 
+
 			// RCAS config.
 			{
 				config.bUseRcas = cVarEnableFSR2RCAS.get() > 0;
 				config.sharpening = glm::clamp(cVarFSR2RCASSharp.get(), 0.0f, 1.0f);
 			}
+
+			//////////////////////////////////////////////////////////
 
 			// ReactiveMask mode.
 			{
@@ -343,11 +354,11 @@ namespace Flower
 			}
 
 			// Translucency composition mask.
-			config.bCompositionMask = false;
+			config.bCompositionMask = true;
 
-			// Camera reset or camera cut state on current frame?
-			config.bCameraReset = false;
 
+
+			// Test?
 			config.lodTextureBasicBias = 0.0f;
 		}
 
@@ -369,11 +380,15 @@ namespace Flower
 			upscaleSetup.resolvedColorResource = inTextures->getHdrSceneColorUpscale();
 			upscaleSetup.resolvedColorResourceView = displayOut.getView(buildBasicImageSubresource());
 
+			upscaleSetup.reactiveMapResource = inTextures->getGbufferUpscaleReactive();
+			upscaleSetup.reactiveMapResourceView = inTextures->getGbufferUpscaleReactive()->getImage().getView(buildBasicImageSubresource());
+
+			upscaleSetup.transparencyAndCompositionResource = inTextures->getGbufferUpscaleTranslucencyAndComposition();
+			upscaleSetup.transparencyAndCompositionResourceView = inTextures->getGbufferUpscaleTranslucencyAndComposition()->getImage().getView(buildBasicImageSubresource());
 
 			// If FSR2 and auto reactive mask is enabled: generate reactive mask
 			if (config.reactiveMaskMode == EReactiveMaskMode::AutoGen)
 			{
-				CHECK_ENTRY();
 				m_fsr2->generateReactiveMask(cmd, upscaleSetup);
 			}
 

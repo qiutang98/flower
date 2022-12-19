@@ -32,11 +32,17 @@ namespace Flower
 		float mieDensity[12]; //
 		float absorptionDensity[12]; //
 
-		float cloudAreaStartHeight; // km
+		float cloudAreaStartHeight; // 
 		float cloudAreaThickness;
 		float atmospherePreExposure;
-		float pad1;
+		float cloudShadowExtent = 10.0f;
 
+		glm::vec3 camWorldPos; // cameraworld Position, in atmosphere space unit.
+		float pad2;
+
+		// world space position to cloud space. km is unit, so need to * 0.001 before multi this matrix.
+		glm::mat4 cloudSpaceViewProject;
+		glm::mat4 cloudSpaceViewProjectInverse;
 		void reset();
 	};
 
@@ -84,7 +90,7 @@ namespace Flower
 		uint32_t staticMeshCount;
 		uint32_t bSdsmDraw;
 
-		float pad0;
+		uint32_t bCameraCut;
 		uint32_t  globalIBLEnable;
 		float globalIBLIntensity;
 		float pad2;

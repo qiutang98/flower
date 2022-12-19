@@ -34,8 +34,6 @@ namespace Flower
 		m_atmosphereTransmittance = nullptr;
 		m_atmosphereFroxelScatter = nullptr;
 		m_atmosphereEnvCapture = nullptr;
-
-		m_cloudCompute = nullptr;
 	}
 
 	PoolImageSharedRef SceneTextures::getHdrSceneColor()
@@ -300,22 +298,6 @@ namespace Flower
 		}
 
 		return m_atmosphereEnvCapture;
-	}
-
-	PoolImageSharedRef SceneTextures::getCloudImage()
-	{
-		if (!m_cloudCompute)
-		{
-			m_cloudCompute = m_rtPool->createPoolImage(
-				"CloudCompute",
-				m_renderer->getRenderWidth(),
-				m_renderer->getRenderHeight(),
-				VK_FORMAT_R16G16B16A16_SFLOAT,
-				VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
-			);
-		}
-
-		return m_cloudCompute;
 	}
 
 	PoolImageSharedRef StaticTextures::getBRDFLut()

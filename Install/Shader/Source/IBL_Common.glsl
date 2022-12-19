@@ -1,6 +1,10 @@
 #ifndef IBL_COMMON_GLSL
 #define IBL_COMMON_GLSL
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 #include "LightingCommon.glsl"
 
 // https://www.mathematik.uni-marburg.de/~thormae/lectures/graphics1/code/ImportanceSampling/importance_sampling_notes.pdf

@@ -35,10 +35,14 @@ namespace Flower
 
 		virtual void updateRenderSizeImpl(uint32_t width, uint32_t height, float renderScale, float displayScale) override;
 
+		void setCameraCut();
+
 	private:
 		std::unique_ptr<FSR2Context> m_fsr2 = nullptr;
 		GPUFrameData m_cacheFrameData;
 		GPUViewData m_cacheViewData;
+
+		uint32_t m_cameraCutState = 0;
 
 	private:
 		void updateViewData(BufferParamRefPointer viewData, const RuntimeModuleTickData& tickData);
@@ -87,7 +91,8 @@ namespace Flower
 			SceneTextures* inTextures,
 			RenderSceneData* scene,
 			BufferParamRefPointer& viewData,
-			BufferParamRefPointer& frameData);
+			BufferParamRefPointer& frameData,
+			BlueNoiseMisc& inBlueNoise);
 
 		void renderSDSM(
 			VkCommandBuffer cmd,
@@ -117,6 +122,14 @@ namespace Flower
 			PoolImageSharedRef inHiz,
 			PoolImageSharedRef inGTAO,
 			BlueNoiseMisc& inBlueNoise);
+
+		void renderGodRay(
+			VkCommandBuffer cmd,
+			Renderer* renderer,
+			SceneTextures* inTextures,
+			RenderSceneData* scene,
+			BufferParamRefPointer& viewData,
+			BufferParamRefPointer& frameData);
 
 		void renderAtmosphere(
 			VkCommandBuffer cmd,
@@ -166,6 +179,8 @@ namespace Flower
 	private:
 		PoolImageSharedRef m_averageLum = nullptr;
 		PoolImageSharedRef m_gtaoHistory = nullptr;
+		PoolImageSharedRef m_cloudReconstruction = nullptr;
+		PoolImageSharedRef m_cloudReconstructionDepth = nullptr;
 
 		PoolImageSharedRef m_prevHDR = nullptr;
 		PoolImageSharedRef m_prevDepth = nullptr;

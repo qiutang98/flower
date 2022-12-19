@@ -29,7 +29,7 @@ namespace Flower
 		//////////////////////////////////////////////////////
 
 		// 
-		EReactiveMaskMode reactiveMaskMode = EReactiveMaskMode::AutoGen;
+		EReactiveMaskMode reactiveMaskMode = EReactiveMaskMode::On;
 		float fFsr2AutoReactiveScale = 1.f;
 		float fFsr2AutoReactiveThreshold = 0.2f;
 		float fFsr2AutoReactiveBinaryValue = 0.9f;
@@ -39,7 +39,7 @@ namespace Flower
 		bool  bFsr2AutoReactiveUseMax = true;
 
 		// Translucency composition mask.
-		bool bCompositionMask = false;
+		bool bCompositionMask = true;
 
 		// Camera reset or camera cut state on current frame?
 		bool bCameraReset;

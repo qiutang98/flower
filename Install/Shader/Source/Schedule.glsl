@@ -1,7 +1,9 @@
 #ifndef SCHEDULE_GLSL
 #define SCHEDULE_GLSL
 
-#include "BitFiled.glsl"
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
 
 // Compute shader schedule function.
 

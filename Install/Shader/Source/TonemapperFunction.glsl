@@ -1,6 +1,9 @@
 #ifndef TONEMAPPER_FUNCTION_GLSL
 #define TONEMAPPER_FUNCTION_GLSL
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
 
 // GT tonemapper.
 ///////////////////////////////////////////////////////// 

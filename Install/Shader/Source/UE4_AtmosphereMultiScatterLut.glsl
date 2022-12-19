@@ -1,12 +1,15 @@
 #version 460
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 #extension GL_GOOGLE_include_directive : enable
 #extension GL_KHR_shader_subgroup_arithmetic : require
 #extension GL_KHR_shader_subgroup_basic : require
 
 #define NO_MULTISCATAPPROX_ENABLED
 #include "UE4_AtmosphereCommon.glsl"
-
 
 const uint kSqrtSampleCount = 8;
 const uint kSampleCount = kSqrtSampleCount * kSqrtSampleCount;

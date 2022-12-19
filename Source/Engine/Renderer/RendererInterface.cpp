@@ -3,6 +3,7 @@
 #include "Parameters.h"
 #include "../Scene/CameraInterface.h"
 #include "Renderer.h"
+#include "SceneTextures.h"
 
 namespace Flower
 {
@@ -31,6 +32,7 @@ namespace Flower
 		CVarCmdHandle(cVarUpdatePasses, [&]()
 		{
 			m_passCollector->updateAllPasses();
+			StaticTexturesManager::get()->getPasses()->updateAllPasses();
 		});
 
 		// Tick RT pools.

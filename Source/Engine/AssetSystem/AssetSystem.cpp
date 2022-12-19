@@ -79,15 +79,15 @@ namespace Flower
 		GpuUploader::get()->addTask(GEngineTexturePBRLoad);
 
 		auto GEngineTextureCloudWeather = RawAssetTextureLoadTask::build(
-			"Image/CloudWeather.png",
+			"Image/WeatherTexture.tga",
 			EngineTextures::GCloudWeatherUUID,
-			VK_FORMAT_R8G8B8A8_SRGB);
+			VK_FORMAT_R8G8B8A8_UNORM);
 		GpuUploader::get()->addTask(GEngineTextureCloudWeather);
 		 
 		auto GEngineTextureClouGradient = RawAssetTextureLoadTask::build(
 			"Image/CloudGradient.png",
 			EngineTextures::GCloudGradientUUID,
-			VK_FORMAT_R8G8B8A8_SRGB);
+			VK_FORMAT_R8G8B8A8_UNORM);
 		GpuUploader::get()->addTask(GEngineTextureClouGradient);
 
 		// Mesh upload.

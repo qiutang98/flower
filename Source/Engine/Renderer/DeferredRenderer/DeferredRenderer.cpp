@@ -119,11 +119,6 @@ namespace Flower
 			frame.jitterPeriod = jitterPhaseCount;
 		}
 
-		
-
-		// Fill atmosphere info.
-		frame.earthAtmosphere = renderScene->getEarthAtmosphere();
-
 		auto& ibl = RenderSettingManager::get()->ibl;
 		frame.globalIBLEnable = ibl.iblEnable() ? 1u : 0u;
 		frame.globalIBLIntensity = ibl.intensity;
@@ -138,9 +133,41 @@ namespace Flower
 
 		frame.basicTextureLODBias = m_fsr2->config.lodTextureBasicBias;
 
-
+		frame.bCameraCut = m_cameraCutState;
 		frame.staticMeshCount = (uint32_t)renderScene->getCollectStaticMeshes().size();
 		frame.bSdsmDraw = ((frame.staticMeshCount > 0) && (frame.directionalLightCount > 0)) ? 1 : 0;
+
+
+		// Fill atmosphere info.
+		frame.earthAtmosphere = renderScene->getEarthAtmosphere();
+		{
+			// Same with glsl.
+			frame.earthAtmosphere.camWorldPos =
+				m_camera->getPosition() * 0.001f * m_camera->atmosphereMoveScale +
+				glm::vec3{ 0.0f, m_camera->atmosphereHeightOffset + frame.earthAtmosphere.bottomRadius, 0.0f };
+
+
+			// Then we need to compute cloud's project matrix.
+			glm::mat4 shadowView = glm::lookAtRH(
+				// Camera look from cloud top position.
+				frame.earthAtmosphere.camWorldPos - glm::normalize(frame.directionalLight.direction) * frame.earthAtmosphere.cloudAreaThickness,
+				// Camera look at earth center.
+				frame.earthAtmosphere.camWorldPos,
+				// Up direction. 
+				glm::vec3{ 0.0f, 1.0f, 0.0f } // Z up ?
+			);
+			glm::mat4 shadowProj = glm::orthoRH_ZO(
+				-frame.earthAtmosphere.cloudShadowExtent,
+				frame.earthAtmosphere.cloudShadowExtent,
+				-frame.earthAtmosphere.cloudShadowExtent,
+				frame.earthAtmosphere.cloudShadowExtent,
+				 10.0f * frame.earthAtmosphere.cloudAreaThickness, // Also reverse z for cloud shadow depth.
+				-10.0f * frame.earthAtmosphere.cloudAreaThickness
+			);
+
+			frame.earthAtmosphere.cloudSpaceViewProject = shadowProj * shadowView;
+			frame.earthAtmosphere.cloudSpaceViewProjectInverse = glm::inverse(frame.earthAtmosphere.cloudSpaceViewProject);
+		}
 
 		frameData->buffer.updateData(frame);
 
@@ -167,6 +194,47 @@ namespace Flower
 		{
 			auto blueNoiseMisc = renderBlueNoiseMisc(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, tickData);
 
+			// GBuffer clear.
+			{
+				auto& hdrSceneColor = sceneTexures.getHdrSceneColor()->getImage();
+				auto& gbufferA = sceneTexures.getGbufferA()->getImage();
+				auto& gbufferB = sceneTexures.getGbufferB()->getImage();
+				auto& gbufferS = sceneTexures.getGbufferS()->getImage();
+				auto& gbufferV = sceneTexures.getGbufferV()->getImage();
+				auto& gbufferComposition = sceneTexures.getGbufferUpscaleTranslucencyAndComposition()->getImage();
+				// Depth clear in mesh draw pass.
+
+				RHI::ScopePerframeMarker marker(graphicsCmd, "GBuffer Clear", { 1.0f, 1.0f, 0.0f, 1.0f });
+				VkClearColorValue zeroClear = 
+				{
+					.uint32 = {0,0,0,0}
+				};
+
+				hdrSceneColor.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+				gbufferA.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+				gbufferB.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+				gbufferS.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+				gbufferV.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+				gbufferComposition.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+
+				auto rangeClear = buildBasicImageSubresource();
+				vkCmdClearColorImage(graphicsCmd, hdrSceneColor.getImage(), VK_IMAGE_LAYOUT_GENERAL, &zeroClear, 1, &rangeClear);
+				vkCmdClearColorImage(graphicsCmd, gbufferA.getImage(), VK_IMAGE_LAYOUT_GENERAL, &zeroClear, 1, &rangeClear);
+				vkCmdClearColorImage(graphicsCmd, gbufferB.getImage(), VK_IMAGE_LAYOUT_GENERAL, &zeroClear, 1, &rangeClear);
+				vkCmdClearColorImage(graphicsCmd, gbufferS.getImage(), VK_IMAGE_LAYOUT_GENERAL, &zeroClear, 1, &rangeClear);
+				vkCmdClearColorImage(graphicsCmd, gbufferV.getImage(), VK_IMAGE_LAYOUT_GENERAL, &zeroClear, 1, &rangeClear);
+				vkCmdClearColorImage(graphicsCmd, gbufferComposition.getImage(), VK_IMAGE_LAYOUT_GENERAL, &zeroClear, 1, &rangeClear);
+
+
+				hdrSceneColor.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+				gbufferA.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+				gbufferB.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+				gbufferS.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+				gbufferV.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+				gbufferComposition.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+			}
+
+
 			// Render static mesh Gbuffer.
 			renderStaticMeshGBuffer(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU);
 
@@ -187,7 +255,7 @@ namespace Flower
 			// Composite sky.
 			renderAtmosphere(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, true);
 
-			// renderVolumetricCloud(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU);
+			renderVolumetricCloud(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, blueNoiseMisc);
 
 			renderFSR2(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, tickData);
 			
@@ -207,6 +275,9 @@ namespace Flower
 		m_prevDepth = sceneTexures.getDepth();
 		m_prevGBufferB = sceneTexures.getGbufferB();
 		m_prevHDR = sceneTexures.getHdrSceneColor();
+
+
+		m_cameraCutState ++;
 	}
 
 	void DeferredRenderer::updateRenderSizeImpl(
@@ -217,9 +288,17 @@ namespace Flower
 	{
 		vkDeviceWaitIdle(RHI::Device);
 
+		m_tickCount = 0;
+		m_renderIndex = 0;
+
 		m_prevDepth = nullptr;
 		m_prevGBufferB = nullptr;
 		m_prevHDR = nullptr;
+
+		//m_cloudReconstruction = nullptr;
+		//m_cloudReconstructionDepth = nullptr;
+		//m_gtaoHistory = nullptr;
+		//m_averageLum = nullptr;
 
 		m_fsr2->onCreateWindowSizeDependentResources(
 			nullptr, 
@@ -229,8 +308,14 @@ namespace Flower
 			m_displayWidth,
 			m_displayHeight,
 			true);
+
+		setCameraCut();
 	}
 
+	void DeferredRenderer::setCameraCut()
+	{
+		m_cameraCutState = 0;
+	}
 	
 	VkDescriptorSet BlueNoiseMisc::getSet()
 	{

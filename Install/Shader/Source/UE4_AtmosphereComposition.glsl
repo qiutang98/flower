@@ -1,5 +1,9 @@
 #version 460
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 #extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_samplerless_texture_functions : enable
 
@@ -106,7 +110,7 @@ void main()
         vec2 sampleUv;
 		skyViewLutParamsToUv(atmosphere, bIntersectGround, viewZenithCosAngle, lightViewCosAngle, viewHeight, sampleUv);
 
-		vec3 luminance = texture(sampler2D(inSkyViewLut, linearClampEdgeSampler), sampleUv).rgb; // TODO: Add sun disk.
+		vec3 luminance = texture(sampler2D(inSkyViewLut, linearClampEdgeSampler), sampleUv).rgb;
 
 		imageStore(imageHdrSceneColor, workPos, vec4(prepareOut(luminance, atmosphere, vec2(pixPos)) + sunLum, 1.0f));
         return;
@@ -122,7 +126,7 @@ void main()
         vec4 depthBufferWorldPos = viewData.camInvertViewProj * clipSpace;
         depthBufferWorldPos.xyz /= depthBufferWorldPos.w;
 
-        float tDepth = length(convertToAtmosphereUnit(depthBufferWorldPos.xyz) - (worldPos + vec3(0.0, -atmosphere.bottomRadius, 0.0)));
+        float tDepth = length((depthBufferWorldPos.xyz * 0.001) - (worldPos + vec3(0.0, -atmosphere.bottomRadius, 0.0))); // meter -> kilometers.
         float slice = aerialPerspectiveDepthToSlice(tDepth);
 
         float weight = 1.0;

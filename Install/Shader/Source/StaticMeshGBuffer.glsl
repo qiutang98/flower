@@ -1,4 +1,9 @@
 #version 460
+
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 #extension GL_EXT_nonuniform_qualifier : enable
 #extension GL_GOOGLE_include_directive : enable
 

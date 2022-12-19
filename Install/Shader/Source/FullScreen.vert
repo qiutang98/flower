@@ -1,5 +1,9 @@
 #version 460
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 layout (location = 0) out vec2 outUV;
 
 void main()

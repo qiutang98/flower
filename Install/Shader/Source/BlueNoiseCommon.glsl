@@ -1,6 +1,10 @@
 #ifndef BLUE_NOISE_COMMON_GLSL
 #define BLUE_NOISE_COMMON_GLSL
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 const uint kBlueNoiseDim = 128;
 
 #ifdef BLUE_NOISE_TEXTURE_SET
@@ -35,7 +39,5 @@ const uint kBlueNoiseDim = 128;
         return v;
     }
 #endif
-
-
 
 #endif

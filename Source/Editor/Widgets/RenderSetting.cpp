@@ -163,8 +163,7 @@ void WidgetRenderSetting::onVisibleTick(const RuntimeModuleTickData& tickData)
 			ImGui::DragFloat("RayScattScale", &comp->rayleighScatteringLength, 0.00001f, 10.0f);
 			ImGui::ColorEdit3("AbsorptiCoeff", &comp->absorptionColor.x);
 			ImGui::DragFloat("AbsorptiScale", &comp->absorptionLength, 0.00001f, 10.0f);
-			ImGui::DragFloat("Planet radius", &earthAtmosphere.bottomRadius, 100.0f, 8000.0f);
-			ImGui::DragFloat("Atmos height", &comp->atmosphereHeight, 10.0f, 150.0f);
+
 			ImGui::DragFloat("MieScaleHeight", &comp->mieScaleHeight, 0.5f, 20.0f);
 			ImGui::DragFloat("RayScaleHeight", &comp->rayleighScaleHeight, 0.5f, 20.0f);
 
@@ -180,7 +179,8 @@ void WidgetRenderSetting::onVisibleTick(const RuntimeModuleTickData& tickData)
 				earthAtmosphere.viewRayMarchMaxSPP = maxSample;
 			}
 
-
+			ImGui::DragFloat("Planet radius(km)", &earthAtmosphere.bottomRadius, 100.0f, 8000.0f);
+			ImGui::DragFloat("Atmos height(km)", &comp->atmosphereHeight, 10.0f, 150.0f);
 			ImGui::PopItemWidth();
 
 			earthAtmosphere.mieScattering = comp->mieScatteringColor * comp->mieScatteringLength;
@@ -205,16 +205,16 @@ void WidgetRenderSetting::onVisibleTick(const RuntimeModuleTickData& tickData)
 
 			auto& earthAtmosphere = comp->earthAtmosphere;
 
-			ImGui::DragFloat("Start height", &comp->cloudBottomAltitude, 0.1f, 0.0f, 20.0f);
-			ImGui::DragFloat("Thickness", &comp->cloudHeight, 0.1f, 0.1f, 20.0f);
-
+			ImGui::DragFloat("Start height(km)", &comp->cloudBottomAltitude, 0.1f, 0.0f, 20.0f);
+			ImGui::DragFloat("Thickness(km)", &comp->cloudHeight, 0.1f, 0.1f, 20.0f);
+			ImGui::DragFloat("Cloud shadow extent(km)", &comp->earthAtmosphere.cloudShadowExtent, 0.1f, 1.0f, 50.0f);
 			earthAtmosphere.cloudAreaStartHeight = comp->cloudBottomAltitude + earthAtmosphere.bottomRadius;
 			earthAtmosphere.cloudAreaThickness = comp->cloudHeight;
 
 			ImGui::PopItemWidth();
 		}
 
-		
+
 
 		ImGui::PopItemWidth();
 

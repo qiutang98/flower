@@ -1,6 +1,10 @@
 #ifndef RAY_COMMON_GLSL
 #define RAY_COMMON_GLSL
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 #include "Common.glsl"
 
 struct Ray

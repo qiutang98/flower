@@ -1,8 +1,12 @@
 #version 460
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 #extension GL_GOOGLE_include_directive : enable
 
-#include "GTAOCommon.glsl"
+#include "GTAO_Common.glsl"
 
 const float kRots[6] = { 60.0f, 300.0f, 180.0f, 240.0f, 120.0f, 0.0f };
 const float kOffsets[4] = { 0.1f, 0.6f, 0.35f, 0.85f };

@@ -172,4 +172,15 @@ namespace Flower
 			releaseAll();
 		}
 	};
+
+	inline void xorDelta(const void* src, size_t size, void* inout)
+	{
+		const uint8_t* data = (const uint8_t*)src;
+		uint8_t* target = (uint8_t*)inout;
+
+		for (int i = 0; i < size; ++i)
+		{
+			target[i] ^= data[i];
+		}
+	}
 }

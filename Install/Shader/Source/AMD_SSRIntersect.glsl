@@ -1,5 +1,9 @@
 #version 460
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 #extension GL_GOOGLE_include_directive : enable
 #extension GL_KHR_shader_subgroup_basic : enable
 #extension GL_KHR_shader_subgroup_ballot : enable
@@ -31,6 +35,10 @@ vec3 getReflectionDir(const vec3 viewDir, const vec3 viewNormal, float roughness
     return transpose(tbnTransform) * reflectedDirTbn;
 }
 
+
+// TODO: Hiz ray intersection is accurate, but need more step to get good result.
+//       Maybe we just need some fast intersect like linear search with only 16 tap.
+//       Eg, unreal engine 4's SSR use this tech, full screen SSR just cost 0.5ms in 2K.
 bool advanceRay(
     vec3 origin, 
     vec3 direction, 

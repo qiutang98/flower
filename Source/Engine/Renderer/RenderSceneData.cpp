@@ -64,11 +64,6 @@ namespace Flower
 				m_importanceLights.directionalLights = directionalLights[0];
 
 				m_earthAtmosphereInfo = RenderSettingManager::get()->earthAtmosphere.earthAtmosphere;
-				m_earthAtmosphereInfo.absorptionExtinction = m_earthAtmosphereInfo.absorptionExtinction;
-				m_earthAtmosphereInfo.rayleighScattering = m_earthAtmosphereInfo.rayleighScattering;
-				m_earthAtmosphereInfo.mieScattering = m_earthAtmosphereInfo.mieScattering;
-				m_earthAtmosphereInfo.mieAbsorption = m_earthAtmosphereInfo.mieAbsorption;
-				m_earthAtmosphereInfo.groundAlbedo = m_earthAtmosphereInfo.groundAlbedo;
 
 				m_importanceLights.directionalLightCount ++;
 			}

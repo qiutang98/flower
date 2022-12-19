@@ -1,5 +1,9 @@
 #version 460
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 #extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_samplerless_texture_functions : enable
 
@@ -119,7 +123,7 @@ void main()
         // Second evaluate transmittance due to participating media
         {
             AtmosphereParameters atmosphere = getAtmosphereParameters(frameData);
-            vec3 P0 = worldPos + vec3(0.0, atmosphere.bottomRadius, 0.0);
+            vec3 P0 = worldPos * 0.001 + vec3(0.0, atmosphere.bottomRadius, 0.0); // meter -> kilometers.
             float viewHeight = length(P0);
             const vec3 upVector = P0 / viewHeight;
 

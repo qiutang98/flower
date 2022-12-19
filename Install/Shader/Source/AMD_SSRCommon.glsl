@@ -1,6 +1,10 @@
 #ifndef SSR_COMMON_GLSL
 #define SSR_COMMON_GLSL
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 #extension GL_EXT_samplerless_texture_functions : enable
 
 // Screen space reflection for global illumination.
@@ -107,8 +111,6 @@ layout (set = 0, binding = 36) uniform texture2D inSSRPrefilterVariance;
 
 layout (set = 0, binding = 37, rgba16f) uniform image2D SSRTemporalFilterRadiance;
 layout (set = 0, binding = 38, r16f) uniform image2D SSRTemporalfilterVariance;
-
-
 
 layout (set = 1, binding = 0) uniform UniformView { ViewData viewData; };
 layout (set = 2, binding = 0) uniform UniformFrame { FrameData frameData; };

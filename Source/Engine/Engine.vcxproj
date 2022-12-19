@@ -68,10 +68,10 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <Lib>
-      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;assimp-vc142-mt.lib;ffx_fsr2_api_vk_x64d.lib;ffx_fsr2_api_x64d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;liblz4_static.lib;assimp-vc142-mt.lib;ffx_fsr2_api_vk_x64d.lib;ffx_fsr2_api_x64d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
     <Lib>
-      <AdditionalLibraryDirectories>$(SolutionDir)External\assimp\lib\;$(SolutionDir)External\glfw\lib\;$(SolutionDir)External\fsr2\lib\;$(SolutionDir)External\vulkan\lib\;%(AdditionalDependencies)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)External\assimp\lib\;$(SolutionDir)External\glfw\lib\;$(SolutionDir)External\lz4\;$(SolutionDir)External\fsr2\lib\;$(SolutionDir)External\vulkan\lib\;%(AdditionalDependencies)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -94,10 +94,10 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <Lib>
-      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;assimp-vc142-mt.lib;ffx_fsr2_api_vk_x64.lib;ffx_fsr2_api_x64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;liblz4_static.lib;assimp-vc142-mt.lib;ffx_fsr2_api_vk_x64.lib;ffx_fsr2_api_x64.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
     <Lib>
-      <AdditionalLibraryDirectories>$(SolutionDir)External\assimp\lib\;$(SolutionDir)External\glfw\lib\;$(SolutionDir)External\fsr2\lib\;$(SolutionDir)External\vulkan\lib\;%(AdditionalDependencies)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)External\assimp\lib\;$(SolutionDir)External\glfw\lib\;$(SolutionDir)External\lz4\;$(SolutionDir)External\fsr2\lib\;$(SolutionDir)External\vulkan\lib\;%(AdditionalDependencies)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -158,6 +158,7 @@
     <ClInclude Include="RHI\SwapChain.h" />
     <ClInclude Include="RuntimeModule.h" />
     <ClInclude Include="Scene\Component\PostprocessingVolume.h" />
+    <ClInclude Include="Scene\Component\ReflectionCapture.h" />
     <ClInclude Include="Scene\Component\SkyLight.h" />
     <ClInclude Include="Scene\SceneArchive.h" />
     <ClInclude Include="Scene\CameraInterface.h" />
@@ -242,6 +243,7 @@
     <ClCompile Include="Scene\Component\Light.cpp" />
     <ClCompile Include="Scene\Component\PMXComponent.cpp" />
     <ClCompile Include="Scene\Component\PostprocessingVolume.cpp" />
+    <ClCompile Include="Scene\Component\ReflectionCapture.cpp" />
     <ClCompile Include="Scene\Component\SkyLight.cpp" />
     <ClCompile Include="Scene\Component\SpotLight.cpp" />
     <ClCompile Include="Scene\Component\StaticMesh.cpp" />

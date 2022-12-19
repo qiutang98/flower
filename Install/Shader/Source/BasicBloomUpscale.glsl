@@ -1,5 +1,9 @@
 #version 460
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 #extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_samplerless_texture_functions : enable
 
@@ -20,7 +24,6 @@ layout (push_constant) uniform PushConsts
 
 #include "BasicBloomCommon.glsl"
 
-
 /*
     //int lenght = 3;  float coeffs[] = { 0.382971, 0.241842, 0.060654, }; // norm = 0.987962
     //int lenght = 4;  float coeffs[] = { 0.292360, 0.223596, 0.099952, 0.026085, }; // norm = 0.991625
@@ -37,26 +40,20 @@ layout (push_constant) uniform PushConsts
     //int lenght = 15; float coeffs[] = { 0.079656, 0.078085, 0.073554, 0.066578, 0.057908, 0.048399, 0.038870, 0.029997, 0.022245, 0.015852, 0.010854, 0.007142, 0.004516, 0.002743, 0.001602, }; // norm = 0.996347
     //int lenght = 16; float coeffs[] = { 0.074693, 0.073396, 0.069638, 0.063796, 0.056431, 0.048197, 0.039746, 0.031648, 0.024332, 0.018063, 0.012947, 0.008961, 0.005988, 0.003864, 0.002407, 0.001448, }; // norm = 0.996416
 */
-
 #define FIX_KERNAL 0
 #if FIX_KERNAL
-    
-// const int kLenght = 9; const float coeffs[9] = { 0.132370, 0.125285, 0.106221, 0.080669, 0.054877, 0.033440, 0.018252, 0.008924, 0.003908 }; // norm = 0.995524
-const int kLenght = 16;  const float coeffs[16] = { 0.074693, 0.073396, 0.069638, 0.063796, 0.056431, 0.048197, 0.039746, 0.031648, 0.024332, 0.018063, 0.012947, 0.008961, 0.005988, 0.003864, 0.002407, 0.001448 };// norm = 0.996416 
-
+    // const int kLenght = 9; const float coeffs[9] = { 0.132370, 0.125285, 0.106221, 0.080669, 0.054877, 0.033440, 0.018252, 0.008924, 0.003908 }; // norm = 0.995524
+    const int kLenght = 16;  const float coeffs[16] = { 0.074693, 0.073396, 0.069638, 0.063796, 0.056431, 0.048197, 0.039746, 0.031648, 0.024332, 0.018063, 0.012947, 0.008961, 0.005988, 0.003864, 0.002407, 0.001448 };// norm = 0.996416 
 #else
-
-const float rad = 16.;
-const float sigma = 0.996416;
-float gaussianWeight(float x) 
-{
-    const float mu = 0; // From center.
-    const float dx = x - mu;
-    const float sigma2 = sigma * sigma;
-
-    return 0.398942280401 / sigma * exp(- (dx * dx) * 0.5 / sigma2);
-}
-
+    const float rad = 16.;
+    const float sigma = 0.996416;
+    float gaussianWeight(float x) 
+    {
+        const float mu = 0; // From center.
+        const float dx = x - mu;
+        const float sigma2 = sigma * sigma;
+        return 0.398942280401 / sigma * exp(- (dx * dx) * 0.5 / sigma2);
+    }
 #endif
 
 const float kBlenWeight[6] = { 0.25, 0.75, 1.5, 2.0, 2.5, 3.0}; // Sum is 10.0, so when composite, need *

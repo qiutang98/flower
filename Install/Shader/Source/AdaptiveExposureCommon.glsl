@@ -1,6 +1,10 @@
 #ifndef ADAPTIVE_EXPOSURE_COMMON_GLSL
 #define ADAPTIVE_EXPOSURE_COMMON_GLSL
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 #extension GL_EXT_samplerless_texture_functions : enable
 
 #include "Common.glsl"

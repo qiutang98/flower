@@ -1,9 +1,12 @@
 #version 460
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 #extension GL_GOOGLE_include_directive : enable
 
-
-#include "GTAOCommon.glsl"
+#include "GTAO_Common.glsl"
 #include "Schedule.glsl"
 
 // 5x5 filter tent, need 2 border pixels.

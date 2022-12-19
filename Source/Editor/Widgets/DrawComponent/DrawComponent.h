@@ -8,6 +8,7 @@ extern const std::string GIconSpotLight;
 extern const std::string GIconStaticMesh;
 extern const std::string GIconPMX;
 extern const std::string GIconPostprocessVolume;
+extern const std::string GIconReflectionCapture;
 
 struct ComponentDrawer
 {
@@ -21,7 +22,7 @@ struct ComponentDrawer
 	static void drawSpotLight(std::shared_ptr<Flower::SceneNode> node);
 	static void drawPMX(std::shared_ptr<Flower::SceneNode> node);
 	static void drawSkyLight(std::shared_ptr<Flower::SceneNode> node);
-
+	static void drawReflectionCapture(std::shared_ptr<Flower::SceneNode> node);
 	static void drawLandscape(std::shared_ptr<Flower::SceneNode> node);
 	static void drawPostprocessVolume(std::shared_ptr<Flower::SceneNode> node);
 };

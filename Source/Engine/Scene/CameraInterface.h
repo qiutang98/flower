@@ -38,7 +38,7 @@ namespace Flower
 	public:
 		float atmosphereHeightOffset = 0.5f; // km.
 
-		float atmosphereMoveScale = 0.0f; // 
+		float atmosphereMoveScale = 1.0f; // 
 
 		float aperture = 10.0f;        // Size of the lens diaphragm (mm). Controls depth of field and chromatic aberration.
 		float shutterSpeed = 12.0f; // Length of time for which the camera shutter is open (sec). Also controls the amount of motion blur.

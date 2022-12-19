@@ -1,6 +1,10 @@
 #ifndef LIGHTING_COMMON_GLSL
 #define LIGHTING_COMMON_GLSL
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 #include "Common.glsl"
 #include "FastMath.glsl"
 

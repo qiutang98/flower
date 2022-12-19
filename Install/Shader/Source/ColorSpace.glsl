@@ -1,3 +1,10 @@
+#ifndef COLOR_SPACE_GLSL
+#define COLOR_SPACE_GLSL
+
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 // srgb primaries
 // Also same with Rec.709
 const mat3 sRGB_2_XYZ = mat3(
@@ -36,3 +43,5 @@ vec3 inputColorPrepare(vec3 src)
 
     return sRGB_2_Rec2020 * src;
 }
+
+#endif

@@ -85,6 +85,8 @@ namespace Flower
 		PoolImageSharedRef getCloudBasicNoise();
 		PoolImageSharedRef getCloudWorleyNoise();
 
+		PassCollector* getPasses() { return m_passCollector.get(); }
+
 		void rebuildIBL(VkCommandBuffer cmd, bool bRebuildLut)
 		{
 			if (bRebuildLut)
@@ -189,10 +191,6 @@ namespace Flower
 		PoolImageSharedRef m_atmosphereFroxelScatter = nullptr;
 		PoolImageSharedRef m_atmosphereEnvCapture = nullptr;
 
-		// Cloud
-		PoolImageSharedRef m_cloudCompute = nullptr;
-		
-
 	public:
 		// Release all textures.
 		void release();
@@ -217,9 +215,6 @@ namespace Flower
 		PoolImageSharedRef getAtmosphereMultiScatter();
 		PoolImageSharedRef getAtmosphereFroxelScatter();
 		PoolImageSharedRef getAtmosphereEnvCapture();
-
-
-		PoolImageSharedRef getCloudImage();
 
 	public:
 		explicit SceneTextures(RendererInterface* in);

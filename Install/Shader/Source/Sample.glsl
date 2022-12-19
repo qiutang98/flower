@@ -1,6 +1,10 @@
 #ifndef SAMPLE_GLSL
 #define SAMPLE_GLSL
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 #include "Common.glsl"
 
 // Catmull Rom 9 tap sampler.

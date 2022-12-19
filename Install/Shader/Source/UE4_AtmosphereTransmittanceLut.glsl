@@ -1,10 +1,13 @@
 #version 460
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 #extension GL_GOOGLE_include_directive : enable
 
 #define NO_MULTISCATAPPROX_ENABLED
 #include "UE4_AtmosphereCommon.glsl"
-
 
 layout (local_size_x = 8, local_size_y = 8) in;
 void main() 
@@ -20,7 +23,6 @@ void main()
     float viewHeight;
 	float viewZenithCosAngle;
 	uvToLutTransmittanceParams(atmosphere, viewHeight, viewZenithCosAngle, uv);
-
     
     const vec3 worldPos = vec3(0.0f, viewHeight, 0.0f);
     const vec3 worldDir = vec3(0.0f, viewZenithCosAngle, sqrt(1.0 - viewZenithCosAngle * viewZenithCosAngle));

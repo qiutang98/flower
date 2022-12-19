@@ -1,6 +1,10 @@
 #ifndef ATMOSPHERE_COMMON_GLSL
 #define ATMOSPHERE_COMMON_GLSL
 
+/*
+** Physical based render code, develop by engineer: qiutanguu.
+*/
+
 #extension GL_EXT_samplerless_texture_functions : enable
 #extension GL_GOOGLE_include_directive : require
 
@@ -11,6 +15,9 @@
 // Atmosphere transmittance lut compute, base on 
 // https://github.com/sebh/UnrealEngineSkyAtmosphere
 // https://ebruneton.github.io/precomputed_atmospheric_scattering/
+
+// This model is good, but it is too complex to understand math behind the model.
+// Maybe other simple sky model like Hosek-Wilkie is more fit my foolish brain. :(
 
 // define NO_MULTISCATAPPROX_ENABLED
 
@@ -55,10 +62,7 @@ layout (set = 2, binding = 0) uniform UniformFrame { FrameData frameData; };
 // NOTE: When offset height is big, this value should be more bigger.
 // TODO: Compute this by camera height.
 const float kPlanetRadiusOffset = 0.001f; // Offset 1 m.
-const float kAirPerspectiveKmPerSlice = 4.0f; // total 32 * 4 = 128 km.
 
-float aerialPerspectiveDepthToSlice(float depth) { return depth * (1.0f / kAirPerspectiveKmPerSlice); }
-float aerialPerspectiveSliceToDepth(float slice) { return slice * kAirPerspectiveKmPerSlice; }
 
 // All units in kilometers
 AtmosphereParameters getAtmosphereParameters()
@@ -78,7 +82,7 @@ vec3 convertToCameraUnit(vec3 o)
 
 vec3 prepareOut(vec3 inColor, in const AtmosphereParameters atmosphere, vec2 workPos)
 {
-	vec3 c = inColor * atmosphere.atmospherePreExposure * frameData.directionalLight.color * frameData.directionalLight.intensity; 
+	vec3 c = inColor / atmosphere.atmospherePreExposure * frameData.directionalLight.intensity; 
 
 	// Maybe add blue noise jitter is better.
 	// c = quantise(c, workPos, frameData);
@@ -90,6 +94,7 @@ vec3 prepareOut(vec3 inColor, in const AtmosphereParameters atmosphere, vec2 wor
 float getShadow(in const AtmosphereParameters atmospehre, vec3 p)
 {
 #if SAMPLE_SHADOW
+	// Need fix unit.
 	if(frameData.bSdsmDraw <= 0)
 	{
 		return 1.0f;
@@ -447,7 +452,7 @@ SingleScatteringResult integrateScatteredLuminance(
 		vec3 depthBufferWorldPos = getWorldPos(sampleUv, depthBufferValue, viewData);
 
 		// Apply earth offset to go back to origin as top of earth mode. 
-		float tDepth = length(convertToAtmosphereUnit(depthBufferWorldPos) + vec3(0.0, atmosphere.bottomRadius, 0.0) - worldPos);
+		float tDepth = length(depthBufferWorldPos * 0.001 + vec3(0.0, atmosphere.bottomRadius, 0.0) - worldPos); // Meter -> kilometers
 		if (tDepth < tMax)
 		{
 			tMax = tDepth;
@@ -478,8 +483,7 @@ SingleScatteringResult integrateScatteredLuminance(
 	float miePhaseValue = hgPhase(atmosphere.miePhaseG, -cosTheta);
 	float rayleighPhaseValue = rayleighPhase(cosTheta);
 
-	// TODO: Color change.
-	vec3 globalL = vec3(1.0f); // frameData.directionalLight.color * atmosphere.atmospherePreExposure * frameData.directionalLight.intensity;
+	vec3 globalL = frameData.directionalLight.color * atmosphere.atmospherePreExposure;
 
 	vec3 L = vec3(0.0);
 	vec3 throughput = vec3(1.0);

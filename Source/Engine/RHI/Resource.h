@@ -19,19 +19,7 @@ namespace Flower
 		VmaAllocation m_allocation = nullptr;
 		VkDeviceMemory m_memory = VK_NULL_HANDLE;
 
-		std::mutex m_mapMutex;
-
 		uint64_t m_deviceAddress = 0;
-
-		void lockMap()
-		{
-			m_mapMutex.lock();
-		}
-
-		void unlockMap()
-		{
-			m_mapMutex.unlock();
-		}
 
 	public:
 		operator VkBuffer() const { return m_buffer; }
@@ -53,8 +41,6 @@ namespace Flower
 	public:
 		virtual ~VulkanBuffer();
 		VulkanBuffer() = default;
-
-		
 
 		uint64_t getDeviceAddress();
 

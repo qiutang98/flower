@@ -142,8 +142,6 @@ namespace Flower
 	{
 		VkResult res;
 
-		lockMap();
-
 		if (!isHeap())
 		{
 			res = vmaMapMemory(RHI::VMA, m_allocation, &mapped);
@@ -176,8 +174,6 @@ namespace Flower
 			vkUnmapMemory(RHI::Device, m_memory);
 			mapped = nullptr;
 		}
-
-		unlockMap();
 	}
 
 	VkResult VulkanBuffer::bind(VkDeviceSize offset)

@@ -10,6 +10,7 @@
 #include "Component/Transform.h"
 #include "Component/SkyLight.h"
 #include "Component/PostprocessingVolume.h"
+#include "Component/ReflectionCapture.h"
 
 #include "../Version.h"
 
@@ -100,6 +101,17 @@ SCENE_ARCHIVE_IMPL_INHERIT_END
 SCENE_ARCHIVE_IMPL_INHERIT(SkyLightComponent, Component)
 {
 	archive(m_bRealtimeCapture);
+}
+SCENE_ARCHIVE_IMPL_INHERIT_END
+
+SCENE_ARCHIVE_IMPL_INHERIT(ReflectionCaptureComponent, Component)
+{
+	archive(m_bUseIBLTexture);
+
+	if (version > 0)
+	{
+		archive(m_radius);
+	}
 }
 SCENE_ARCHIVE_IMPL_INHERIT_END
 

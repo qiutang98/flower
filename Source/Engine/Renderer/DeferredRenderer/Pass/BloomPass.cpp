@@ -168,7 +168,7 @@ namespace Flower
         std::vector<PoolImageSharedRef> downsampleBlurs;
         downsampleBlurs.resize(downsampleMipCount);
 
-        for (auto i = 0; i < downsampleMipCount; i ++)
+        for (uint32_t i = 0; i < downsampleMipCount; i ++)
         {
             downsampleBlurs[i] = m_rtPool->createPoolImage(
                 "SceneColorBlurChain",
