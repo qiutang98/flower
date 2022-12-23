@@ -41,4 +41,5 @@
 ​	and unzip then import mesh. It need some time to cook asset. 
 
 **NOTE: Some RenderSetting like IBL/Atmosphere/Cloud need to change some parameter to get beautiful look.**
+
 **NOTE: When start the application, need to reset FSR accumulation. you can use command cmd.fsr.reset, or just resize render size.**
