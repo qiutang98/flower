@@ -40,4 +40,5 @@
 
 ​	and unzip then import mesh. It need some time to cook asset. 
 
-**NOTE: When first time run, engine need some time to bake raw media asset to engine bin asset, so need a long time baking. but next time open the engine, it work very fast.**
+**NOTE: Some RenderSetting like IBL/Atmosphere/Cloud need to change some parameter to get beautiful look.**
+**NOTE: When start the application, need to reset FSR accumulation. you can use command cmd.fsr.reset, or just resize render size.**
