@@ -34,7 +34,7 @@
 
 ## How to build
 
-​	Just download the project, all dependency here is ready.
+​	Just download the project, all dependency here is ready.(Maybe need install VulkanSDK 1.3 and update driver).
 
 ​	Some mesh art asset can download here: https://drive.google.com/file/d/1aRkqTKuqAAmkOSmfe6BSnnycj6HnJaIi/view?usp=sharing
 
