@@ -16,7 +16,7 @@
 
 ![](Gallery/Snipaste_2022-12-20_00-58-17.png)
 
-![](Gallery/Snipaste_2022-10-19_22-46-01.png)
+![](Gallery/Snipaste_2022-12-22_23-15-59.png)
 
 ![](Gallery/Snipaste_2022-05-18_23-56-08.png)
 
@@ -36,7 +36,7 @@
 
 ​	Just download the project, all dependency here is ready.
 
-​	Some mesh art asset can download here: https://drive.google.com/file/d/14dXqpqvnRHF8gRtfPVgDACDAH1UQmXni/view?usp=sharing
+​	Some mesh art asset can download here: https://drive.google.com/file/d/1aRkqTKuqAAmkOSmfe6BSnnycj6HnJaIi/view?usp=sharing
 
 ​	and unzip then import mesh. It need some time to cook asset. 
 
