@@ -28,8 +28,8 @@
 #define kShadowLightStepBasicLen 0.167
 #define kShadowLightStepMul 1.1
 
-#define kFogFade 0.01
-#define kSunLightScale  kPI
+#define kFogFade 0.005
+#define kSunLightScale kPI
 
 /////////////////////////////////////////////////////
 
@@ -247,7 +247,7 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ)
                 atmosphereTransmittance = texture(sampler2D(inTransmittanceLut, linearClampEdgeSampler), sampleUv).rgb;
             }
 
-            vec3 ambientLight = atmosphereTransmittance * frameData.directionalLight.color * mix(vec3(0.2), vec3(1.0), normalizeHeight * normalizeHeight);
+            vec3 ambientLight = frameData.directionalLight.color * mix(vec3(0.23, 0.39, 0.51), vec3(0.87, 0.98, 1.18), normalizeHeight * normalizeHeight);
 
 #if 1
             // Siggraph 2017's new powder formula.
@@ -284,6 +284,8 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ)
 
     // Apply cloud transmittance.
     vec3 finalColor = srcColor;
+
+
 
     // Apply some additional effect.
     if(transmittance <= 0.99999)

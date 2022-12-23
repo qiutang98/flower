@@ -3,6 +3,7 @@
 #include "Core/Core.h"
 #include "RuntimeModule.h"
 #include "EngineTimer.h"
+#include <irrKlang/irrKlang.h>
 
 namespace Flower
 {
@@ -32,6 +33,7 @@ namespace Flower
 		std::unique_ptr<ModuleManager> m_moduleManager{ nullptr };
 
 		EngineTimer m_timer;
+		irrklang::ISoundEngine* m_soundEngine;
 
 	public:
 		template <typename T>
@@ -50,6 +52,8 @@ namespace Flower
 		void init();
 		bool tick(const EngineTickData& data);
 		void release();
+
+		auto* getSoundEngine() const { return m_soundEngine; }
 	};
 
 	extern Engine* GEngine;

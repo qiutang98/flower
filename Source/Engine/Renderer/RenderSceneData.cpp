@@ -28,6 +28,30 @@ namespace Flower
 		}
 	}
 
+	void RenderSceneData::pmxCollect(Scene* scene, VkCommandBuffer cmd)
+	{
+		m_collectPMXes.clear();
+		m_cachePlayingPMXWithCamera = nullptr;
+
+		scene->loopComponents<PMXComponent>([&](std::shared_ptr<PMXComponent> comp) -> bool
+		{
+			if(comp->pmxReady())
+			{
+				m_collectPMXes.push_back(comp); // shared_ptr to keep component alive.
+				comp->onRenderTick(cmd);
+
+				if (!m_cachePlayingPMXWithCamera && comp->isPMXCameraPlaying())
+				{
+					m_cachePlayingPMXWithCamera = comp;
+				}
+			}
+
+			// We need to loop all static mesh component.
+			return false;
+		});
+	}
+
+
 	void RenderSceneData::lightCollect(Scene* scene)
 	{
 		// Load first directional light.
@@ -99,7 +123,7 @@ namespace Flower
 		m_bufferParametersRing = std::make_unique<BufferParametersRing>();
 	}
 
-	void RenderSceneData::tick(const RuntimeModuleTickData& tickData)
+	void RenderSceneData::tick(const RuntimeModuleTickData& tickData, VkCommandBuffer cmd)
 	{
 		// Update buffer ring.
 		m_bufferParametersRing->tick();
@@ -109,6 +133,8 @@ namespace Flower
 
 		// Collect static mesh.
 		staticMeshCollect(activeScene);
+
+		pmxCollect(activeScene, cmd);
 
 		// Collect light.
 		lightCollect(activeScene);

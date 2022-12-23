@@ -15,11 +15,18 @@ namespace Flower
 	};
 
 	class Scene;
+	class PMXComponent;
+
 	class RenderSceneData : NonCopyable
 	{
 	private:
+		
+
 		// Scene static mesh collect data.
 		std::vector<GPUPerObjectData> m_collectStaticMeshes;
+
+		std::vector<std::shared_ptr<PMXComponent>> m_collectPMXes;
+		std::shared_ptr<PMXComponent> m_cachePlayingPMXWithCamera = nullptr;
 
 		// Importance light infos.
 		SceneImportLightInfos m_importanceLights;
@@ -38,6 +45,8 @@ namespace Flower
 	private:
 		// Collect scne static mesh.
 		void staticMeshCollect(Scene* scene);
+
+		void pmxCollect(Scene* scene, VkCommandBuffer cmd);
 
 		void lightCollect(Scene* scene);
 		
@@ -89,7 +98,20 @@ namespace Flower
 			return m_postprocessVolumeInfo;
 		}
 
+		bool isPMXExist() const
+		{
+			return !m_collectPMXes.empty();
+		}
+
+		bool isPMXPlayWithCamera() const { return m_cachePlayingPMXWithCamera != nullptr;  }
+		auto getPlayingPMXWithCamera() { return m_cachePlayingPMXWithCamera; }
+
+		const auto& getPMXes() const
+		{
+			return m_collectPMXes;
+		}
+
 		// Upadte collect scene infos. often call before all renderer logic.
-		void tick(const RuntimeModuleTickData& tickData);
+		void tick(const RuntimeModuleTickData& tickData, VkCommandBuffer cmd);
 	};
 }

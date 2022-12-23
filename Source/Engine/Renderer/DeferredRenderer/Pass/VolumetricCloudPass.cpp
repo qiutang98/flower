@@ -175,7 +175,7 @@ namespace Flower
             StaticTexturesManager::get()->rebuildCloudTexture(cmd);
         });
 
-        auto& gbufferTranslucentMask = inTextures->getGbufferUpscaleTranslucencyAndComposition()->getImage();
+        auto& gbufferTranslucentMask = inTextures->getGbufferUpscaleReactive()->getImage();
 
 
         auto& sceneColorHdr = inTextures->getHdrSceneColor()->getImage();

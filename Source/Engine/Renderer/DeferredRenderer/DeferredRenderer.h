@@ -66,6 +66,15 @@ namespace Flower
 			BufferParamRefPointer& viewData,
 			BufferParamRefPointer& frameData);
 
+		void renderPMX(
+			VkCommandBuffer cmd,
+			Renderer* renderer,
+			SceneTextures* inTextures,
+			RenderSceneData* scene,
+			BufferParamRefPointer& viewData,
+			BufferParamRefPointer& frameData,
+			BlueNoiseMisc& inBlueNoise);
+
 		// return hiz cloest.
 		PoolImageSharedRef renderHiZ(
 			VkCommandBuffer cmd,

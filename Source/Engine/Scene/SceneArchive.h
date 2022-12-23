@@ -94,7 +94,10 @@ SCENE_ARCHIVE_IMPL_INHERIT_END
 
 SCENE_ARCHIVE_IMPL_INHERIT(PMXComponent, Component)
 {
-
+	archive(m_pmxPath);
+	archive(m_vmdPath);
+	archive(m_wavPath);
+	archive(m_cameraPath);
 }
 SCENE_ARCHIVE_IMPL_INHERIT_END
 

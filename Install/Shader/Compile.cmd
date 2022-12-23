@@ -43,3 +43,5 @@ call CompileAtmosphere.cmd
 
 : SSR 
 call CompileSSR.cmd
+
+call CompilePMX.cmd

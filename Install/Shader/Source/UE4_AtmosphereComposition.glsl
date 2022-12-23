@@ -12,6 +12,8 @@
 
 vec3 drawSun(vec3 rayDir, vec3 sunDir) 
 {
+    return vec3(0.0);
+
     const float dT = dot(rayDir, sunDir);
 
     const float theta = 0.1 * kPI / 180.0;
@@ -22,8 +24,6 @@ vec3 drawSun(vec3 rayDir, vec3 sunDir)
     {
         return sunCenterColor;
     }
-
-    return vec3(0.0);
 }
 
 #include "Schedule.glsl"

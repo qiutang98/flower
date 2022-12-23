@@ -60,9 +60,6 @@ namespace Flower
 
 		imguiTickFunctions.broadcast(tickData);
 
-		// Update scene data.
-		m_sceneData->tick(tickData);
-
 		ImGui::Render();
 
 
@@ -81,6 +78,9 @@ namespace Flower
 			VkCommandBufferBeginInfo cmdBeginInfo = RHICommandbufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 			RHICheck(vkBeginCommandBuffer(graphicsCmd, &cmdBeginInfo));
 			{
+				// Update scene data.
+				m_sceneData->tick(tickData, graphicsCmd);
+
 				// Rebuild some global assset.
 				if (RenderSettingManager::get()->ibl.needRebuild())
 				{

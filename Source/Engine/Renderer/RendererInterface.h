@@ -14,6 +14,7 @@ namespace Flower
 	private:
 		std::unique_ptr<BufferParametersRing> m_bufferParameters = nullptr;
 		std::unique_ptr<PassCollector> m_passCollector = nullptr;
+		std::unique_ptr<DynamicUniformBuffer> m_dynamicUniformBufferRing = nullptr;
 
 	protected:
 		uint32_t m_tickCount = 0;
@@ -95,6 +96,8 @@ namespace Flower
 
 		RenderTexturePool* getRTPool() const { return m_rtPool.get(); }
 		PassCollector* getPasses() const { return m_passCollector.get(); }
+
+		DynamicUniformBuffer* getDynamicBufferRing() const { return m_dynamicUniformBufferRing.get(); }
 
 		const std::vector<TimeStamp>& getTimingValues() { return m_timeStamps; }
 	};

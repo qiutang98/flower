@@ -54,6 +54,7 @@ namespace Flower
 		VkResult bind(VkDeviceSize offset = 0);
 		VkResult flush(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 		VkResult invalidate(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
+		void stageCopyFrom(VkBuffer inBuffer, VkDeviceSize size, VkDeviceSize srcOffset = 0, VkDeviceSize destOffset = 0);
 
 		const char* getName() const { return m_name.c_str(); }
 		void setName(const char* newName);

@@ -86,6 +86,7 @@ const vec3  kMax111110BitsFloat3 = vec3(kMax11BitsFloat, kMax11BitsFloat, kMax10
 // Step value is 0.02, about 5.1
 #define kShadingModelUnvalid     0.0
 #define kShadingModelStandardPBR 0.02
+#define kShadingModelPMXBasic    0.04
 
 bool isInShadingModelRange(float v, float shadingModel)
 {

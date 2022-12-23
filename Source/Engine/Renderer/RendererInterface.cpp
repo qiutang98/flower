@@ -7,6 +7,15 @@
 
 namespace Flower
 {
+	static AutoCVarInt32 cVarDynamicUniformBufferRingSize(
+		"r.DynamicUniformBufferRingSize",
+		"Dynamic uniform buffer ring size. (MB)",
+		"Renderer",
+		64,
+		CVarFlags::ReadOnly | CVarFlags::InitOnce
+	);
+
+
 	static AutoCVarCmd cVarUpdatePasses("cmd.updatePasses", "Update passes shader and pipeline info.");
 
 	BufferParametersRing* RendererInterface::getBuffers()
@@ -24,11 +33,15 @@ namespace Flower
 		m_rtPool = std::make_unique<RenderTexturePool>();
 		m_passCollector = std::make_unique<PassCollector>();
 		m_gpuTimer.init(uint32_t(RHI::GMaxSwapchainCount));
+
+		m_dynamicUniformBufferRing = std::make_unique<DynamicUniformBuffer>(RHI::GMaxSwapchainCount, cVarDynamicUniformBufferRingSize.get() * 1024 * 1024); // 64 MB.
 		initImpl();
 	}
 
 	void RendererInterface::tick(const RuntimeModuleTickData& tickData, VkCommandBuffer graphicsCmd)
 	{
+		m_dynamicUniformBufferRing->onFrameStart();
+
 		CVarCmdHandle(cVarUpdatePasses, [&]()
 		{
 			m_passCollector->updateAllPasses();

@@ -2,6 +2,7 @@
 #include "../Core/Core.h"
 #include "../RHI/RHI.h"
 #include "../Engine.h"
+#include "../RHI/DynamicUniformBuffer.h"
 
 namespace Flower
 {

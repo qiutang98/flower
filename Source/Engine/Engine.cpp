@@ -14,6 +14,9 @@ namespace Flower
 		CHECK(m_moduleManager == nullptr && "Module manager is non empty, some memory leak happen.");
 		m_moduleManager = std::make_unique<ModuleManager>();
 		m_moduleManager->m_engine = this;
+
+		m_soundEngine = irrklang::createIrrKlangDevice();
+		CHECK(m_soundEngine);
 	}
 
 	void Engine::init()
@@ -58,5 +61,8 @@ namespace Flower
 
 		// RHI resource release.
 		RHI::get()->release();
+
+		// sound engine close.
+		m_soundEngine->drop();
 	}
 }

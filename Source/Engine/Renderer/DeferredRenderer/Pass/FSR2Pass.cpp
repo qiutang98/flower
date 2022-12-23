@@ -343,7 +343,7 @@ namespace Flower
 
 			// ReactiveMask mode.
 			{
-				config.reactiveMaskMode = EReactiveMaskMode::Off;
+				config.reactiveMaskMode = EReactiveMaskMode::On;
 				config.fFsr2AutoReactiveScale = 1.f;
 				config.fFsr2AutoReactiveThreshold = 0.2f;
 				config.fFsr2AutoReactiveBinaryValue = 0.9f;

@@ -228,6 +228,18 @@ namespace Flower
 		return res;
 	}
 
+	void VulkanBuffer::stageCopyFrom(VkBuffer inBuffer, VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize destOffset)
+	{
+		RHI::executeImmediatelyMajorGraphics([&](VkCommandBuffer cb) {
+			VkBufferCopy copyRegion{};
+
+			copyRegion.srcOffset = srcOffset;
+			copyRegion.dstOffset = destOffset;
+			copyRegion.size = size;
+			vkCmdCopyBuffer(cb, inBuffer, m_buffer, 1, &copyRegion);
+		});
+	}
+
 	void VulkanBuffer::setName(const char* newName)
 	{
 		if (m_name != newName)

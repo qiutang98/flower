@@ -193,6 +193,7 @@ namespace Flower
     {
         GLFWInit(info);
 
+
         EnginePreInitInfo engineInitInfo{ };
         engineInitInfo.window = GLFWWindowData::get()->getWindow();
 
@@ -237,6 +238,7 @@ namespace Flower
         releaseHookFunction.broadcast();
 
         GEngine->release();
+
 
         // GLFW release.
         GLFWRelease();

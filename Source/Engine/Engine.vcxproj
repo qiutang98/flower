@@ -62,16 +62,17 @@
       <AdditionalIncludeDirectories>$(SolutionDir)Source/$(ProjectName)/;$(SolutionDir)External/;$(SolutionDir)Source/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <Lib>
-      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;liblz4_static.lib;assimp-vc142-mt.lib;ffx_fsr2_api_vk_x64d.lib;ffx_fsr2_api_x64d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;liblz4_static.lib;irrKlang.lib;assimp-vc142-mt.lib;ffx_fsr2_api_vk_x64d.lib;ffx_fsr2_api_x64d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
     <Lib>
-      <AdditionalLibraryDirectories>$(SolutionDir)External\assimp\lib\;$(SolutionDir)External\glfw\lib\;$(SolutionDir)External\lz4\;$(SolutionDir)External\fsr2\lib\;$(SolutionDir)External\vulkan\lib\;%(AdditionalDependencies)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)External\assimp\lib\;$(SolutionDir)External\glfw\lib\;$(SolutionDir)External\lz4\;$(SolutionDir)External\fsr2\lib\;$(SolutionDir)External\irrKlang\;$(SolutionDir)External\vulkan\lib\;%(AdditionalDependencies)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -94,10 +95,10 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <Lib>
-      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;liblz4_static.lib;assimp-vc142-mt.lib;ffx_fsr2_api_vk_x64.lib;ffx_fsr2_api_x64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;liblz4_static.lib;irrKlang.lib;assimp-vc142-mt.lib;ffx_fsr2_api_vk_x64.lib;ffx_fsr2_api_x64.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
     <Lib>
-      <AdditionalLibraryDirectories>$(SolutionDir)External\assimp\lib\;$(SolutionDir)External\glfw\lib\;$(SolutionDir)External\lz4\;$(SolutionDir)External\fsr2\lib\;$(SolutionDir)External\vulkan\lib\;%(AdditionalDependencies)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)External\assimp\lib\;$(SolutionDir)External\glfw\lib\;$(SolutionDir)External\lz4\;$(SolutionDir)External\fsr2\lib\;$(SolutionDir)External\irrKlang\;$(SolutionDir)External\vulkan\lib\;%(AdditionalDependencies)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -131,7 +132,6 @@
     <ClInclude Include="Renderer\DeferredRenderer\DeferredRenderer.h" />
     <ClInclude Include="Renderer\DeferredRenderer\Pass\BloomCommon.h" />
     <ClInclude Include="Renderer\DeferredRenderer\Pass\FSR2Pass.h" />
-    <ClInclude Include="Renderer\PMXRenderProxy.h" />
     <ClInclude Include="Renderer\RenderSettingContext.h" />
     <ClInclude Include="Renderer\SceneTextures.h" />
     <ClInclude Include="Renderer\PassCollector.h" />
@@ -148,6 +148,7 @@
     <ClInclude Include="RHI\Bindless.h" />
     <ClInclude Include="RHI\CommandBuffer.h" />
     <ClInclude Include="RHI\Descriptor.h" />
+    <ClInclude Include="RHI\DynamicUniformBuffer.h" />
     <ClInclude Include="RHI\Query.h" />
     <ClInclude Include="RHI\Resource.h" />
     <ClInclude Include="RHI\RHI.h" />
@@ -210,13 +211,13 @@
     <ClCompile Include="Renderer\DeferredRenderer\Pass\FSR2Pass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\GTAOPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\HierarchyZBufferBuild.cpp" />
+    <ClCompile Include="Renderer\DeferredRenderer\Pass\PMXPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\PreZPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\SampleDistributionShadowMap.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\SSRPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\StaticMeshPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\TonemapperPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\VolumetricCloudPass.cpp" />
-    <ClCompile Include="Renderer\PMXRenderProxy.cpp" />
     <ClCompile Include="Renderer\RenderSettingContext.cpp" />
     <ClCompile Include="Renderer\SceneTextures.cpp" />
     <ClCompile Include="Renderer\ImGuiPass.cpp" />
@@ -230,6 +231,7 @@
     <ClCompile Include="RHI\Bindless.cpp" />
     <ClCompile Include="RHI\CommandBuffer.cpp" />
     <ClCompile Include="RHI\Descriptor.cpp" />
+    <ClCompile Include="RHI\DynamicUniformBuffer.cpp" />
     <ClCompile Include="RHI\Query.cpp" />
     <ClCompile Include="RHI\Resource.cpp" />
     <ClCompile Include="RHI\RHI.cpp" />

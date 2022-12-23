@@ -94,8 +94,8 @@ float cloudMap(vec3 posMeter, float normalizeHeight)  // Meter
         return 0.0f;
     }
 
-    const float kCoverage = 0.99f;
-    const float kDensity = 0.05f; // 0.05
+    const float kCoverage = 1.2;
+    const float kDensity = 0.06; // 0.05
 
     const vec3 windDirection = vec3(1.0, 0.0, 0.0);
     const float cloudSpeed = 0.1f;
@@ -108,11 +108,11 @@ float cloudMap(vec3 posMeter, float normalizeHeight)  // Meter
     vec2 sampleUv = posKm.xz * 0.0025;
     vec4 weatherValue = texture(sampler2D(inWeatherTexture, linearRepeatSampler), sampleUv);
 
-    float coverage = 0.6;// 0.5;// 1.0 - kCoverage * max(weatherValue.x, saturate(weatherValue.y - 0.4) * 1.0);
-	// float gradienShape = remap(normalizeHeight, 0.00, 0.10, 0.1, 1.0) * remap(normalizeHeight, 0.10, 0.90, 1.0, 0.2);
-    float gradienShape = remap(normalizeHeight, 0.00, 0.10, 0.1, 1.0) * remap(normalizeHeight, 0.10, 0.90, 1.0, 0.6);
+    float coverage = 1.0 - kCoverage * max(weatherValue.x, saturate(weatherValue.y - 0.4) * 1.0);
+	float gradienShape = remap(normalizeHeight, 0.00, 0.10, 0.1, 1.0) * remap(normalizeHeight, 0.10, 0.90, 1.0, 0.2);
+    // float gradienShape = remap(normalizeHeight, 0.00, 0.10, 0.1, 1.0) * remap(normalizeHeight, 0.10, 0.90, 1.0, 0.6);
 
-    float basicNoise = texture(sampler3D(inBasicNoise, linearRepeatSampler), (posKm + windOffset) * 0.5 * vec3(0.04)).r;
+    float basicNoise = texture(sampler3D(inBasicNoise, linearRepeatSampler), (posKm + windOffset) * vec3(0.08)).r;
     
     float basicCloudNoise = gradienShape * basicNoise;
     float basicCloud = mix(basicCloudNoise, smoothstep(0.1, 0.9, basicCloudNoise), saturate(1.0 - normalizeHeight * 6.0));
@@ -120,8 +120,8 @@ float cloudMap(vec3 posMeter, float normalizeHeight)  // Meter
 	float basicCloudWithCoverage =  coverage * remap(basicCloud, coverage, 1, 0, 1);
 
     vec3 sampleDetailNoise = posKm - windOffset * 0.15 + vec3(basicNoise.x, 0.0, basicCloudNoise) * normalizeHeight;
-    float detailNoiseComposite = texture(sampler3D(inWorleyNoise, linearRepeatSampler), 0.85 * sampleDetailNoise * 0.1).r;
-	float detailNoiseMixByHeight = 0.65 * mix(detailNoiseComposite, 1 - detailNoiseComposite, saturate(normalizeHeight * 10.0));
+    float detailNoiseComposite = texture(sampler3D(inWorleyNoise, linearRepeatSampler), sampleDetailNoise * 0.1).r;
+	float detailNoiseMixByHeight = 0.7 * mix(detailNoiseComposite, 1 - detailNoiseComposite, saturate(normalizeHeight * 10.0));
     
     float densityShape = saturate(0.01 + normalizeHeight * 1.15) * kDensity *
         remap(normalizeHeight, 0.0, 0.1, 0.0, 1.0) * 

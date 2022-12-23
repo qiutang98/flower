@@ -6,6 +6,7 @@
 #include "../SceneTextures.h"
 #include "Pass/FSR2Pass.h"
 #include "../RenderSettingContext.h"
+#include "../../Scene/Component/PMXComponent.h"
 
 namespace Flower
 {
@@ -29,6 +30,10 @@ namespace Flower
 
 	void DeferredRenderer::updateViewData(BufferParamRefPointer viewData, const RuntimeModuleTickData& tickData)
 	{
+		auto* renderer = GEngine->getRuntimeModule<Renderer>();
+		auto* renderScene = renderer->getRenderScene();
+
+
 		GPUViewData view{};
 
 		// Update prev cam infos.
@@ -38,30 +43,71 @@ namespace Flower
 			view.camViewProjPrevNoJitter = m_cacheViewData.camViewProjNoJitter;
 		}
 
-		view.camWorldPos = { m_camera->getPosition(), 1.0f };
-		view.camInfo = 
-		{
-			m_camera->getFovY(),
-			m_camera->getAspect(),
-			m_camera->getZNear(),
-			m_camera->getZFar()
-		};
-
-
+		// These setting use basic camera.
 		view.exposure = m_camera->getExposure();
 		view.ev100 = m_camera->getEv100();
 		view.evCompensation = m_camera->exposureCompensation;
-
 		view.cameraAtmosphereMoveScale = m_camera->atmosphereMoveScale;
 		view.cameraAtmosphereOffsetHeight = m_camera->atmosphereHeightOffset;
 
-		view.camView = m_camera->getViewMatrix();
+		if (renderScene->isPMXPlayWithCamera())
+		{
+			auto playingPMX = renderScene->getPlayingPMXWithCamera();
+			auto frame = playingPMX->getCurrentFrameCameraData(
+				float(m_renderWidth),
+				float(m_renderHeight),
+				m_camera->getZNear(),
+				m_camera->getZFar());
+
+			view.camWorldPos = { frame.worldPos, 1.0f };
+			view.camInfo =
+			{
+				frame.fovy,
+				(float)m_renderWidth / (float)m_renderHeight,
+				m_camera->getZNear(),
+				m_camera->getZFar()
+			};
+
+			view.camView = frame.viewMat;
+			view.camProjNoJitter = frame.projMat;
+
+
+			CameraInterface::Frustum frustum = CameraInterface::Frustum::get(view.camProjNoJitter * view.camView);
+			view.frustumPlanes[0] = frustum.planes[0];
+			view.frustumPlanes[1] = frustum.planes[1];
+			view.frustumPlanes[2] = frustum.planes[2];
+			view.frustumPlanes[3] = frustum.planes[3];
+			view.frustumPlanes[4] = frustum.planes[4];
+			view.frustumPlanes[5] = frustum.planes[5];
+		}
+		else
+		{
+			view.camWorldPos = { m_camera->getPosition(), 1.0f };
+			view.camInfo =
+			{
+				m_camera->getFovY(),
+				m_camera->getAspect(),
+				m_camera->getZNear(),
+				m_camera->getZFar()
+			};
+			view.camView = m_camera->getViewMatrix();
+			view.camProjNoJitter = m_camera->getProjectMatrix();
+
+			CameraInterface::Frustum frustum = m_camera->getWorldFrustum();
+
+			view.frustumPlanes[0] = frustum.planes[0];
+			view.frustumPlanes[1] = frustum.planes[1];
+			view.frustumPlanes[2] = frustum.planes[2];
+			view.frustumPlanes[3] = frustum.planes[3];
+			view.frustumPlanes[4] = frustum.planes[4];
+			view.frustumPlanes[5] = frustum.planes[5];
+		}
+
+		// Build other info.
 		view.camInvertView = glm::inverse(view.camView);
-		view.camProjNoJitter = m_camera->getProjectMatrix();
 		view.camViewProjNoJitter = view.camProjNoJitter * view.camView;
 		view.camInvertProjNoJitter = glm::inverse(view.camProjNoJitter);
 		view.camInvertViewProjNoJitter = glm::inverse(view.camViewProjNoJitter);
-
 		{
 			glm::mat4 curJitterMatrix = glm::mat4(1.0f);
 			curJitterMatrix[3][0] += m_cacheFrameData.jitterData.x;
@@ -74,14 +120,7 @@ namespace Flower
 			view.camInvertViewProj = glm::inverse(view.camViewProj);
 		}
 
-		const auto frustum = m_camera->getWorldFrustum();
 
-		view.frustumPlanes[0] = frustum.planes[0];
-		view.frustumPlanes[1] = frustum.planes[1];
-		view.frustumPlanes[2] = frustum.planes[2];
-		view.frustumPlanes[3] = frustum.planes[3];
-		view.frustumPlanes[4] = frustum.planes[4];
-		view.frustumPlanes[5] = frustum.planes[5];
 		viewData->buffer.updateData(view);
 
 		m_cacheViewData = view;
@@ -202,7 +241,11 @@ namespace Flower
 				auto& gbufferS = sceneTexures.getGbufferS()->getImage();
 				auto& gbufferV = sceneTexures.getGbufferV()->getImage();
 				auto& gbufferComposition = sceneTexures.getGbufferUpscaleTranslucencyAndComposition()->getImage();
+				auto& gbufferUpscaleMask = sceneTexures.getGbufferUpscaleReactive()->getImage();
 				// Depth clear in mesh draw pass.
+				auto& depthZ = sceneTexures.getDepth()->getImage();
+
+				
 
 				RHI::ScopePerframeMarker marker(graphicsCmd, "GBuffer Clear", { 1.0f, 1.0f, 0.0f, 1.0f });
 				VkClearColorValue zeroClear = 
@@ -216,6 +259,9 @@ namespace Flower
 				gbufferS.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
 				gbufferV.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
 				gbufferComposition.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+				gbufferUpscaleMask.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+
+				depthZ.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_GENERAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT));
 
 				auto rangeClear = buildBasicImageSubresource();
 				vkCmdClearColorImage(graphicsCmd, hdrSceneColor.getImage(), VK_IMAGE_LAYOUT_GENERAL, &zeroClear, 1, &rangeClear);
@@ -224,7 +270,11 @@ namespace Flower
 				vkCmdClearColorImage(graphicsCmd, gbufferS.getImage(), VK_IMAGE_LAYOUT_GENERAL, &zeroClear, 1, &rangeClear);
 				vkCmdClearColorImage(graphicsCmd, gbufferV.getImage(), VK_IMAGE_LAYOUT_GENERAL, &zeroClear, 1, &rangeClear);
 				vkCmdClearColorImage(graphicsCmd, gbufferComposition.getImage(), VK_IMAGE_LAYOUT_GENERAL, &zeroClear, 1, &rangeClear);
+				vkCmdClearColorImage(graphicsCmd, gbufferUpscaleMask.getImage(), VK_IMAGE_LAYOUT_GENERAL, &zeroClear, 1, &rangeClear);
 
+				auto depthClear = VkClearDepthStencilValue{ 0.0f, 1 };
+				auto rangeClearDepth = RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT);
+				vkCmdClearDepthStencilImage(graphicsCmd, depthZ.getImage(), VK_IMAGE_LAYOUT_GENERAL, &depthClear, 1, &rangeClearDepth);
 
 				hdrSceneColor.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
 				gbufferA.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
@@ -232,6 +282,8 @@ namespace Flower
 				gbufferS.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
 				gbufferV.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
 				gbufferComposition.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+				gbufferUpscaleMask.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+				depthZ.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, rangeClearDepth);
 			}
 
 
@@ -251,6 +303,8 @@ namespace Flower
 			renderBasicLighting(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, GTAOTex);
 
 			renderSSR(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, hizTex, GTAOTex, blueNoiseMisc);
+
+			renderPMX(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, blueNoiseMisc);
 
 			// Composite sky.
 			renderAtmosphere(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, true);

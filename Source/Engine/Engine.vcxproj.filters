@@ -67,7 +67,6 @@
     <ClInclude Include="Renderer\RenderSettingContext.h" />
     <ClInclude Include="RHI\CommandBuffer.h" />
     <ClInclude Include="Scene\Component\PMXComponent.h" />
-    <ClInclude Include="Renderer\PMXRenderProxy.h" />
     <ClInclude Include="RHI\AccelerateStructure.h" />
     <ClInclude Include="AssetSystem\AsyncQueueSchedule.h" />
     <ClInclude Include="Scene\SceneArchive.h" />
@@ -78,6 +77,7 @@
     <ClInclude Include="Scene\Component\PostprocessingVolume.h" />
     <ClInclude Include="Renderer\DeferredRenderer\Pass\BloomCommon.h" />
     <ClInclude Include="Scene\Component\ReflectionCapture.h" />
+    <ClInclude Include="RHI\DynamicUniformBuffer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Pch.cpp" />
@@ -141,7 +141,6 @@
     <ClCompile Include="Renderer\DeferredRenderer\Pass\GTAOPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\BlueNoisePass.cpp" />
     <ClCompile Include="Scene\Component\PMXComponent.cpp" />
-    <ClCompile Include="Renderer\PMXRenderProxy.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\SSRPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\PreZPass.cpp" />
     <ClCompile Include="RHI\AccelerateStructure.cpp" />
@@ -150,5 +149,7 @@
     <ClCompile Include="Scene\Component\SkyLight.cpp" />
     <ClCompile Include="Scene\Component\PostprocessingVolume.cpp" />
     <ClCompile Include="Scene\Component\ReflectionCapture.cpp" />
+    <ClCompile Include="Renderer\DeferredRenderer\Pass\PMXPass.cpp" />
+    <ClCompile Include="RHI\DynamicUniformBuffer.cpp" />
   </ItemGroup>
 </Project>

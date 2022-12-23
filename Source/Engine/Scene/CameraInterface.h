@@ -61,6 +61,59 @@ namespace Flower
 		struct Frustum
 		{
 			std::array<glm::vec4, 6> planes;
+
+			enum side
+			{
+				LEFT = 0,
+				DOWN = 1,
+				RIGHT = 2,
+				TOP = 3,
+				FRONT = 4, 
+				BACK = 5  
+			};
+
+			static Frustum get(glm::mat4 matrix)
+			{
+				Frustum res{};
+
+				res.planes[LEFT].x = matrix[0].w + matrix[0].x;
+				res.planes[LEFT].y = matrix[1].w + matrix[1].x;
+				res.planes[LEFT].z = matrix[2].w + matrix[2].x;
+				res.planes[LEFT].w = matrix[3].w + matrix[3].x;
+
+				res.planes[RIGHT].x = matrix[0].w - matrix[0].x;
+				res.planes[RIGHT].y = matrix[1].w - matrix[1].x;
+				res.planes[RIGHT].z = matrix[2].w - matrix[2].x;
+				res.planes[RIGHT].w = matrix[3].w - matrix[3].x;
+
+				res.planes[TOP].x = matrix[0].w - matrix[0].y;
+				res.planes[TOP].y = matrix[1].w - matrix[1].y;
+				res.planes[TOP].z = matrix[2].w - matrix[2].y;
+				res.planes[TOP].w = matrix[3].w - matrix[3].y;
+
+				res.planes[DOWN].x = matrix[0].w + matrix[0].y;
+				res.planes[DOWN].y = matrix[1].w + matrix[1].y;
+				res.planes[DOWN].z = matrix[2].w + matrix[2].y;
+				res.planes[DOWN].w = matrix[3].w + matrix[3].y;
+
+				res.planes[BACK].x = matrix[0].w + matrix[0].z;
+				res.planes[BACK].y = matrix[1].w + matrix[1].z;
+				res.planes[BACK].z = matrix[2].w + matrix[2].z;
+				res.planes[BACK].w = matrix[3].w + matrix[3].z;
+
+				res.planes[FRONT].x = matrix[0].w - matrix[0].z;
+				res.planes[FRONT].y = matrix[1].w - matrix[1].z;
+				res.planes[FRONT].z = matrix[2].w - matrix[2].z;
+				res.planes[FRONT].w = matrix[3].w - matrix[3].z;
+
+				for (auto i = 0; i < res.planes.size(); i++)
+				{
+					float length = sqrtf(res.planes[i].x * res.planes[i].x + res.planes[i].y * res.planes[i].y + res.planes[i].z * res.planes[i].z);
+					res.planes[i] /= length;
+				}
+
+				return res;
+			}
 		};
 
 		Frustum getWorldFrustum() const
