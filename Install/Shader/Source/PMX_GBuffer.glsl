@@ -16,16 +16,7 @@ struct VS2PS
     vec4 posNDCCurNoJitter;
 };
 
-struct UniformPMX
-{
-    mat4 modelMatrix;
-    mat4 modelMatrixPrev;
-
-    uint texID;
-    uint spTexID;
-    uint toonTexID;
-    uint pmxObjectID;
-};
+#include "PMX_Common.glsl"
 
 #include "Common.glsl"
 #include "ColorSpace.glsl"
@@ -73,8 +64,8 @@ void main()
     // Compute velocity for static mesh. https://github.com/GPUOpen-Effects/FidelityFX-FSR2
     // FSR2 will perform better quality upscaling when more objects provide their motion vectors. 
     // It is therefore advised that all opaque, alpha-tested and alpha-blended objects should write their motion vectors for all covered pixels.
-    vsOut.posNDCPrevNoJitter = viewData.camViewProjPrevNoJitter * pmxParam.modelMatrixPrev * localPosition; // TODO: Change to model matrix prev.
-    vsOut.posNDCCurNoJitter = viewData.camViewProjNoJitter * worldPosition;
+    vsOut.posNDCPrevNoJitter = viewData.camViewProjPrevNoJitter * pmxParam.modelMatrixPrev * vec4(inPositionLast, 1.0);
+    vsOut.posNDCCurNoJitter  = viewData.camViewProjNoJitter * worldPosition;
 }
 
 #endif /////////////////////////// vertex shader end
@@ -110,24 +101,23 @@ layout(location = 6) out float outCompositionMask;
 
 void main()
 {
-    const vec4 baseColor = tex(pmxParam.texID, vsIn.uv0);
+    vec4 baseColor = tex(pmxParam.texID, vsIn.uv0);
     if(baseColor.a < 0.01f)
     {
+        // Clip very small mask.
         discard;
     }
-    outRectiveMask = 0.5;
-
-    outHDRSceneColor.rgb = inputColorPrepare(baseColor.rgb);
+    baseColor.rgb = inputColorPrepare(baseColor.rgb);
 
     outGBufferA.rgb = baseColor.rgb;
-    outGBufferA.a = kShadingModelPMXBasic;
+    outGBufferA.a   = kShadingModelPMXBasic;
 
     outGBufferB.rgb = normalize(vsIn.normal);
     outGBufferB.a = pmxParam.pmxObjectID; // pmx object id. todo.
 
-    outGBufferS.r = 0.0f;
-    outGBufferS.g = 0.5f;
-    outGBufferS.b = 1.0f;
+    outGBufferS.r = 0.0f; // metal
+    outGBufferS.g = 0.5f; // roughness
+    outGBufferS.b = 1.0f; // ao
 
     // Velocity output.
     outGBufferV = (vsIn.posNDCPrevNoJitter.xy / vsIn.posNDCPrevNoJitter.w) - (vsIn.posNDCCurNoJitter.xy / vsIn.posNDCCurNoJitter.w);

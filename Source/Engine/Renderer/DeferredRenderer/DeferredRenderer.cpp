@@ -286,13 +286,17 @@ namespace Flower
 				depthZ.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, rangeClearDepth);
 			}
 
+			// Render terrain.
+			renderTerrain(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU);
 
 			// Render static mesh Gbuffer.
 			renderStaticMeshGBuffer(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU);
 
+			renderPMX(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, blueNoiseMisc);
+
 			// When set SDSM after GTAO render, the shadow will flickering, i don't know why, i check all barrier but seems normal.
 			// Current make sdsm before GTAO and hiz.
-			renderSDSM(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU);
+			renderSDSM(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, blueNoiseMisc);
 
 			auto hizTex = renderHiZ(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU);
 			auto GTAOTex = renderGTAO(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, hizTex, blueNoiseMisc);
@@ -304,12 +308,15 @@ namespace Flower
 
 			renderSSR(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, hizTex, GTAOTex, blueNoiseMisc);
 
-			renderPMX(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, blueNoiseMisc);
+
 
 			// Composite sky.
 			renderAtmosphere(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, true);
 
 			renderVolumetricCloud(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, blueNoiseMisc);
+
+			renderPMXTranslucent(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, blueNoiseMisc);
+
 
 			renderFSR2(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, tickData);
 			

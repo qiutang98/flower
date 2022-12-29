@@ -92,12 +92,61 @@ SCENE_ARCHIVE_IMPL_INHERIT(LandscapeComponent, Component)
 }
 SCENE_ARCHIVE_IMPL_INHERIT_END
 
+
+
+MAKE_VERSION_SCENE(Flower::PMXDrawMaterial);
+template<class Archive>
+void Flower::PMXDrawMaterial::serialize(Archive& archive, std::uint32_t const version)
+{
+	archive(material.m_enName);
+	archive(material.m_name);
+
+	archive(material.m_diffuse);
+	archive(material.m_alpha);
+	archive(material.m_specular);
+	archive(material.m_specularPower);
+	archive(material.m_ambient);
+	archive(material.m_edgeFlag);
+	archive(material.m_edgeSize);
+	archive(material.m_edgeColor);
+	archive(material.m_texture);
+
+	archive(material.m_spTexture);
+
+	uint32_t spTextureMode = uint32_t(material.m_spTextureMode);
+	archive(spTextureMode); //
+	material.m_spTextureMode = saba::MMDMaterial::SphereTextureMode(spTextureMode);
+
+	archive(material.m_toonTexture);
+	archive(material.m_textureMulFactor);
+	archive(material.m_spTextureMulFactor);
+
+	archive(material.m_toonTextureMulFactor);
+	archive(material.m_textureAddFactor);
+	archive(material.m_spTextureAddFactor);
+	archive(material.m_toonTextureAddFactor);
+
+	archive(material.m_bothFace);
+	archive(material.m_groundShadow);
+	archive(material.m_shadowCaster);
+	archive(material.m_shadowReceiver);
+
+	archive(bTranslucent);
+	archive(bHide);
+}
+
 SCENE_ARCHIVE_IMPL_INHERIT(PMXComponent, Component)
 {
 	archive(m_pmxPath);
 	archive(m_vmdPath);
 	archive(m_wavPath);
 	archive(m_cameraPath);
+
+	if (version > 1)
+	{
+		archive(m_materials);
+	}
+	
 }
 SCENE_ARCHIVE_IMPL_INHERIT_END
 

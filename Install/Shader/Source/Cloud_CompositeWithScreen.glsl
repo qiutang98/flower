@@ -34,6 +34,8 @@ void main()
         vec3 result = mix(srcColor.rgb, cloudColor.rgb, 1.0 - cloudColor.a);
 	    imageStore(imageHdrSceneColor, workPos, vec4(result, 1.0));
 
-        // imageStore(imageGbufferTranslucentMask, workPos, vec4(1.0 - cloudColor.a));
+        // TODO: Sometimes the cloud is ghost and fsr can't clip it. Need to write depth and velocity. :(
+        //       Need fix.
+        // imageStore(imageGbufferReactiveMask, workPos, 0.5);
     }
 }

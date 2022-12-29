@@ -6,6 +6,8 @@
 #include "../../../AssetSystem/MeshManager.h"
 #include "../../RendererTextures.h"
 #include "../../../AssetSystem/TextureManager.h"
+#include "../../../Scene/Component/PMXComponent.h"
+
 
 namespace Flower
 {
@@ -45,6 +47,10 @@ namespace Flower
 		VkPipelineLayout depthRenderPipelineLayout = VK_NULL_HANDLE;
 		VkPipeline softShadowEvaluatePipeline = VK_NULL_HANDLE;
 		VkPipelineLayout softShadowEvaluatePipelineLayout = VK_NULL_HANDLE;
+
+
+		VkPipeline pmxDepthRenderPipeline = VK_NULL_HANDLE;
+		VkPipelineLayout pmxDepthRenderPipelineLayout = VK_NULL_HANDLE;
 
 	protected:
 		virtual void init() override
@@ -250,6 +256,115 @@ namespace Flower
 				RHICheck(vkCreateGraphicsPipelines(RHI::Device, nullptr, 1, &pipelineCreateInfo, nullptr, &depthRenderPipeline));
 			}
 
+			// PMX Depth render.
+			{
+				CHECK(pmxDepthRenderPipeline == VK_NULL_HANDLE);
+				CHECK(pmxDepthRenderPipelineLayout == VK_NULL_HANDLE);
+
+				std::vector<VkDescriptorSetLayout> setLayouts =
+				{
+					  setLayout // Owner layout.
+					, GetLayoutStatic(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) // viewData
+					, GetLayoutStatic(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) // frameData
+					, RHI::SamplerManager->getCommonDescriptorSetLayout() // sampler
+					, BlueNoiseMisc::getSetLayout() // Bluenoise
+					, StaticTexturesManager::get()->globalBlueNoise.spp_1_buffer.setLayouts // All blue noise set layout is same.
+					, Bindless::Texture->getSetLayout() // texture2D array
+					, GetLayoutStatic(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC) // PMX param.
+				};
+
+				VkPipelineLayoutCreateInfo plci = RHIPipelineLayoutCreateInfo();
+				VkPushConstantRange pushConstant{};
+				pushConstant.offset = 0;
+				pushConstant.size = sizeof(DepthDrawPushConst);
+				pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+				plci.pPushConstantRanges = &pushConstant;
+				plci.pushConstantRangeCount = 1;
+
+				plci.setLayoutCount = (uint32_t)setLayouts.size();
+				plci.pSetLayouts = setLayouts.data();
+				pmxDepthRenderPipelineLayout = RHI::get()->createPipelineLayout(plci);
+
+				auto vertShader = RHI::ShaderManager->getShader("PMX_SDSMDepthDraw.vert.spv", true);
+				auto fragShader = RHI::ShaderManager->getShader("PMX_SDSMDepthDraw.frag.spv", true);
+
+				std::vector<VkPipelineShaderStageCreateInfo> shaderStages =
+				{
+					RHIPipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, vertShader),
+					RHIPipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragShader),
+				};
+
+				auto defaultViewport = RHIDefaultViewportState();
+				const auto& deafultDynamicState = RHIDefaultDynamicStateCreateInfo();
+
+				auto vertexInputState = RHIVertexInputStateCreateInfo();
+				std::vector<VkVertexInputAttributeDescription> inputAttributes = {
+					{ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 0 }, // pos
+					{ 1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 3 }, // normal
+					{ 2, 0, VK_FORMAT_R32G32_SFLOAT,    sizeof(float) * 6 }, // uv0
+					{ 3, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 8 }, // pos prev.
+				};
+				VkVertexInputBindingDescription inputBindingDes =
+				{
+					.binding = 0,
+					.stride = sizeof(PMXMeshProxy::Vertex),
+					.inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+				};
+				vertexInputState.vertexAttributeDescriptionCount = (uint32_t)inputAttributes.size();
+				vertexInputState.vertexBindingDescriptionCount = 1;
+				vertexInputState.pVertexBindingDescriptions = &inputBindingDes;
+				vertexInputState.pVertexAttributeDescriptions = inputAttributes.data();
+
+				auto assemblyCreateInfo = RHIInputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+				auto rasterState = RHIRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL);
+
+				// Enable depth bias to reduce shadow ances.
+				rasterState.depthBiasEnable = VK_TRUE;
+
+				// Enable depth clamp to avoid shadow hole.
+				rasterState.depthClampEnable = VK_TRUE;
+
+				rasterState.cullMode = VK_CULL_MODE_NONE;
+
+				auto multiSampleState = RHIMultisamplingStateCreateInfo();
+				auto depthStencilState = RHIDepthStencilCreateInfo(true, true, VK_COMPARE_OP_GREATER);
+
+
+				const VkPipelineRenderingCreateInfo pipelineRenderingCreateInfo
+				{
+					.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+					.colorAttachmentCount = 0,
+					.pColorAttachmentFormats = nullptr,
+					.depthAttachmentFormat = RTFormats::depth(),
+				};
+				VkPipelineColorBlendStateCreateInfo colorBlending
+				{
+					.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+					.logicOpEnable = VK_FALSE,
+					.logicOp = VK_LOGIC_OP_COPY,
+					.attachmentCount = 0,
+					.pAttachments = nullptr,
+				};
+
+				VkGraphicsPipelineCreateInfo pipelineCreateInfo
+				{
+					.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+					.pNext = &pipelineRenderingCreateInfo,
+					.stageCount = uint32_t(shaderStages.size()),
+					.pStages = shaderStages.data(),
+					.pVertexInputState = &vertexInputState,
+					.pInputAssemblyState = &assemblyCreateInfo,
+					.pViewportState = &defaultViewport,
+					.pRasterizationState = &rasterState,
+					.pMultisampleState = &multiSampleState,
+					.pDepthStencilState = &depthStencilState,
+					.pColorBlendState = &colorBlending,
+					.pDynamicState = &deafultDynamicState,
+					.layout = pmxDepthRenderPipelineLayout,
+				};
+				RHICheck(vkCreateGraphicsPipelines(RHI::Device, nullptr, 1, &pipelineCreateInfo, nullptr, &pmxDepthRenderPipeline));
+			}
+
 			// Soft shadow.
 			{
 				CHECK(softShadowEvaluatePipeline == VK_NULL_HANDLE);
@@ -262,7 +377,9 @@ namespace Flower
 					, GetLayoutStatic(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) // viewData
 					, GetLayoutStatic(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) // frameData
 					, RHI::SamplerManager->getCommonDescriptorSetLayout() // Common samplers
-				};
+					, BlueNoiseMisc::getSetLayout() // Bluenoise
+					, StaticTexturesManager::get()->globalBlueNoise.spp_1_buffer.setLayouts // All blue noise set layout is same.
+				};	
 
 				// Vulkan build functions.
 				VkPipelineLayoutCreateInfo plci = RHIPipelineLayoutCreateInfo();
@@ -296,6 +413,10 @@ namespace Flower
 			RHISafeRelease(depthRenderPipelineLayout);
 			RHISafeRelease(softShadowEvaluatePipeline);
 			RHISafeRelease(softShadowEvaluatePipelineLayout);
+			
+
+			RHISafeRelease(pmxDepthRenderPipeline);
+			RHISafeRelease(pmxDepthRenderPipelineLayout);
 		}
 	};
 
@@ -305,7 +426,8 @@ namespace Flower
 		SceneTextures* inTextures,
 		RenderSceneData* scene,
 		BufferParamRefPointer& viewData,
-		BufferParamRefPointer& frameData)
+		BufferParamRefPointer& frameData,
+		BlueNoiseMisc& inBlueNoise)
 	{
 		if (m_cacheFrameData.bSdsmDraw <= 0)
 		{
@@ -564,6 +686,60 @@ namespace Flower
 					m_gpuTimer.getTimeStamp(cmd, "SDSMDepthRendering");
 
 				}
+
+				// Render SDSM depth for pmx mesh.
+				if (scene->isPMXExist())
+				{
+					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pass->pmxDepthRenderPipeline);
+
+					// Set #0.
+					RHI::PushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pass->pmxDepthRenderPipelineLayout, 0, uint32_t(writes.size()), writes.data());
+
+					std::vector<VkDescriptorSet> meshPassSets =
+					{
+						  viewData->buffer.getSet()  // viewData
+						, frameData->buffer.getSet() // frameData
+						, RHI::SamplerManager->getCommonDescriptorSet() // samplers.
+						, inBlueNoise.getSet()
+						, StaticTexturesManager::get()->globalBlueNoise.spp_1_buffer.set // 1spp is good.
+						, Bindless::Texture->getSet()
+					};
+					// Set #1...#6
+					vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pass->pmxDepthRenderPipelineLayout,
+						1, (uint32_t)meshPassSets.size(), meshPassSets.data(), 0, nullptr);
+
+					// Set depth bias for shadow depth rendering to avoid shadow artifact.
+					vkCmdSetDepthBias(cmd, lightInfo.shadowBiasConst, 0, lightInfo.shadowBiasSlope);
+
+					for (uint32_t cascadeIndex = 0; cascadeIndex < lightInfo.cascadeCount; cascadeIndex++)
+					{
+						VkRect2D scissor{};
+						scissor.extent = { lightInfo.perCascadeXYDim, lightInfo.perCascadeXYDim };
+						scissor.offset = { int32_t(lightInfo.perCascadeXYDim * cascadeIndex), 0 };
+
+						VkViewport viewport{};
+						viewport.minDepth = 0.0f;
+						viewport.maxDepth = 1.0f;
+						viewport.y = (float)lightInfo.perCascadeXYDim;
+						viewport.height = -(float)lightInfo.perCascadeXYDim;
+						viewport.x = (float)lightInfo.perCascadeXYDim * (float)cascadeIndex;
+						viewport.width = (float)lightInfo.perCascadeXYDim;
+
+						vkCmdSetScissor(cmd, 0, 1, &scissor);
+						vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+						DepthDrawPushConst pushConst{ .cascadeId = cascadeIndex, .perCascadeMaxCount = staticMeshCount };
+						vkCmdPushConstants(cmd, pass->pmxDepthRenderPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(DepthDrawPushConst), &pushConst);
+
+						// 
+						const auto& pmxes = scene->getPMXes();
+						for (const auto& pmx : pmxes)
+						{
+							pmx->onShadowRenderCollect(this, cmd, pass->pmxDepthRenderPipelineLayout, cascadeIndex);
+						}
+					}
+					m_gpuTimer.getTimeStamp(cmd, "PMX SDSMDepthRendering");
+				}
 				vkCmdEndRendering(cmd);
 			}
 		}
@@ -582,6 +758,8 @@ namespace Flower
 				  viewData->buffer.getSet()
 				, frameData->buffer.getSet()
 				, RHI::SamplerManager->getCommonDescriptorSet()
+				, inBlueNoise.getSet()
+				, StaticTexturesManager::get()->globalBlueNoise.spp_8_buffer.set // shadow 8 spp.
 			};
 
 			// Set #1..2

@@ -1,6 +1,7 @@
 #include "Pch.h"
 #include "../Detail.h"
 #include "DrawComponent.h"
+#include "EditorAsset.h"
 
 using namespace Flower;
 using namespace Flower::UI;
@@ -88,4 +89,47 @@ void ComponentDrawer::drawPMX(std::shared_ptr<SceneNode> node)
 	}
 
 	ImGui::Separator();
+
+	// Draw Materials.
+	for (size_t i = 0; i < comp->m_materials.size(); i++)
+	{
+		ImGui::PushID(i);
+		auto& mat = comp->m_materials.at(i);
+		if (ImGui::TreeNode(mat.material.m_name.c_str()))
+		{
+			ImGui::TextDisabled("English Name: %s.", mat.material.m_enName.c_str());
+
+			VkDescriptorSet set = EditorAssetSystem::get()->getSetByAssetAsSnapShot(TextureManager::get()->getImage(EngineTextures::GWhiteTextureUUID).get());
+
+			ImGui::TextDisabled("Basic texture: %s.", mat.material.m_texture.c_str());
+			if (!mat.material.m_texture.empty())
+			{
+				set = EditorAssetSystem::get()->getSetByAssetAsSnapShot(TextureManager::get()->getImage(mat.material.m_texture).get());
+			}
+			ImGui::Image(set, { 80 , 80 });
+			
+			ImGui::TextDisabled("Toon texture: %s.", mat.material.m_toonTexture.c_str());
+			if (mat.mmdToonTex != ~0)
+			{
+				set = EditorAssetSystem::get()->getSetByAssetAsSnapShot(TextureManager::get()->getImage(mat.material.m_toonTexture).get());
+				ImGui::Image(set, { 80 , 80 });
+			}
+
+			ImGui::TextDisabled("Sp texture: %s.", mat.material.m_spTexture.c_str());
+			if (mat.mmdSphereTex != ~0)
+			{
+				set = EditorAssetSystem::get()->getSetByAssetAsSnapShot(TextureManager::get()->getImage(mat.material.m_spTexture).get());
+				ImGui::Image(set, { 80 , 80 });
+			}
+
+			ImGui::Checkbox("Translucent", &mat.bTranslucent);
+			ImGui::Checkbox("Hide", &mat.bHide);
+
+			ImGui::TreePop();
+			ImGui::Separator();
+		}
+		ImGui::PopID();
+	}
+
+
 }

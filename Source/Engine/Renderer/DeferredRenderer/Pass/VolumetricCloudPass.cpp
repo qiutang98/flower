@@ -49,6 +49,7 @@ namespace Flower
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, GCommonShaderStage, 20) // inCloudReconstructionTexture
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, GCommonShaderStage, 21) // inCloudReconstructionTexture
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, GCommonShaderStage, 22) // imageCloudRenderTexture
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, GCommonShaderStage, 23) // inDepth
                 .buildNoInfoPush(setLayout);
 
             std::vector<VkDescriptorSetLayout> setLayouts =
@@ -178,6 +179,7 @@ namespace Flower
         auto& gbufferTranslucentMask = inTextures->getGbufferUpscaleReactive()->getImage();
 
 
+
         auto& sceneColorHdr = inTextures->getHdrSceneColor()->getImage();
         auto& sceneDepthZ = inTextures->getDepth()->getImage();
         auto& gbufferA = inTextures->getGbufferA()->getImage();
@@ -218,6 +220,12 @@ namespace Flower
         VkDescriptorImageInfo computeCloudInfoDepth = RHIDescriptorImageInfoSample(computeCloudDepth->getImage().getView(buildBasicImageSubresource()));
 
         VkDescriptorImageInfo sceneDepthZInfo = RHIDescriptorImageInfoSample(sceneDepthZ.getView(RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT)));
+
+        VkDescriptorImageInfo sceneDepthZInfoPrev = sceneDepthZInfo;
+        if (m_prevDepth)
+        {
+            sceneDepthZInfoPrev = RHIDescriptorImageInfoSample(m_prevDepth->getImage().getView(RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT)));
+        }
 
         VkDescriptorImageInfo gbufferAInfo = RHIDescriptorImageInfoSample(gbufferA.getView(buildBasicImageSubresource()));
 
@@ -314,6 +322,7 @@ namespace Flower
             RHIPushWriteDescriptorSetImage(20,  VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &hisRecInfo),
             RHIPushWriteDescriptorSetImage(21,  VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &hisRecDepthInfo),
             RHIPushWriteDescriptorSetImage(22,  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &translucentMaskInfo),
+            RHIPushWriteDescriptorSetImage(23,  VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &sceneDepthZInfoPrev),
             
         };
 

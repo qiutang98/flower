@@ -143,7 +143,7 @@ namespace saba
 	{
 		if (m_world != nullptr)
 		{
-			m_world->stepSimulation(time, m_maxSubStepCount, static_cast<btScalar>(1.0 / m_fps));
+			m_world->stepSimulation(time); // , m_maxSubStepCount, static_cast<btScalar>(1.0 / m_fps));
 		}
 	}
 

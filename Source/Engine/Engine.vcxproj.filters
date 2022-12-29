@@ -151,5 +151,6 @@
     <ClCompile Include="Scene\Component\ReflectionCapture.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\PMXPass.cpp" />
     <ClCompile Include="RHI\DynamicUniformBuffer.cpp" />
+    <ClCompile Include="Renderer\DeferredRenderer\Pass\TerrainPass.cpp" />
   </ItemGroup>
 </Project>

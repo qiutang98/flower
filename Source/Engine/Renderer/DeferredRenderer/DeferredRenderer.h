@@ -24,6 +24,14 @@ namespace Flower
 		static VkDescriptorSetLayout s_layout;
 	};
 
+	class TerrainContent
+	{
+	public:
+		std::shared_ptr<VulkanBuffer> planeVerticesBuffer = nullptr;
+		std::shared_ptr<VulkanBuffer> planeIndicesBuffer = nullptr;
+
+	};
+
 	class DeferredRenderer : public RendererInterface
 	{
 	public:
@@ -43,6 +51,8 @@ namespace Flower
 		GPUViewData m_cacheViewData;
 
 		uint32_t m_cameraCutState = 0;
+		std::unique_ptr<TerrainContent> m_terrain = nullptr;
+
 
 	private:
 		void updateViewData(BufferParamRefPointer viewData, const RuntimeModuleTickData& tickData);
@@ -58,6 +68,14 @@ namespace Flower
 			const RuntimeModuleTickData& tickData
 		);
 
+		void renderTerrain(
+			VkCommandBuffer cmd,
+			Renderer* renderer,
+			SceneTextures* inTextures,
+			RenderSceneData* scene,
+			BufferParamRefPointer& viewData,
+			BufferParamRefPointer& frameData);
+
 		void renderStaticMeshGBuffer(
 			VkCommandBuffer cmd,
 			Renderer* renderer,
@@ -67,6 +85,15 @@ namespace Flower
 			BufferParamRefPointer& frameData);
 
 		void renderPMX(
+			VkCommandBuffer cmd,
+			Renderer* renderer,
+			SceneTextures* inTextures,
+			RenderSceneData* scene,
+			BufferParamRefPointer& viewData,
+			BufferParamRefPointer& frameData,
+			BlueNoiseMisc& inBlueNoise);
+
+		void renderPMXTranslucent(
 			VkCommandBuffer cmd,
 			Renderer* renderer,
 			SceneTextures* inTextures,
@@ -109,7 +136,8 @@ namespace Flower
 			SceneTextures* inTextures,
 			RenderSceneData* scene,
 			BufferParamRefPointer& viewData,
-			BufferParamRefPointer& frameData
+			BufferParamRefPointer& frameData,
+			BlueNoiseMisc& inBlueNoise
 		);
 
 		void renderBasicLighting(

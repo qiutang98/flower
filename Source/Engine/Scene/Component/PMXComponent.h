@@ -34,7 +34,30 @@ namespace Flower
 		std::vector<std::string> vmdPath;
 	};
 
+	class PMXDrawMaterial
+	{
+		ARCHIVE_DECLARE;
+
+	public:
+#pragma region SerializeField
+		////////////////////////////// Serialize area //////////////////////////////
+		saba::MMDMaterial material;
+
+		bool bTranslucent = false;
+		bool bHide = false;
+		
+
+		////////////////////////////// Serialize area //////////////////////////////
+#pragma endregion SerializeField
+
+		// Runtime build info.
+		uint32_t mmdTex;
+		uint32_t mmdSphereTex;
+		uint32_t mmdToonTex;
+	};
+
 	class RendererInterface;
+	class PMXComponent;
 
 	class PMXMeshProxy
 	{
@@ -53,9 +76,12 @@ namespace Flower
 			uint32_t mmdToonTex;
 			uint32_t mmdSphereTex;
 		};
-		PMXMeshProxy() = default;
+		explicit PMXMeshProxy(PMXComponent* InComp);
 		bool Ready();
+
 	private:
+		PMXComponent* m_component = nullptr;
+
 		std::string m_cameraPath;
 		std::unique_ptr<saba::VMDCameraAnimation> vmdCameraAnim;
 
@@ -65,7 +91,6 @@ namespace Flower
 		std::shared_ptr<saba::MMDModel>	m_mmdModel;
 		std::unique_ptr<saba::VMDAnimation>	m_vmdAnim;
 
-		std::vector<Material> m_materials;
 		PerFrameMMDCamera m_currentFrameCameraData;
 
 		std::shared_ptr<VulkanBuffer> m_indexBuffer = nullptr;
@@ -75,7 +100,7 @@ namespace Flower
 
 		VkIndexType m_indexType;
 
-
+		
 
 		void release();
 		bool prepareVMD();
@@ -91,23 +116,47 @@ namespace Flower
 		void Setup(PMXInitTrait initTrait);
 		void SetupCamera(std::string cameraPath);
 		void OnSceneTick(float vmdFrameTime, float physicElapsed);
-		PerFrameMMDCamera GetCurrentFrameCameraData(float width, float height, float zNear, float zFar, glm::mat4 worldMatrix);
-		void OnRenderCollect(RendererInterface* renderer, VkCommandBuffer cmd, VkPipelineLayout pipelinelayout, const glm::mat4& modelMatrix, const glm::mat4& modelMatrixPrev);
-		void OnShadowRenderCollect(RendererInterface* renderer, VkCommandBuffer cmd, VkPipelineLayout pipelinelayout, uint32_t cascadeIndex, const glm::mat4& modelMatrix);
+
+		PerFrameMMDCamera GetCurrentFrameCameraData(
+			float width, 
+			float height, 
+			float zNear, 
+			float zFar, 
+			glm::mat4 worldMatrix);
+
+		void OnRenderCollect(
+			RendererInterface* renderer, 
+			VkCommandBuffer cmd, 
+			VkPipelineLayout pipelinelayout, 
+			const glm::mat4& modelMatrix, 
+			const glm::mat4& modelMatrixPrev,
+			bool bTranslucentPass);
+
+		void OnShadowRenderCollect(
+			RendererInterface* renderer, 
+			VkCommandBuffer cmd, 
+			VkPipelineLayout pipelinelayout, 
+			uint32_t cascadeIndex, 
+			const glm::mat4& modelMatrix, 
+			const glm::mat4& modelMatrixPrev);
 	};
 
 	// TODO: Seperate camera and PMX.
 	class PMXComponent : public Component
 	{
 		ARCHIVE_DECLARE;
+		friend PMXMeshProxy;
 
 #pragma region SerializeField
 		////////////////////////////// Serialize area //////////////////////////////
-	protected:
+	public:
 		std::string m_pmxPath = "";
 		std::string m_vmdPath = "";
 		std::string m_wavPath = "";
 		std::string m_cameraPath = "";
+
+		// PMX material can keep same name :(
+		std::vector<PMXDrawMaterial> m_materials;
 
 		////////////////////////////// Serialize area //////////////////////////////
 #pragma endregion SerializeField
@@ -133,7 +182,11 @@ namespace Flower
 		void setCameraPath(std::string cameraPath);
 
 		///
-		void onRenderCollect(RendererInterface* renderer, VkCommandBuffer cmd, VkPipelineLayout pipelinelayout);
+		void onRenderCollect(
+			RendererInterface* renderer, 
+			VkCommandBuffer cmd, 
+			VkPipelineLayout pipelinelayout, 
+			bool bTranslucentPass);
 		void onShadowRenderCollect(RendererInterface* renderer, VkCommandBuffer cmd, VkPipelineLayout pipelinelayout, uint32_t cascadeIndex);
 		void onRenderTick(VkCommandBuffer cmd);
 		///
@@ -151,7 +204,9 @@ namespace Flower
 		virtual void tick(const RuntimeModuleTickData& tickData) override;
 		//
 
-		bool pmxReady() { return m_proxy.Ready(); }
+		PMXMeshProxy* getProxy();
+
+		bool pmxReady() { return getProxy()->Ready(); }
 	private:
 
 		bool m_bPMXMeshChanged = true;
@@ -159,7 +214,7 @@ namespace Flower
 		bool m_bCameraPathChanged = true;
 		bool bCameraSetupReady = false;
 
-		PMXMeshProxy m_proxy;
+		std::unique_ptr<PMXMeshProxy> m_proxy;
 
 		float m_animationPlayTime = 0.0f;
 		float m_elapsed = 0.0f;

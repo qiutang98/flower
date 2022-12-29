@@ -216,6 +216,7 @@
     <ClCompile Include="Renderer\DeferredRenderer\Pass\SampleDistributionShadowMap.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\SSRPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\StaticMeshPass.cpp" />
+    <ClCompile Include="Renderer\DeferredRenderer\Pass\TerrainPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\TonemapperPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\VolumetricCloudPass.cpp" />
     <ClCompile Include="Renderer\RenderSettingContext.cpp" />

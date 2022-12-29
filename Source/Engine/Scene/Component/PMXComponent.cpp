@@ -100,17 +100,39 @@ namespace Flower
 	{
 		// prepare material and upload texture to bindless descriptor set here.
 		size_t matCount = m_mmdModel->GetMaterialCount();
-		m_materials.resize(matCount);
 
 		const saba::MMDMaterial* materials = m_mmdModel->GetMaterials();
+
+		// PMX material can keep same name, so can't simple use set and map.
+		// Update materials from pmx file.
+		m_component->m_materials.reserve(std::max(m_component->m_materials.size(), matCount));
+		for (size_t i = 0; i < matCount; i++)
+		{
+			if (m_component->m_materials.size() <= i)
+			{
+				m_component->m_materials.push_back(PMXDrawMaterial{ .material = materials[i] });
+
+				m_component->m_materials[i].bTranslucent = m_component->m_materials[i].material.m_alpha < 0.999f;
+
+			}
+			else
+			{
+				m_component->m_materials[i].material = materials[i];
+			}
+		}
+
+
 		std::set<std::string> texLoaded{};
+
+		// Load all material's texture.
 
 		for (size_t i = 0; i < matCount; i++)
 		{
 			saba::MMDMaterial matMMD = materials[i];
-			auto& workingMat = m_materials[i];
+			auto& workingMat = m_component->m_materials.at(i);
 
-			
+			CHECK(workingMat.material.m_name == matMMD.m_name);
+			CHECK(workingMat.material.m_enName == matMMD.m_enName);
 
 			// texture.
 			if (!matMMD.m_texture.empty() && std::filesystem::exists(matMMD.m_texture) 
@@ -157,7 +179,10 @@ namespace Flower
 		for (size_t i = 0; i < matCount; i++)
 		{
 			saba::MMDMaterial matMMD = materials[i];
-			auto& workingMat = m_materials[i];
+			auto& workingMat = m_component->m_materials.at(i);
+
+			CHECK(workingMat.material.m_name == matMMD.m_name);
+			CHECK(workingMat.material.m_enName == matMMD.m_enName);
 
 			const uint32_t fallbackWhite = TextureManager::get()->getImage(EngineTextures::GWhiteTextureUUID).get()->getBindlessIndex();
 
@@ -180,7 +205,7 @@ namespace Flower
 			else
 			{
 				LOG_WARN("Lose sp tex {} in material {}, use fallback white.", matMMD.m_spTexture, matMMD.m_name);
-				workingMat.mmdSphereTex = fallbackWhite;
+				workingMat.mmdSphereTex = ~0;
 			}
 
 			// toon texture.
@@ -191,7 +216,7 @@ namespace Flower
 			else
 			{
 				LOG_WARN("Lose toon tex {} in material {}, use fallback white.", matMMD.m_toonTexture, matMMD.m_name);
-				workingMat.mmdToonTex = fallbackWhite;
+				workingMat.mmdToonTex = ~0;
 			}
 		}
 
@@ -276,8 +301,13 @@ namespace Flower
 	void PMXMeshProxy::UpdateAnimation(float vmdFrameTime, float physicElapsed)
 	{
 		m_mmdModel->BeginAnimation();
-		m_mmdModel->UpdateAllAnimation(m_vmdAnim.get(), vmdFrameTime, physicElapsed);
+		m_mmdModel->UpdateAllAnimation(m_vmdAnim.get(), vmdFrameTime * 30.0f, physicElapsed);
 		m_mmdModel->EndAnimation();
+	}
+
+	PMXMeshProxy::PMXMeshProxy(PMXComponent* InComp)
+		: m_component(InComp)
+	{
 	}
 
 	bool PMXMeshProxy::Ready()
@@ -389,7 +419,7 @@ namespace Flower
 		if (vmdCameraAnim)
 		{
 			m_currentFrameCameraData.bValidData = true;
-			vmdCameraAnim->Evaluate(vmdFrameTime);
+			vmdCameraAnim->Evaluate(vmdFrameTime * 30.0f);
 		}
 	}
 
@@ -434,7 +464,13 @@ namespace Flower
 		}
 	}
 
-	void PMXMeshProxy::OnRenderCollect(RendererInterface* renderer, VkCommandBuffer cmd, VkPipelineLayout pipelinelayout, const glm::mat4& modelMatrix, const glm::mat4& modelMatrixPrev)
+	void PMXMeshProxy::OnRenderCollect(
+		RendererInterface* renderer, 
+		VkCommandBuffer cmd, 
+		VkPipelineLayout pipelinelayout, 
+		const glm::mat4& modelMatrix, 
+		const glm::mat4& modelMatrixPrev,
+		bool bTranslucentPass)
 	{
 		if (!Ready()) return;
 
@@ -449,7 +485,27 @@ namespace Flower
 		for (uint32_t i = 0; i < subMeshCount; i++)
 		{
 			const auto& subMesh = m_mmdModel->GetSubMeshes()[i];
-			const auto& material = m_materials[subMesh.m_materialID];
+			const auto& material = m_component->m_materials.at(subMesh.m_materialID);
+
+			if (material.bHide)
+			{
+				continue;
+			}
+
+			bool bShouldDraw = true;
+			if (bTranslucentPass)
+			{
+				bShouldDraw = material.bTranslucent;
+			}
+			else
+			{
+				bShouldDraw = !material.bTranslucent;
+			}
+
+			if (!bShouldDraw)
+			{
+				continue;
+			}
 
 			uint32_t dynamicOffset = renderer->getDynamicBufferRing()->alloc(sizeof(PMXGpuParams));
 
@@ -475,25 +531,82 @@ namespace Flower
 		}
 	}
 
-	void PMXMeshProxy::OnShadowRenderCollect(RendererInterface* renderer, VkCommandBuffer cmd, VkPipelineLayout pipelinelayout, uint32_t cascadeIndex, const glm::mat4& modelMatrix)
+	void PMXMeshProxy::OnShadowRenderCollect(
+		RendererInterface* renderer, 
+		VkCommandBuffer cmd, 
+		VkPipelineLayout pipelinelayout, 
+		uint32_t cascadeIndex, 
+		const glm::mat4& modelMatrix, 
+		const glm::mat4& modelMatrixPrev)
 	{
+		if (!Ready()) return;
 
+		VkBuffer vertexBuffer = m_vertexBuffer->getVkBuffer();
+		VkBuffer indexBuffer = m_indexBuffer->getVkBuffer();
+		const VkDeviceSize offset = 0;
+		vkCmdBindIndexBuffer(cmd, indexBuffer, 0, m_indexType);
+		vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer, &offset);
+
+		// then draw every submesh.
+		size_t subMeshCount = m_mmdModel->GetSubMeshCount();
+		for (uint32_t i = 0; i < subMeshCount; i++)
+		{
+			const auto& subMesh = m_mmdModel->GetSubMeshes()[i];
+			const auto& material = m_component->m_materials.at(subMesh.m_materialID);
+
+			if (material.bHide)
+			{
+				continue;
+			}
+
+			if (material.bTranslucent) // TODO: translucent shadow.
+			{
+				continue;
+			}
+
+			uint32_t dynamicOffset = renderer->getDynamicBufferRing()->alloc(sizeof(PMXGpuParams));
+
+
+			PMXGpuParams params{};
+			params.modelMatrix = modelMatrix;
+			params.modelMatrixPrev = modelMatrixPrev;
+
+
+			params.texId = material.mmdTex;
+			params.spTexID = material.mmdSphereTex;
+			params.toonTexID = material.mmdToonTex;
+
+			params.pmxObjectID = i;
+
+			memcpy((char*)(renderer->getDynamicBufferRing()->getBuffer()->mapped) + dynamicOffset, &params, sizeof(PMXGpuParams));
+
+			auto set = renderer->getDynamicBufferRing()->getSet();
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelinelayout, 7, 1, &set, 1, &dynamicOffset);
+
+
+			vkCmdDrawIndexed(cmd, subMesh.m_vertexCount, 1, subMesh.m_beginIndex, 0, 0);
+		}
 	}
 
 	PerFrameMMDCamera PMXComponent::getCurrentFrameCameraData(float width, float height, float zNear, float zFar)
 	{
 		glm::mat4 worldMatrix = m_node.lock()->getTransform()->getWorldMatrix();
 
-		return m_proxy.GetCurrentFrameCameraData(width, height, zNear, zFar, worldMatrix);
+		return getProxy()->GetCurrentFrameCameraData(width, height, zNear, zFar, worldMatrix);
 	}
 
-	void PMXComponent::onRenderCollect(RendererInterface* renderer, VkCommandBuffer cmd, VkPipelineLayout pipelinelayout)
+	void PMXComponent::onRenderCollect(
+		RendererInterface* renderer, 
+		VkCommandBuffer cmd, 
+		VkPipelineLayout pipelinelayout,
+		bool bTranslucentPass)
 	{
 		if (auto node = m_node.lock())
 		{
 			auto modelMatrix = node->getTransform()->getWorldMatrix();
 			auto modelMatrixPrev = node->getTransform()->getPrevWorldMatrix();
-			m_proxy.OnRenderCollect(renderer, cmd, pipelinelayout, modelMatrix, modelMatrixPrev);
+			getProxy()->OnRenderCollect(
+				renderer, cmd, pipelinelayout, modelMatrix, modelMatrixPrev, bTranslucentPass);
 		}
 	}
 
@@ -508,7 +621,7 @@ namespace Flower
 		{
 			auto modelMatrix = node->getTransform()->getWorldMatrix();
 
-			m_proxy.OnShadowRenderCollect(renderer, cmd, pipelinelayout, cascadeIndex, modelMatrix);
+			getProxy()->OnShadowRenderCollect(renderer, cmd, pipelinelayout, cascadeIndex, modelMatrix, node->getTransform()->getPrevWorldMatrix());
 		}
 	}
 
@@ -516,13 +629,17 @@ namespace Flower
 	{
 		if (auto node = m_node.lock())
 		{
-			m_proxy.OnRenderTick(cmd);
+			getProxy()->OnRenderTick(cmd);
 		}
 	}
 
 	void PMXComponent::tick(const RuntimeModuleTickData& tickData)
 	{
 		float dt = tickData.deltaTime;
+		if (dt > 1.0f / 30.0f)
+		{
+			dt = 1.0f / 30.0f;
+		}
 
 		if (auto node = m_node.lock())
 		{
@@ -538,24 +655,33 @@ namespace Flower
 				}
 
 
-				m_proxy.Setup(initTrait);
+				getProxy()->Setup(initTrait);
 			}
 
 			if (m_bCameraPathChanged && !m_cameraPath.empty())
 			{
 				m_bCameraPathChanged = false;
 				bCameraSetupReady = true;
-				m_proxy.SetupCamera(m_cameraPath);
+				getProxy()->SetupCamera(m_cameraPath);
 			}
 
 			if (m_bPlayAnimation)
 			{
-				m_animationPlayTime += dt * 30.0f; // 30 here?
+				m_animationPlayTime += dt;
 			}
 
 			m_elapsed = dt;
-			m_proxy.OnSceneTick(m_animationPlayTime, m_elapsed);
+			getProxy()->OnSceneTick(m_animationPlayTime, m_elapsed);
 		}
+	}
+
+	PMXMeshProxy* PMXComponent::getProxy()
+	{
+		if (m_proxy == nullptr)
+		{
+			m_proxy = std::make_unique<PMXMeshProxy>(this);
+		}
+		return m_proxy.get();
 	}
 
 
