@@ -64,7 +64,7 @@ void main()
     // Compute velocity for static mesh. https://github.com/GPUOpen-Effects/FidelityFX-FSR2
     // FSR2 will perform better quality upscaling when more objects provide their motion vectors. 
     // It is therefore advised that all opaque, alpha-tested and alpha-blended objects should write their motion vectors for all covered pixels.
-    vsOut.posNDCPrevNoJitter = viewData.camViewProjPrevNoJitter * pmxParam.modelMatrixPrev * * vec4(inPositionLast, 1.0);
+    vsOut.posNDCPrevNoJitter = viewData.camViewProjPrevNoJitter * pmxParam.modelMatrixPrev * vec4(inPositionLast, 1.0);
     vsOut.posNDCCurNoJitter  = viewData.camViewProjNoJitter * worldPosition;
 }
 
