@@ -61,6 +61,33 @@ AngularInfo getAngularInfo(vec3 pointToLight, vec3 normal, vec3 view)
     return result;
 }
 
+// https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_lights_punctual/README.md#range-property
+float getRangeAttenuation(float range, float distance)
+{
+    if (range < 0.0)
+    {
+        // negative range means unlimited
+        return 1.0;
+    }
+    return max(mix(1, 0, distance / range), 0);
+    //return max(min(1.0 - pow(distance / range, 4.0), 1.0), 0.0) / pow(distance, 2.0);
+}
+
+// https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_lights_punctual/README.md#inner-and-outer-cone-angles
+float getSpotAttenuation(vec3 pointToLight, vec3 spotDirection, float outerConeCos, float innerConeCos)
+{
+    float actualCos = dot(normalize(spotDirection), normalize(-pointToLight));
+    if (actualCos > outerConeCos)
+    {
+        if (actualCos < innerConeCos)
+        {
+            return smoothstep(outerConeCos, innerConeCos, actualCos);
+        }
+        return 1.0;
+    }
+    return 0.0;
+}
+
 // The following equation models the Fresnel reflectance term of the spec equation (aka F())
 // Implementation of fresnel from [4], Equation 15
 vec3 F_Schlick(vec3 f0, vec3 f90, float u) 
@@ -188,6 +215,19 @@ vec3 evaluateDirectionalLight(DirectionalLightInfo light, PBRMaterial materialIn
 
     vec3 shade = getPointShade(pointToLight, materialInfo, normal, view);
     return light.intensity * light.color * shade;
+}
+
+// Spot light direct lighting evaluate.
+vec3 evaluateSpotLight(LocalSpotLightInfo light, PBRMaterial materialInfo, vec3 normal, vec3 worldPos, vec3 view)
+{
+    vec3 pointToLight = light.position - worldPos;
+    float d = length(pointToLight);
+
+    float rangeAttenuation = getRangeAttenuation(light.range, d);
+    float spotAttenuation  = getSpotAttenuation(pointToLight, -light.direction, light.outerConeCos, light.innerConeCos);
+
+    vec3 shade = getPointShade(pointToLight, materialInfo, normal, view);
+    return rangeAttenuation * spotAttenuation * light.intensity * light.color * shade;
 }
 
 float specularAOLagarde(float NoV, float visibility, float roughness) 

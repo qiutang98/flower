@@ -13,7 +13,7 @@ namespace Flower
         "r.Window.ShowMode",
         "Window display mode. 0 is full screen without tile, 1 is full screen with tile, 2 is custom size by r.Window.Width & .Height",
         "Window",
-        1,
+        0,
         CVarFlags::ReadOnly | CVarFlags::InitOnce
     );
 
@@ -133,7 +133,9 @@ namespace Flower
             glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
             glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
 
-            windowData->m_window = glfwCreateWindow(width, height, finalTileName.c_str(), glfwGetPrimaryMonitor(), nullptr);
+            glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
+
+            windowData->m_window = glfwCreateWindow(width, height, finalTileName.c_str(), nullptr, nullptr);
 
             glfwSetWindowPos(windowData->m_window, (mode->width - width) / 2, (mode->height - height) / 2);
 

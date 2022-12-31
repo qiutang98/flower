@@ -52,6 +52,7 @@ namespace Flower
 		bool setIntensity(float in);
 
 		glm::vec4 getDirection() const;
+		glm::vec3 getPosition() const;
 	};
 }
 

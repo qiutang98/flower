@@ -36,9 +36,6 @@ namespace Flower
 				, Bindless::Texture->getSetLayout() // texture2D array
 			};
 
-
-
-
 			{
 				CHECK(translucentDrawPipeline == VK_NULL_HANDLE);
 				CHECK(translucentPipelineLayout == VK_NULL_HANDLE);
@@ -57,7 +54,6 @@ namespace Flower
 					RTFormats::hdrSceneColor(),
 					RTFormats::gbufferUpscaleReactive(),
 					RTFormats::gbufferUpscaleTranslucencyAndComposition(),
-					RTFormats::gbufferV(),
 				};
 
 				// Translucency blend.
@@ -74,7 +70,6 @@ namespace Flower
 				std::vector<VkPipelineColorBlendAttachmentState> attachmentBlends =
 				{
 					colorBlendAttachment,
-					RHIColorBlendAttachmentOpauqeState(),
 					RHIColorBlendAttachmentOpauqeState(),
 					RHIColorBlendAttachmentOpauqeState(),
 				};
@@ -123,9 +118,9 @@ namespace Flower
 				auto rasterState = RHIRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL);
 				rasterState.cullMode = VK_CULL_MODE_NONE;
 				auto multiSampleState = RHIMultisamplingStateCreateInfo();
-				auto depthStencilState = RHIDepthStencilCreateInfo(true, true, VK_COMPARE_OP_GREATER_OR_EQUAL); // Z Test, reverse z. fsr need z write to get best quality.
-
-
+				auto depthStencilState = 
+					// Z Test, no write, reverse z.
+					RHIDepthStencilCreateInfo(true, false, VK_COMPARE_OP_GREATER_OR_EQUAL); 
 
 				VkPipelineLayoutCreateInfo plci = RHIPipelineLayoutCreateInfo();
 
@@ -450,7 +445,6 @@ namespace Flower
 		//auto& gbufferA = inTextures->getGbufferA()->getImage();
 		//auto& gbufferB = inTextures->getGbufferB()->getImage();
 		//auto& gbufferS = inTextures->getGbufferS()->getImage();
-		auto& gbufferV = inTextures->getGbufferV()->getImage();
 		auto& sceneDepthZ = inTextures->getDepth()->getImage();
 		auto& gbufferComposition = inTextures->getGbufferUpscaleTranslucencyAndComposition()->getImage();
 		auto& gbufferUpscaleMask = inTextures->getGbufferUpscaleReactive()->getImage();
@@ -458,10 +452,7 @@ namespace Flower
 		auto rtsLayout2Attachment = [&]()
 		{
 			hdrSceneColor.transitionLayout(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT));
-			//gbufferA.transitionLayout(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT));
-			//gbufferB.transitionLayout(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT));
-			//gbufferS.transitionLayout(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT));
-			gbufferV.transitionLayout(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT));
+
 			sceneDepthZ.transitionLayout(cmd, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT));
 
 			gbufferComposition.transitionLayout(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT));
@@ -475,26 +466,6 @@ namespace Flower
 				inTextures->getHdrSceneColor()->getImage().getView(buildBasicImageSubresource()),
 				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE,
 				VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}),
-#if 0
-			// Gbuffer A
-			RHIRenderingAttachmentInfo(
-				inTextures->getGbufferA()->getImage().getView(buildBasicImageSubresource()),
-				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE,
-				VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}),
-
-			// Gbuffer B
-			RHIRenderingAttachmentInfo(
-				inTextures->getGbufferB()->getImage().getView(buildBasicImageSubresource()),
-				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE,
-				VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}),
-
-			// Gbuffer S
-			RHIRenderingAttachmentInfo(
-				inTextures->getGbufferS()->getImage().getView(buildBasicImageSubresource()),
-				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE,
-				VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}),
-#endif
-
 
 			RHIRenderingAttachmentInfo(
 				inTextures->getGbufferUpscaleReactive()->getImage().getView(buildBasicImageSubresource()),
@@ -503,12 +474,6 @@ namespace Flower
 
 			RHIRenderingAttachmentInfo(
 				inTextures->getGbufferUpscaleTranslucencyAndComposition()->getImage().getView(buildBasicImageSubresource()),
-				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE,
-				VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}),
-
-			// Gbuffer V
-			RHIRenderingAttachmentInfo(
-				inTextures->getGbufferV()->getImage().getView(buildBasicImageSubresource()),
 				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE,
 				VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}),
 		};
@@ -582,13 +547,8 @@ namespace Flower
 		vkCmdEndRendering(cmd);
 
 		hdrSceneColor.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-		//gbufferA.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-		//gbufferB.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-		//gbufferS.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-		gbufferV.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-		inTextures->getDepth()->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT));
-
 		gbufferComposition.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
 		gbufferUpscaleMask.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+		sceneDepthZ.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT));
 	}
 }

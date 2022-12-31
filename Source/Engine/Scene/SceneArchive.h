@@ -61,7 +61,10 @@ SCENE_ARCHIVE_IMPL_INHERIT_END
 
 SCENE_ARCHIVE_IMPL_INHERIT(SpotLightComponent, LightComponent)
 {
-
+	archive(bCastShadow);
+	archive(innerCone);
+	archive(outerCone);
+	archive(range);
 }
 SCENE_ARCHIVE_IMPL_INHERIT_END
 
@@ -133,6 +136,11 @@ void Flower::PMXDrawMaterial::serialize(Archive& archive, std::uint32_t const ve
 
 	archive(bTranslucent);
 	archive(bHide);
+
+	if (version > 2)
+	{
+		archive(pixelDepthOffset);
+	}
 }
 
 SCENE_ARCHIVE_IMPL_INHERIT(PMXComponent, Component)

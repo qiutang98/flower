@@ -53,4 +53,17 @@ namespace Flower
 
 		return glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
 	}
+
+	glm::vec3 LightComponent::getPosition() const
+	{
+		if (auto node = m_node.lock())
+		{
+			const auto worldMatrix = node->getTransform()->getWorldMatrix();
+			glm::vec4 posOrign = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+
+			return glm::vec3(worldMatrix * posOrign);
+		}
+
+		return glm::vec3(0.0f, 0.0f, 0.0f);
+	}
 }

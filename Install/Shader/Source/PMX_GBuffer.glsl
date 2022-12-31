@@ -109,10 +109,14 @@ void main()
     }
     baseColor.rgb = inputColorPrepare(baseColor.rgb);
 
+    const vec3 worldNormal = normalize(vsIn.normal);
+    const vec3 worldPosition = vsIn.worldPos;
+    const vec3 worldView = normalize(viewData.camWorldPos.xyz - worldPosition);
+
     outGBufferA.rgb = baseColor.rgb;
     outGBufferA.a   = kShadingModelPMXBasic;
 
-    outGBufferB.rgb = normalize(vsIn.normal);
+    outGBufferB.rgb = worldNormal;
     outGBufferB.a = pmxParam.pmxObjectID; // pmx object id. todo.
 
     outGBufferS.r = 0.0f; // metal
@@ -128,6 +132,12 @@ void main()
 
     // Transform motion vector from NDC space to UV space (+Y is top-down).
     outGBufferV *= vec2(0.5f, -0.5f);
+
+
+    float intervalNoise = interleavedGradientNoise(gl_FragCoord.xy, frameData.frameIndex.x % frameData.jitterPeriod);
+
+    // Z fighting avoid, use pixel depth export, will break out early z function. TODO: Use static macro to change is performance better.
+    gl_FragDepth = gl_FragCoord.z + gl_FragCoord.z * pmxParam.pixelDepthOffset * intervalNoise;
 
 }
 

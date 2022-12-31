@@ -7,6 +7,9 @@ namespace Flower
 	constexpr uint32_t GMinCascadePerDirectionalLightDimXY = 512;
 	constexpr uint32_t GMaxCascadePerDirectionalLightDimXY = 4096;
 
+	// kMaxImportanceLocalSpotLightNum
+	constexpr uint32_t GMaxImportanceLocalSpotLightNum = 16;
+
 	// All units in kilometers
 	struct EarthAtmosphere
 	{
@@ -70,6 +73,26 @@ namespace Flower
 		float pad2;
 	};
 
+	struct GPULocalSpotLightInfo
+	{
+		glm::mat4 lightViewProj;
+		glm::mat4 lightView;
+
+		glm::vec3  color;
+		float intensity;
+
+		glm::vec3  position;
+		float innerConeCos;
+
+		float outerConeCos;
+		float range;
+		float depthBias;
+		int   shadowMapIndex;
+
+		glm::vec3 direction;
+		float pad0;
+	};
+
 	// See FrameData struct in Common.glsl
 	struct GPUFrameData
 	{
@@ -106,6 +129,7 @@ namespace Flower
 		uint32_t rectLightCount; // x4
 
 		GPUDirectionalLightInfo directionalLight;
+		GPULocalSpotLightInfo importanceLocalLight_Spot[GMaxImportanceLocalSpotLightNum];
 
 		EarthAtmosphere earthAtmosphere;
 	};

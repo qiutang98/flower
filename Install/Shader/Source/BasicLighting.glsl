@@ -136,6 +136,16 @@ void main()
         directColor += atmosphereTransmittance * shadowFactor * evaluateDirectionalLight(evaluateLight, material, normal, view);
     }
 
+    for (int i = 0; i < frameData.spotLightCount; i++)
+    {
+        LocalSpotLightInfo light = frameData.importanceLocalLight_Spot[i];
+
+        // TODO: cast shadow.
+        float shadowFactor = 1.0f;
+
+        directColor += shadowFactor * evaluateSpotLight(light, material, normal, worldPos, view);
+    }
+
     // Other type light shading.
     // TODO....
 

@@ -518,7 +518,7 @@ namespace Flower
 			params.texId = material.mmdTex;
 			params.spTexID = material.mmdSphereTex;
 			params.toonTexID = material.mmdToonTex;
-
+			params.pixelDepthOffset = material.pixelDepthOffset;
 			params.pmxObjectID = i;
 
 			memcpy((char*)(renderer->getDynamicBufferRing()->getBuffer()->mapped) + dynamicOffset, &params, sizeof(PMXGpuParams));
@@ -575,7 +575,7 @@ namespace Flower
 			params.texId = material.mmdTex;
 			params.spTexID = material.mmdSphereTex;
 			params.toonTexID = material.mmdToonTex;
-
+			params.pixelDepthOffset = material.pixelDepthOffset;
 			params.pmxObjectID = i;
 
 			memcpy((char*)(renderer->getDynamicBufferRing()->getBuffer()->mapped) + dynamicOffset, &params, sizeof(PMXGpuParams));

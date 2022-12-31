@@ -42,6 +42,9 @@ namespace Flower
 		BufferParamRefPointer m_cascsadeBufferInfos;
 		BufferParamRefPointer m_staticMeshesObjectsPtr;
 
+		std::array<GPULocalSpotLightInfo, GMaxImportanceLocalSpotLightNum> m_importanceSpotLights = { };
+		uint32_t m_cacheImportanceLocalSpotLitNum = 0;
+
 	private:
 		// Collect scne static mesh.
 		void staticMeshCollect(Scene* scene);
@@ -59,6 +62,11 @@ namespace Flower
 		{
 			m_cascsadeBufferInfos = nullptr;
 			m_staticMeshesObjectsPtr = nullptr;
+		}
+
+		uint32_t getImpotanceLocalSpotLightNum() const { return m_cacheImportanceLocalSpotLitNum; }
+		const auto& getCacheImportanceLocalSpotLight() const {
+			return m_importanceSpotLights;
 		}
 
 		// Get collect static meshes infos.

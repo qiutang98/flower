@@ -12,8 +12,6 @@ struct VS2PS
     vec2 uv0;
     vec3 normal;
     vec3 worldPos;
-    vec4 posNDCPrevNoJitter;
-    vec4 posNDCCurNoJitter;
 };
 
 #include "PMX_Common.glsl"
@@ -60,12 +58,6 @@ void main()
     // see http://www.lighthouse3d.com/tutorials/glsl-12-tutorial/the-normal-matrix/.
     const mat3 normalMatrix = transpose(inverse(mat3(pmxParam.modelMatrix)));
     vsOut.normal  = normalize(normalMatrix * normalize(inNormal));
-
-    // Compute velocity for static mesh. https://github.com/GPUOpen-Effects/FidelityFX-FSR2
-    // FSR2 will perform better quality upscaling when more objects provide their motion vectors. 
-    // It is therefore advised that all opaque, alpha-tested and alpha-blended objects should write their motion vectors for all covered pixels.
-    vsOut.posNDCPrevNoJitter = viewData.camViewProjPrevNoJitter * pmxParam.modelMatrixPrev * vec4(inPositionLast, 1.0);
-    vsOut.posNDCCurNoJitter  = viewData.camViewProjNoJitter * worldPosition;
 }
 
 #endif /////////////////////////// vertex shader end
@@ -87,9 +79,6 @@ layout(location = 1) out float outRectiveMask;
 
 layout(location = 2) out float outCompositionMask;
 
-// GBuffer V: r16g16 sfloat, store velocity.
-layout(location = 3) out vec2 outGBufferV;
-
 void main()
 {
     // Mask material looks bad in fsr, need improve rective mask weight.
@@ -97,11 +86,6 @@ void main()
     // outRectiveMask = 0.75; 
 
     vec4 baseColor = tex(pmxParam.texID, vsIn.uv0);
-    if(baseColor.a < 0.01f)
-    {
-        // Clip very small mask.
-        discard;
-    }
 
     baseColor.rgb = inputColorPrepare(baseColor.rgb);
 
@@ -129,15 +113,10 @@ void main()
 
     outRectiveMask = max(outHDRSceneColor.r, max(outHDRSceneColor.g, outHDRSceneColor.b)) * baseColor.a;
 
-    // Velocity output.
-    outGBufferV = (vsIn.posNDCPrevNoJitter.xy / vsIn.posNDCPrevNoJitter.w) - (vsIn.posNDCCurNoJitter.xy / vsIn.posNDCCurNoJitter.w);
+    float intervalNoise = interleavedGradientNoise(gl_FragCoord.xy, frameData.frameIndex.x % frameData.jitterPeriod);
 
-    // Also can do this if jitter:
-    // const vec2 cancelJitter = frameData.jitterData.zw - frameData.jitterData.xy;
-    // outGBufferV -= cancelJitter;
-
-    // Transform motion vector from NDC space to UV space (+Y is top-down).
-    outGBufferV *= vec2(0.5f, -0.5f);
+    // Z fighting avoid, use pixel depth export, will break out early z function. TODO: Use static macro to change is performance better.
+    gl_FragDepth = gl_FragCoord.z + gl_FragCoord.z * pmxParam.pixelDepthOffset * intervalNoise;
 }
 
 #endif //////////////////////////// pixel shader end

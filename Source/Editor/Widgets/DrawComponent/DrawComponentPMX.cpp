@@ -125,6 +125,8 @@ void ComponentDrawer::drawPMX(std::shared_ptr<SceneNode> node)
 			ImGui::Checkbox("Translucent", &mat.bTranslucent);
 			ImGui::Checkbox("Hide", &mat.bHide);
 
+			ImGui::DragFloat("Pixel depth offset", &mat.pixelDepthOffset);
+
 			ImGui::TreePop();
 			ImGui::Separator();
 		}

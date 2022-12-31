@@ -9,7 +9,11 @@ namespace Flower
 
 #pragma region SerializeField
 		////////////////////////////// Serialize area //////////////////////////////
-	protected:
+	public:
+		bool bCastShadow = true; // If cast shadow, it will be an importance spot light.
+		float innerCone = 0.0f;
+		float outerCone = glm::pi<float>() * 0.5f;
+		float range = 100.0f;
 
 		////////////////////////////// Serialize area //////////////////////////////
 #pragma endregion SerializeField
@@ -23,9 +27,6 @@ namespace Flower
 		{
 
 		}
-
-	protected:
-
 	};
 }
 

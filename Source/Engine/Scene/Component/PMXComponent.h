@@ -17,6 +17,8 @@ namespace Flower
 		uint32_t spTexID;
 		uint32_t toonTexID;
 		uint32_t pmxObjectID;
+
+		float pixelDepthOffset;
 	};
 
 	struct PerFrameMMDCamera
@@ -45,7 +47,7 @@ namespace Flower
 
 		bool bTranslucent = false;
 		bool bHide = false;
-		
+		float pixelDepthOffset = 0.0f;
 
 		////////////////////////////// Serialize area //////////////////////////////
 #pragma endregion SerializeField

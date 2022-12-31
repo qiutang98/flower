@@ -54,53 +54,95 @@ namespace Flower
 
 	void RenderSceneData::lightCollect(Scene* scene)
 	{
-		// Load first directional light.
-		std::vector<GPUDirectionalLightInfo> directionalLights = {};
-		scene->loopComponents<DirectionalLightComponent>([&](std::shared_ptr<DirectionalLightComponent> comp) -> bool
+		// Load directional light.
 		{
-			GPUDirectionalLightInfo newDirectionalLight{};
-			newDirectionalLight.intensity = comp->getIntensity();
-			newDirectionalLight.color = comp->getColor();
-			newDirectionalLight.direction = comp->getDirection();
-			newDirectionalLight.shadowFilterSize = comp->getShadowFilterSize();
-			newDirectionalLight.cascadeCount = comp->getCascadeCount();
-			newDirectionalLight.perCascadeXYDim = comp->getPerCascadeDimXY();
-			newDirectionalLight.splitLambda = comp->getCascadeSplitLambda();
-			newDirectionalLight.shadowBiasConst = comp->getShadowBiasConst();
-			newDirectionalLight.shadowBiasSlope = comp->getShadowBiasSlope();
-			newDirectionalLight.cascadeBorderAdopt = comp->getCascadeBorderAdopt();
-			newDirectionalLight.cascadeEdgeLerpThreshold = comp->getCascadeEdgeLerpThreshold();
-			newDirectionalLight.maxDrawDistance = comp->getMaxDrawDepthDistance();
-			newDirectionalLight.maxFilterSize = comp->getMaxFilterSize();
-			directionalLights.push_back(newDirectionalLight);
+			std::vector<GPUDirectionalLightInfo> directionalLights = {};
+			scene->loopComponents<DirectionalLightComponent>([&](std::shared_ptr<DirectionalLightComponent> comp) -> bool
+			{
+				GPUDirectionalLightInfo newDirectionalLight{};
+				newDirectionalLight.intensity = comp->getIntensity();
+				newDirectionalLight.color = comp->getColor();
+				newDirectionalLight.direction = comp->getDirection();
+				newDirectionalLight.shadowFilterSize = comp->getShadowFilterSize();
+				newDirectionalLight.cascadeCount = comp->getCascadeCount();
+				newDirectionalLight.perCascadeXYDim = comp->getPerCascadeDimXY();
+				newDirectionalLight.splitLambda = comp->getCascadeSplitLambda();
+				newDirectionalLight.shadowBiasConst = comp->getShadowBiasConst();
+				newDirectionalLight.shadowBiasSlope = comp->getShadowBiasSlope();
+				newDirectionalLight.cascadeBorderAdopt = comp->getCascadeBorderAdopt();
+				newDirectionalLight.cascadeEdgeLerpThreshold = comp->getCascadeEdgeLerpThreshold();
+				newDirectionalLight.maxDrawDistance = comp->getMaxDrawDepthDistance();
+				newDirectionalLight.maxFilterSize = comp->getMaxFilterSize();
+				directionalLights.push_back(newDirectionalLight);
 
-			// NOTE: current we only support one directional light, so pre-return when first directional light collect finish.
-			return true;
-		});
+				// NOTE: current we only support one directional light, so pre-return when first directional light collect finish.
+				return true;
+			});
 
-		// Fill directional light infos. Current only support one directional light.
+			// Fill directional light infos. Current only support one directional light.
+			{
+				m_importanceLights.directionalLightCount = 0;
+
+				if (directionalLights.size() > 0)
+				{
+					// Current use first directional light.
+					m_importanceLights.directionalLights = directionalLights[0];
+
+					m_earthAtmosphereInfo = RenderSettingManager::get()->earthAtmosphere.earthAtmosphere;
+
+					m_importanceLights.directionalLightCount++;
+				}
+
+				// Prepare cascade infos for directional lights.
+				uint32_t cascadeCount = 1u;
+				if (m_importanceLights.directionalLightCount > 0)
+				{
+					cascadeCount = m_importanceLights.directionalLights.cascadeCount;
+				}
+
+				// At least we create one cascade count buffer for feedback set.
+				m_cascsadeBufferInfos = m_bufferParametersRing->getStaticStorageGPUOnly("CascadeInfos", sizeof(GPUCascadeInfo) * cascadeCount);
+			}
+		}
+		
+		// Fill importance spot light
 		{
-			m_importanceLights.directionalLightCount = 0;
-
-			if (directionalLights.size() > 0)
+			m_cacheImportanceLocalSpotLitNum = 0;
+			scene->loopComponents<SpotLightComponent>([&](std::shared_ptr<SpotLightComponent> comp) -> bool
 			{
-				// Current use first directional light.
-				m_importanceLights.directionalLights = directionalLights[0];
+				if(comp->bCastShadow && (m_cacheImportanceLocalSpotLitNum < GMaxImportanceLocalSpotLightNum))
+				{
+					// Importance local light.
+					GPULocalSpotLightInfo lit{};
+					lit.color = comp->getColor();
+					lit.intensity = comp->getIntensity();
 
-				m_earthAtmosphereInfo = RenderSettingManager::get()->earthAtmosphere.earthAtmosphere;
+					// Transform to world position.
+					lit.position = comp->getPosition();
 
-				m_importanceLights.directionalLightCount ++;
-			}
+					lit.range = comp->range;
+					lit.innerConeCos = glm::cos(comp->innerCone);
+					lit.outerConeCos = glm::cos(comp->outerCone);
+					lit.direction = glm::vec3(comp->getDirection());
 
-			// Prepare cascade infos for directional lights.
-			uint32_t cascadeCount = 1u;
-			if (m_importanceLights.directionalLightCount > 0)
-			{
-				cascadeCount = m_importanceLights.directionalLights.cascadeCount;
-			}
+					// TODO: fill me.
+					lit.depthBias = 0.0f;
+					lit.lightView = {};
+					lit.lightViewProj = {};
+					lit.shadowMapIndex = 0;
 
-			// At least we create one cascade count buffer for feedback set.
-			m_cascsadeBufferInfos = m_bufferParametersRing->getStaticStorageGPUOnly("CascadeInfos", sizeof(GPUCascadeInfo) * cascadeCount);
+					m_importanceSpotLights.at(m_cacheImportanceLocalSpotLitNum) = std::move(lit);
+					m_cacheImportanceLocalSpotLitNum ++;
+				}
+				else
+				{
+					// TODO: Fill as simple lit.
+				}
+
+				// Loop all spot light component.
+				return false;
+			});
+
 		}
 
 		// TODO: Other light type gather.

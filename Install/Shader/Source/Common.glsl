@@ -199,6 +199,30 @@ struct DirectionalLightInfo
     float pad2;
 };
 
+// Importance local spot light, with shadow, evaluate one by one.
+#define kMaxImportanceLocalSpotLightNum 16
+
+// Importance spot light infos with shadow projection.
+struct LocalSpotLightInfo
+{
+    mat4 lightViewProj;
+    mat4 lightView;
+
+    vec3  color;
+    float intensity;
+
+    vec3  position;
+    float innerConeCos;
+
+    float outerConeCos;
+    float range;
+    float depthBias;
+    int   shadowMapIndex;
+
+    vec3 direction;
+    float pad0;
+};
+
 // One frame data, cache some common info for rendering.
 struct FrameData
 {
@@ -219,11 +243,10 @@ struct FrameData
     uint staticMeshCount;
     uint bSdsmDraw;
 
-	uint bCameraCut;
+	uint  bCameraCut;
 	uint  globalIBLEnable;
 	float globalIBLIntensity;
 	float pad2;
-
 
     vec4 jitterData;
     // Halton sequence jitter data.
@@ -237,6 +260,9 @@ struct FrameData
 
     // Importance lights info.
     DirectionalLightInfo directionalLight;
+
+    // Importance local lights info.
+    LocalSpotLightInfo importanceLocalLight_Spot[kMaxImportanceLocalSpotLightNum];
 
     // atmosphere of current earth.
     EarthAtmosphere earthAtmosphere;

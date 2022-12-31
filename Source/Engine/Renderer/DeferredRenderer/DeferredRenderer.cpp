@@ -170,6 +170,16 @@ namespace Flower
 			frame.directionalLight = importanceLights.directionalLights;
 		}
 
+		// Importance local light infos.
+		{
+			frame.spotLightCount = renderScene->getImpotanceLocalSpotLightNum();
+			for (size_t i = 0; i < frame.spotLightCount; i++)
+			{
+				CHECK(i < GMaxImportanceLocalSpotLightNum);
+				frame.importanceLocalLight_Spot[i] = renderScene->getCacheImportanceLocalSpotLight().at(i);
+			}
+		}
+
 		frame.basicTextureLODBias = m_fsr2->config.lodTextureBasicBias;
 
 		frame.bCameraCut = m_cameraCutState;

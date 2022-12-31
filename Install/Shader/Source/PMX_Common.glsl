@@ -3,6 +3,7 @@
 
 #include "Common.glsl"
 #include "LightingCommon.glsl"
+#include "Bayer.glsl"
 
 struct UniformPMX
 {
@@ -12,6 +13,8 @@ struct UniformPMX
     uint spTexID;
     uint toonTexID;
     uint pmxObjectID;
+
+    float pixelDepthOffset;
 };
 
 struct AngularInfoPMX
