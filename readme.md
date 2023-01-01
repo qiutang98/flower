@@ -1,4 +1,4 @@
-# Flower Engine Ver. 1
+# Flower Engine.
 
 ​	Flower engine is a vulkan starter friendly render engine.
 
