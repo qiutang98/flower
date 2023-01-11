@@ -1,16 +1,20 @@
-# Flower Engine Ver. 1
+# Flower Engine.
 
 ​	Flower engine is a vulkan starter friendly render engine.
 
-​	To keep simple, i delete some complex code like animate/serialization etc, and rewrite this version code, to keep engine code clean and easy to understand.
-
-​	There is not too much warping, so every beginner can easy to find out how it work.
+​	There is not too much wrapper, so every beginner can easy to find out how it work.
 
 ​	you can also watch the video on youtube or bilibili:
 
 ​	https://www.youtube.com/watch?v=ciw8UOmaFaI
 
 ​	https://www.bilibili.com/video/BV1FL4y147DN?share_source=copy_web
+
+![](Gallery/20012310.png)
+
+![](Gallery/202212311.png)
+
+![](Gallery/20221231.png)
 
 ![](Gallery/Snipaste_2022-02-07_21-56-08.png)
 
