@@ -329,9 +329,12 @@ namespace Flower
 
 
 			renderFSR2(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, tickData);
+
+			renderHDREffect(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, blueNoiseMisc);
 			
 			adaptiveExposure(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, tickData);
 
+			renderDof(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, blueNoiseMisc);
 
 			auto bloomTex = renderBloom(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU);
 

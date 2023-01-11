@@ -5,6 +5,23 @@
 
 namespace Flower
 {
+	static AutoCVarInt32 cVarVulkanOpenValidation(
+		"r.RHI.OpenValidation",
+		"Enable vulkan validation layer.0 is off,1 is on.",
+		"RHI",
+		1,
+		CVarFlags::ReadOnly | CVarFlags::InitOnce
+	);
+
+	static AutoCVarInt32 cVarVulkanOpenRayTrace(
+		"r.RHI.OpenRayTrace",
+		"Enable vulkan raytrace.0 is off,1 is on.",
+		"RHI",
+		0, // NOTE: Current my desktop computer graphics still dont support RTX, temporal disable.
+		   //       
+		CVarFlags::ReadOnly | CVarFlags::InitOnce
+	);
+
 	size_t RHI::GMaxSwapchainCount = ~0;
 
 	bool RHI::bSupportRayTrace = false;
@@ -15,14 +32,6 @@ namespace Flower
 
 	SamplerCache* RHI::SamplerManager = nullptr;
 	ShaderCache*  RHI::ShaderManager = nullptr;
-
-	static AutoCVarInt32 cVarVulkanOpenValidation(
-		"r.RHI.OpenValidation",
-		"Enable vulkan validation layer.0 is off,1 is on.",
-		"RHI",
-		1,
-		CVarFlags::ReadOnly | CVarFlags::InitOnce
-	);
 
 	inline bool openVulkanValiadation()
 	{
@@ -509,23 +518,41 @@ namespace Flower
 		uint32_t copyQueueCounts = 0;
 
 		uint32_t queueIndex = 0;
+
+		bool bGraphicsQueueSet = false;
+		bool bCopyQueueSet = false;
+		bool bComputeQueueSet = false;
+
+		// NOTE: queueFamilies sort by VkQueueFlagBits in my graphics card, no ensure the order is same with AMD graphics card.
 		for (const auto& queueFamily : queueFamilies)
 		{
-			if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+			const bool bSupportSparseBinding = queueFamily.queueFlags & VK_QUEUE_SPARSE_BINDING_BIT;
+			const bool bSupportGraphics = queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT;
+			const bool bSupportCompute = queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT;
+			const bool bSupportCopy = queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT;
+
+			if (bSupportGraphics && (!bGraphicsQueueSet))
 			{
 				m_queues.graphicsFamily = queueIndex;
 				graphicsQueueCounts = queueFamily.queueCount;
+
+				bGraphicsQueueSet = true;
 			}
-			else if (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT)
+			else if (bSupportCompute && (!bComputeQueueSet))
 			{
 				m_queues.computeFamily = queueIndex;
 				computeQueueCounts = queueFamily.queueCount;
+
+				bComputeQueueSet = true;
 			}
-			else if (queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT)
+			else if (bSupportCopy && (!bCopyQueueSet))
 			{
 				m_queues.copyFamily = queueIndex;
 				copyQueueCounts = queueFamily.queueCount;
+
+				bCopyQueueSet = true;
 			}
+
 			queueIndex++;
 		}
 
@@ -1054,7 +1081,7 @@ namespace Flower
 				existDeviceExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME) &&
 				existDeviceExtension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
 
-			RHI::bSupportRayTrace = false;
+			RHI::bSupportRayTrace &= (cVarVulkanOpenRayTrace.get() != 0);
 		}
 
 		if(RHI::bSupportRayTrace)

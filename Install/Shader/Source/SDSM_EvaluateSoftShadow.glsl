@@ -11,6 +11,7 @@
 
 #include "SDSM_Common.glsl"
 #include "RayCommon.glsl"
+#include "PoissonDisk.glsl"
 
 layout (set = 1, binding = 0) uniform UniformView { ViewData viewData; };
 layout (set = 2, binding = 0) uniform UniformFrame { FrameData frameData; };
@@ -21,6 +22,21 @@ layout (set = 2, binding = 0) uniform UniformFrame { FrameData frameData; };
 #define BLUE_NOISE_TEXTURE_SET 4
 #define BLUE_NOISE_BUFFER_SET 5
 #include "BlueNoiseCommon.glsl"
+
+// Current don't use depth gather. Fetch is enough.
+#define SHADOW_DEPTH_GATHER 0
+
+// We use blue noise offset sample position.
+#define BLUE_NOISE_OFFSET   1
+
+#if BLUE_NOISE_OFFSET
+    // 8 tap taa blue noise. maybe 4 or 2 is enough.
+    const uint kShadowSampleCount = 8;
+#else
+    // 12 tap poisson disk.
+    const uint kShadowSampleCount = 12;
+    #define poissonDisk kPoissonDisk_12
+#endif
 
 // Surface normal based bias, see https://learn.microsoft.com/en-us/windows/win32/dxtecharts/cascaded-shadow-maps for more details.
 vec3 biasNormalOffset(vec3 N, float NoL, float texelSize)
@@ -33,84 +49,6 @@ float autoBias(float NoL, float biasMul)
 {
     return 6e-4f + (1.0f - NoL) * biasMul * 1e-4f;
 }
-
-// Poisson disk sample tech, see https://en.wikipedia.org/wiki/Poisson_distribution for more details.
-#define POISSON_DISK_COUNT 12
-
-// TODO: We have temporal blue noise, maybe it work better and faster, but current poisson disk also look good.
-
-#define SHADOW_DEPTH_GATHER 0
-#define BLUE_NOISE_OFFSET 1
-#if BLUE_NOISE_OFFSET
-    const uint kShadowSampleCount = 8; // 8 tap taa blue noise. maybe 4 or 2 is enough.
-#else
-    const uint kShadowSampleCount = POISSON_DISK_COUNT;
-    const vec2 poissonDisk[kShadowSampleCount] = vec2[](
-    #if POISSON_DISK_COUNT == 25
-        vec2(-0.9786980, -0.08841210),
-        vec2(-0.8411210,  0.52116500),
-        vec2(-0.7174600, -0.50322000),
-        vec2(-0.7029330,  0.90313400),
-        vec2(-0.6631980,  0.15482000),
-        vec2(-0.4951020, -0.23288700),
-        vec2(-0.3642380, -0.96179100),
-        vec2(-0.3458660, -0.56437900),
-        vec2(-0.3256630,  0.64037000),
-        vec2(-0.1827140,  0.32132900),
-        vec2(-0.1426130, -0.02273630),
-        vec2(-0.0564287, -0.36729000),
-        vec2(-0.0185858,  0.91888200),
-        vec2( 0.0381787, -0.72899600),
-        vec2( 0.1659900,  0.09311200),
-        vec2( 0.2536390,  0.71953500),
-        vec2( 0.3695490, -0.65501900),
-        vec2( 0.4236270,  0.42997500),
-        vec2( 0.5307470, -0.36497100),
-        vec2( 0.5660270, -0.94048900),
-        vec2( 0.6393320,  0.02841270),
-        vec2( 0.6520890,  0.66966800),
-        vec2( 0.7737970,  0.34501200),
-        vec2( 0.9688710,  0.84044900),
-        vec2( 0.9918820, -0.65733800)
-    #elif POISSON_DISK_COUNT == 16
-        vec2(-0.94201624, -0.39906216),
-        vec2(0.94558609, -0.76890725),
-        vec2(-0.094184101, -0.92938870),
-        vec2(0.34495938, 0.29387760),
-        vec2(-0.91588581, 0.45771432),
-        vec2(-0.81544232, -0.87912464),
-        vec2(-0.38277543, 0.27676845),
-        vec2(0.97484398, 0.75648379),
-        vec2(0.44323325, -0.97511554),
-        vec2(0.53742981, -0.47373420),
-        vec2(-0.26496911, -0.41893023),
-        vec2(0.79197514, 0.19090188),
-        vec2(-0.24188840, 0.99706507),
-        vec2(-0.81409955, 0.91437590),
-        vec2(0.19984126, 0.78641367),
-        vec2(0.14383161, -0.14100790)
-    #elif POISSON_DISK_COUNT == 12
-        vec2(-.326,-.406),
-        vec2(-.840,-.074),
-        vec2(-.696, .457),
-        vec2(-.203, .621),
-        vec2( .962,-.195),
-        vec2( .473,-.480),
-        vec2( .519, .767),
-        vec2( .185,-.893),
-        vec2( .507, .064),
-        vec2( .896, .412),
-        vec2(-.322,-.933),
-        vec2(-.792,-.598)
-    #elif POISSON_DISK_COUNT == 4
-        vec2(-0.94201624, -0.39906216),
-        vec2( 0.94558609, -0.76890725),
-        vec2(-0.094184101,-0.92938870),
-        vec2( 0.34495938,  0.29387760)
-    #endif
-    );
-
-#endif
 
 // Depth Aware Contact harden pcf. See GDC2021: "Shadows of Cold War" for tech detail.
 // Use cache occluder dist to fit one curve similar to tonemapper, to get some effect like pcss.

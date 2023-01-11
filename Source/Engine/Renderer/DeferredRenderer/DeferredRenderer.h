@@ -186,6 +186,24 @@ namespace Flower
 			BufferParamRefPointer& frameData,
 			const RuntimeModuleTickData& tickData);
 
+		void renderHDREffect(
+			VkCommandBuffer cmd,
+			Renderer* renderer,
+			SceneTextures* inTextures,
+			RenderSceneData* scene,
+			BufferParamRefPointer& viewData,
+			BufferParamRefPointer& frameData,
+			BlueNoiseMisc& inBlueNoise);
+
+		void renderDof(
+			VkCommandBuffer cmd,
+			Renderer* renderer,
+			SceneTextures* inTextures,
+			RenderSceneData* scene,
+			BufferParamRefPointer& viewData,
+			BufferParamRefPointer& frameData,
+			BlueNoiseMisc& inBlueNoise);
+
 		PoolImageSharedRef renderBloom(
 			VkCommandBuffer cmd,
 			Renderer* renderer,

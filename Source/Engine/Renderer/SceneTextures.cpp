@@ -68,6 +68,14 @@ namespace Flower
 		return m_hdrSceneColorUpscale;
 	}
 
+	PoolImageSharedRef SceneTextures::setHdrSceneColorUpscale(PoolImageSharedRef newI)
+	{
+		PoolImageSharedRef src = m_hdrSceneColorUpscale;
+		m_hdrSceneColorUpscale = newI;
+
+		return src;
+	}
+
 	PoolImageSharedRef SceneTextures::getGbufferA()
 	{
 		if (!m_gbufferA)

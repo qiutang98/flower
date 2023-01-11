@@ -90,6 +90,19 @@ void ComponentDrawer::drawPMX(std::shared_ptr<SceneNode> node)
 
 	ImGui::Separator();
 
+	// Replace to character.
+	if (ImGui::Button("Mark as character"))
+	{
+		for (size_t i = 0; i < comp->m_materials.size(); i++)
+		{
+			auto& mat = comp->m_materials.at(i);
+			if (!IsPMXCharacter((EPMXShadingModel)mat.pmxShadingModel))
+			{
+				mat.pmxShadingModel = int(EPMXShadingModel::CharacterBasic);
+			}
+		}
+	}
+
 	// Draw Materials.
 	for (size_t i = 0; i < comp->m_materials.size(); i++)
 	{

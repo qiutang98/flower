@@ -141,6 +141,11 @@ void Flower::PMXDrawMaterial::serialize(Archive& archive, std::uint32_t const ve
 	{
 		archive(pixelDepthOffset);
 	}
+
+	if (version > 7)
+	{
+		archive(pmxShadingModel);
+	}
 }
 
 SCENE_ARCHIVE_IMPL_INHERIT(PMXComponent, Component)
@@ -204,6 +209,40 @@ SCENE_ARCHIVE_IMPL_INHERIT(PostprocessVolumeComponent, Component)
 	archive(m_settings.tonemapper_c);
 	archive(m_settings.tonemapper_b);
 	archive(m_settings.tonemmaper_s);
+
+	if (version > 3)
+	{
+		archive(m_settings.bDofEnable);
+		archive(m_settings.dof_focusDistance);
+		archive(m_settings.dof_aperture);
+		archive(m_settings.dof_bUseCameraFOV);
+		archive(m_settings.dof_focusLength);
+		archive(m_settings.dof_kernelSize);
+		archive(m_settings.dof_FilmHeight);
+		if (version > 4)
+		{
+			archive(m_settings.dof_focusMode);
+			archive(m_settings.dof_focusPoint);
+		}
+		if (version > 5)
+		{
+			archive(m_settings.vignette_falloff);
+		}
+		if (version > 6)
+		{
+			archive(m_settings.bEnableVignette);
+			archive(m_settings.bEnableFringeMode);
+
+			archive(m_settings.fringe_barrelStrength);
+			archive(m_settings.fringe_zoomStrength);
+			archive(m_settings.fringe_lateralShift);
+			archive(m_settings.dof_bNearBlur);
+		}
+		if (version > 7)
+		{
+			archive(m_settings.dof_trackPMXMode);
+		}
+	}
 }
 SCENE_ARCHIVE_IMPL_INHERIT_END
 

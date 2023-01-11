@@ -179,6 +179,7 @@ namespace Flower
 			MeshManager::get()->shrinkLRU();
 			TextureManager::get()->shrinkLRU();
 
+			// TODO: Can optimize by delay 3 frame to delete avoid gpu wait idle.
 			vkDeviceWaitIdle(RHI::Device);
 			m_unusedAseets.clear();
 			m_bCallGPULRUCacheShrink = false;

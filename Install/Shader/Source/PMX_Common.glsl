@@ -15,6 +15,7 @@ struct UniformPMX
     uint pmxObjectID;
 
     float pixelDepthOffset;
+    float shadingModelId; 
 };
 
 struct AngularInfoPMX

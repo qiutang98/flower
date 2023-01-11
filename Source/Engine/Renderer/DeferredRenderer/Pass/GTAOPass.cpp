@@ -165,7 +165,6 @@ namespace Flower
             preGBufferBInfo = RHIDescriptorImageInfoSample(m_prevGBufferB->getImage().getView(buildBasicImageSubresource()));
         }
 
-
         auto imageGTAOEvaluate = m_rtPool->createPoolImage(
             "GTAOEvaluate",
             sceneDepthZ.getExtent().width,
@@ -199,6 +198,7 @@ namespace Flower
         {
             bShouldCreateNewGTAO = true;
         }
+
         if (bShouldCreateNewGTAO)
         {
             m_gtaoHistory = m_rtPool->createPoolImage(

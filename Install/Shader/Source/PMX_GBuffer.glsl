@@ -114,7 +114,7 @@ void main()
     const vec3 worldView = normalize(viewData.camWorldPos.xyz - worldPosition);
 
     outGBufferA.rgb = baseColor.rgb;
-    outGBufferA.a   = kShadingModelPMXBasic;
+    outGBufferA.a   = pmxParam.shadingModelId;
 
     outGBufferB.rgb = worldNormal;
     outGBufferB.a = pmxParam.pmxObjectID; // pmx object id. todo.
@@ -122,6 +122,8 @@ void main()
     outGBufferS.r = 0.0f; // metal
     outGBufferS.g = 0.5f; // roughness
     outGBufferS.b = 1.0f; // ao
+
+    outHDRSceneColor = vec4(0.0, 0.0, 0.0, 1.0);
 
     // Velocity output.
     outGBufferV = (vsIn.posNDCPrevNoJitter.xy / vsIn.posNDCPrevNoJitter.w) - (vsIn.posNDCCurNoJitter.xy / vsIn.posNDCCurNoJitter.w);

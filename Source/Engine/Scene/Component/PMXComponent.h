@@ -5,6 +5,7 @@
 #include <Saba/Model/MMD/VMDFile.h>
 #include <Saba/Model/MMD/VMDAnimation.h>
 #include <Saba/Model/MMD/VMDCameraAnimation.h>
+#include "../../Renderer/ShadingModel.h"
 
 namespace Flower
 {
@@ -19,6 +20,7 @@ namespace Flower
 		uint32_t pmxObjectID;
 
 		float pixelDepthOffset;
+		float shadingModel;
 	};
 
 	struct PerFrameMMDCamera
@@ -48,6 +50,7 @@ namespace Flower
 		bool bTranslucent = false;
 		bool bHide = false;
 		float pixelDepthOffset = 0.0f;
+		uint32_t pmxShadingModel = uint32_t(EPMXShadingModel::Basic);
 
 		////////////////////////////// Serialize area //////////////////////////////
 #pragma endregion SerializeField

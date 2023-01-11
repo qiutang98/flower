@@ -11,6 +11,12 @@ namespace Flower
 			RHI::DestroyAccelerationStructure(RHI::Device, m_handle, nullptr);
 		}
 	}
+
+	void AccelerateStructure::cleanScratchBuffer()
+	{
+		m_scratchBuffer = nullptr;
+	}
+
 	uint64_t AccelerateStructure::addTriangleGeometry(
 		VulkanBuffer* vertexBuffer, 
 		VulkanBuffer* indexBuffer, 
@@ -35,8 +41,9 @@ namespace Flower
 		geometry.geometry.triangles.vertexStride = vertexStride;
 		geometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
 		geometry.geometry.triangles.vertexData.deviceAddress = vertexBufferDataAddress == 0 ? vertexBuffer->getDeviceAddress() : vertexBufferDataAddress;
-		geometry.geometry.triangles.indexData.deviceAddress = indexBufferDataAddress == 0 ? indexBuffer->getDeviceAddress() : indexBufferDataAddress;
-		geometry.geometry.triangles.transformData.deviceAddress = transformBufferDataAddress == 0 ? transformBuffer->getDeviceAddress() : transformBufferDataAddress;
+		geometry.geometry.triangles.indexData.deviceAddress  = indexBufferDataAddress == 0  ? indexBuffer->getDeviceAddress()  : indexBufferDataAddress;
+		geometry.geometry.triangles.transformData.deviceAddress = 
+			transformBufferDataAddress == 0 ? transformBuffer->getDeviceAddress() : transformBufferDataAddress;
 
 		uint64_t index = m_geometries.size();
 		m_geometries.insert({ index, { geometry, triangleCount, transformOffset} });
@@ -68,11 +75,11 @@ namespace Flower
 		geometry->geometry.triangles.vertexStride = vertexStride;
 		geometry->geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
 		geometry->geometry.triangles.vertexData.deviceAddress = vertexBufferDataAddress == 0 ? vertexBuffer->getDeviceAddress() : vertexBufferDataAddress;
-		geometry->geometry.triangles.indexData.deviceAddress = indexBufferDataAddress == 0 ? indexBuffer->getDeviceAddress() : indexBufferDataAddress;
+		geometry->geometry.triangles.indexData.deviceAddress  = indexBufferDataAddress == 0 ? indexBuffer->getDeviceAddress() : indexBufferDataAddress;
 		geometry->geometry.triangles.transformData.deviceAddress = transformBufferDataAddress == 0 ? transformBuffer->getDeviceAddress() : transformBufferDataAddress;
 
-		m_geometries[triangleUUID].primitive_count = triangleCount;
-		m_geometries[triangleUUID].transform_offset = transformOffset;
+		m_geometries[triangleUUID].primitiveCount = triangleCount;
+		m_geometries[triangleUUID].transformOffset = transformOffset;
 		m_geometries[triangleUUID].updated = true;
 	}
 
@@ -111,56 +118,68 @@ namespace Flower
 		geometry->geometry.instances.arrayOfPointers = VK_FALSE;
 		geometry->geometry.instances.data.deviceAddress = instanceBuffer->getDeviceAddress();
 
-		m_geometries[instanceUID].primitive_count = instanceCount;
-		m_geometries[instanceUID].transform_offset = transformOffset;
+		m_geometries[instanceUID].primitiveCount = instanceCount;
+		m_geometries[instanceUID].transformOffset = transformOffset;
 		m_geometries[instanceUID].updated = true;
+	}
+
+	void AccelerateStructure::buildAndFlush(VkBuildAccelerationStructureFlagsKHR flags, VkBuildAccelerationStructureModeKHR mode)
+	{
+		RHI::executeImmediatelyMajorGraphics([&](VkCommandBuffer cmd) 
+		{
+			build(cmd, flags, mode);
+		});
+		cleanScratchBuffer();
 	}
 
 	void AccelerateStructure::build(VkCommandBuffer cmd, VkBuildAccelerationStructureFlagsKHR flags, VkBuildAccelerationStructureModeKHR mode)
 	{
 		CHECK(!m_geometries.empty() && "Geometry should no empty.");
 
-		std::vector<VkAccelerationStructureGeometryKHR>       acceleration_structure_geometries;
-		std::vector<VkAccelerationStructureBuildRangeInfoKHR> acceleration_structure_build_range_infos;
-		std::vector<uint32_t>                                 primitive_counts;
+		std::vector<VkAccelerationStructureGeometryKHR>       asGeometries;
+		std::vector<VkAccelerationStructureBuildRangeInfoKHR> asBuildRangeInfos;
+		std::vector<uint32_t> primitiveCounts;
+
 		for (auto& geometry : m_geometries)
 		{
 			if (mode == VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR && !geometry.second.updated)
 			{
 				continue;
 			}
-			acceleration_structure_geometries.push_back(geometry.second.geometry);
+
+			asGeometries.push_back(geometry.second.geometry);
+
 			// Infer build range info from geometry
-			VkAccelerationStructureBuildRangeInfoKHR build_range_info;
-			build_range_info.primitiveCount = geometry.second.primitive_count;
-			build_range_info.primitiveOffset = 0;
-			build_range_info.firstVertex = 0;
-			build_range_info.transformOffset = geometry.second.transform_offset;
-			acceleration_structure_build_range_infos.push_back(build_range_info);
-			primitive_counts.push_back(geometry.second.primitive_count);
+			VkAccelerationStructureBuildRangeInfoKHR buildRangeInfo;
+			buildRangeInfo.primitiveCount = geometry.second.primitiveCount;
+			buildRangeInfo.primitiveOffset = 0;
+			buildRangeInfo.firstVertex = 0;
+			buildRangeInfo.transformOffset = geometry.second.transformOffset;
+			asBuildRangeInfos.push_back(buildRangeInfo);
+			primitiveCounts.push_back(geometry.second.primitiveCount);
 			geometry.second.updated = false;
 		}
 
-		VkAccelerationStructureBuildGeometryInfoKHR build_geometry_info{};
-		build_geometry_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
-		build_geometry_info.type = m_type;
-		build_geometry_info.flags = flags;
-		build_geometry_info.mode = mode;
+		VkAccelerationStructureBuildGeometryInfoKHR buildGeometryInfo{};
+		buildGeometryInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+		buildGeometryInfo.type = m_type;
+		buildGeometryInfo.flags = flags;
+		buildGeometryInfo.mode = mode;
 		if (mode == VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR && m_handle != VK_NULL_HANDLE)
 		{
-			build_geometry_info.srcAccelerationStructure = m_handle;
-			build_geometry_info.dstAccelerationStructure = m_handle;
+			buildGeometryInfo.srcAccelerationStructure = m_handle;
+			buildGeometryInfo.dstAccelerationStructure = m_handle;
 		}
-		build_geometry_info.geometryCount = static_cast<uint32_t>(acceleration_structure_geometries.size());
-		build_geometry_info.pGeometries = acceleration_structure_geometries.data();
+		buildGeometryInfo.geometryCount = static_cast<uint32_t>(asGeometries.size());
+		buildGeometryInfo.pGeometries = asGeometries.data();
 
 		// Get required build sizes
 		m_size.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
 		RHI::GetAccelerationStructureBuildSizes(
 			RHI::Device,
 			VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-			&build_geometry_info,
-			primitive_counts.data(),
+			&buildGeometryInfo,
+			primitiveCounts.data(),
 			&m_size);
 
 		// Create a buffer for the acceleration structure
@@ -173,12 +192,12 @@ namespace Flower
 				EVMAUsageFlags::GPUOnly,
 				m_size.accelerationStructureSize);
 
-			VkAccelerationStructureCreateInfoKHR acceleration_structure_create_info{};
-			acceleration_structure_create_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
-			acceleration_structure_create_info.buffer = m_buffer->getVkBuffer();
-			acceleration_structure_create_info.size = m_size.accelerationStructureSize;
-			acceleration_structure_create_info.type = m_type;
-			RHICheck(RHI::CreateAccelerationStructure(RHI::Device, &acceleration_structure_create_info, nullptr, &m_handle));
+			VkAccelerationStructureCreateInfoKHR asCreateInfo{};
+			asCreateInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+			asCreateInfo.buffer = m_buffer->getVkBuffer();
+			asCreateInfo.size = m_size.accelerationStructureSize;
+			asCreateInfo.type = m_type;
+			RHICheck(RHI::CreateAccelerationStructure(RHI::Device, &asCreateInfo, nullptr, &m_handle));
 		}
 
 		// Get the acceleration structure's handle
@@ -190,15 +209,15 @@ namespace Flower
 		// Create a scratch buffer as a temporary storage for the acceleration structure build
 		m_scratchBuffer = VulkanBuffer::createRTScratchBuffer("ScatchBuffer", m_size.buildScratchSize);
 
-		build_geometry_info.scratchData.deviceAddress = m_scratchBuffer->getDeviceAddress();
-		build_geometry_info.dstAccelerationStructure = m_handle;
+		CHECK(m_scratchBuffer);
+		buildGeometryInfo.scratchData.deviceAddress = m_scratchBuffer->getDeviceAddress();
+		buildGeometryInfo.dstAccelerationStructure  = m_handle;
 
-		auto  as_build_range_infos = &*acceleration_structure_build_range_infos.data();
-
+		auto as_buildRangeInfos = &*asBuildRangeInfos.data();
 		RHI::CmdBuildAccelerationStructures(
 			cmd,
 			1,
-			&build_geometry_info,
-			&as_build_range_infos);
+			&buildGeometryInfo,
+			&as_buildRangeInfos);
 	}
 }

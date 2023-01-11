@@ -12,17 +12,17 @@ namespace Flower
 		struct Geometry
 		{
 			VkAccelerationStructureGeometryKHR geometry{};
-			uint32_t primitive_count{};
-			uint32_t transform_offset{};
+			uint32_t primitiveCount{};
+			uint32_t transformOffset{};
 			bool updated = false;
 		};
-		std::map<uint64_t, Geometry> m_geometries{ };
+		std::map<uint64_t, Geometry> m_geometries { };
 
 		VkAccelerationStructureKHR m_handle = VK_NULL_HANDLE;
 		uint64_t m_deviceAddress = 0;
 		VkAccelerationStructureTypeKHR m_type;
 
-		VkAccelerationStructureBuildSizesInfoKHR m_size;
+		VkAccelerationStructureBuildSizesInfoKHR m_size { };
 
 		std::shared_ptr<VulkanBuffer> m_buffer;
 		std::shared_ptr<VulkanBuffer> m_scratchBuffer;
@@ -92,5 +92,8 @@ namespace Flower
 			VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
 			VkBuildAccelerationStructureModeKHR  mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR);
 
+		void buildAndFlush(
+			VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
+			VkBuildAccelerationStructureModeKHR  mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR);
 	};
 }

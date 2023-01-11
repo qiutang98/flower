@@ -54,6 +54,14 @@ float mean(vec2 v) { return dot(v, vec2(1.0f / 2.0f)); }
 float mean(vec3 v) { return dot(v, vec3(1.0f / 3.0f)); }
 float mean(vec4 v) { return dot(v, vec4(1.0f / 4.0f)); }
 
+float sum(vec2 v) { return v.x + v.y; }
+float sum(vec3 v) { return v.x + v.y + v.z; }
+float sum(vec4 v) { return v.x + v.y + v.z + v.w; }
+
+// Max between three components
+float max3(vec3 xyz) { return max(xyz.x, max(xyz.y, xyz.z)); }
+float max4(vec4 xyzw) { return max(xyzw.x, max(xyzw.y, max(xyzw.z, xyzw.w))); }
+
 float saturate(float x) { return clamp(x, 0.0, 1.0); }
 vec2  saturate(vec2  x) { return clamp(x, vec2(0.0), vec2(1.0)); }
 vec3  saturate(vec3  x) { return clamp(x, vec3(0.0), vec3(1.0)); }
@@ -88,6 +96,9 @@ const vec3  kMax111110BitsFloat3 = vec3(kMax11BitsFloat, kMax11BitsFloat, kMax10
 #define kShadingModelStandardPBR 0.02
 #define kShadingModelPMXBasic    0.04
 
+#define kShadingModelPMXCharacterBasic    0.06
+// See isPMXMeshShadingModel.
+
 bool isInShadingModelRange(float v, float shadingModel)
 {
     return (v > (shadingModel - kShadingModelRangeCheck)) &&
@@ -99,15 +110,9 @@ bool isShadingModelValid(float v)
     return v > (kShadingModelUnvalid + kShadingModelRangeCheck);
 }
 
-vec2 vogelDiskSample(uint sampleIndex, uint sampleCount, float angle)
+bool isPMXMeshShadingModelCharacter(float v)
 {
-  const float goldenAngle = 2.399963f;
-  float r = sqrt(sampleIndex + 0.5f) / sqrt(sampleCount);
-  float theta = sampleIndex * goldenAngle + angle;
-  float sine = sin(theta);
-  float cosine = cos(theta);
-
-  return vec2(cosine, sine) * r;
+    return isInShadingModelRange(v, kShadingModelPMXCharacterBasic);
 }
 
 // Activision GTAO paper: https://www.activision.com/cdn/research/s2016_pbs_activision_occlusion.pptx
@@ -133,6 +138,11 @@ float luminance(vec3 color)
 {
     // human eye aware lumiance function.
     return dot(color, vec3(0.299, 0.587, 0.114));
+}
+
+float luminanceRec709(vec3 color)
+{
+    return dot(color, vec3(0.2126, 0.7152, 0.0722));
 }
 
 // Earth atmosphere info.
@@ -483,7 +493,6 @@ vec3 convertToAtmosphereUnit(vec3 o, in const ViewData viewData)
 vec3 convertToCameraUnit(vec3 o, in const ViewData viewData)
 {
 	const float cameraOffset = viewData.cameraAtmosphereOffsetHeight;
-
 	vec3 o1 = o - vec3(0.0, cameraOffset, 0.0);
 	return o1 / (0.001f * viewData.cameraAtmosphereMoveScale);
 }  

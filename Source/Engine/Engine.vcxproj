@@ -144,6 +144,7 @@
     <ClInclude Include="Renderer\RenderSceneData.h" />
     <ClInclude Include="Renderer\RenderTexturePool.h" />
     <ClInclude Include="Renderer\Parameters.h" />
+    <ClInclude Include="Renderer\ShadingModel.h" />
     <ClInclude Include="RHI\AccelerateStructure.h" />
     <ClInclude Include="RHI\Bindless.h" />
     <ClInclude Include="RHI\CommandBuffer.h" />
@@ -208,8 +209,10 @@
     <ClCompile Include="Renderer\DeferredRenderer\Pass\BloomPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\BasicLightingPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\BlueNoisePass.cpp" />
+    <ClCompile Include="Renderer\DeferredRenderer\Pass\DepthOfFieldPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\FSR2Pass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\GTAOPass.cpp" />
+    <ClCompile Include="Renderer\DeferredRenderer\Pass\HDREffect.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\HierarchyZBufferBuild.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\PMXPass.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\PreZPass.cpp" />

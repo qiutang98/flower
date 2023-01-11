@@ -9,7 +9,6 @@
 #include <stb/stb_image_write.h>
 #include <stb/stb_image.h>
 
-
 #pragma warning(disable: 4006)
 
 #include <assimp/Importer.hpp>
@@ -20,9 +19,9 @@
 namespace Flower
 {
 	const UUID EngineMeshes::GBoxUUID = "12a68c4e-8352-4d97-a914-a0f4f4d1fd28";
-	std::weak_ptr<GPUMeshAsset> EngineMeshes::GBoxPtrRef = {};
-
 	const UUID EngineMeshes::GSphereUUID = "45f0d878-6d3f-11ed-a1eb-0242ac120002";
+
+	std::weak_ptr<GPUMeshAsset> EngineMeshes::GBoxPtrRef = {};
 	std::weak_ptr<GPUMeshAsset> EngineMeshes::GSpherePtrRef = {};
 
 	struct AssimpModelProcess
@@ -392,7 +391,7 @@ namespace Flower
 			indexSize
 		);
 
-
+		// Build BLAS if support RTX.
 		if (RHI::bSupportRayTrace)
 		{
 			m_bottomLevelAccelerateStructure = std::make_unique<AccelerateStructure>(VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR);
@@ -455,6 +454,14 @@ namespace Flower
 
 		CHECK(m_vertexBufferBindlessIndex != ~0);
 		CHECK(m_indexBufferBindlessIndex != ~0);
+	}
+
+	AccelerateStructure* GPUMeshAsset::getOrBuilddBLAS()
+	{
+		
+
+
+		return m_bottomLevelAccelerateStructure.get();
 	}
 
 	void MeshContext::init()
@@ -521,12 +528,6 @@ namespace Flower
 				meshAssetGPU->getVertexBuffer().getVkBuffer(),
 				1,
 				&regionVertex);
-		}
-
-		// Also build low level acceleration for static mesh.
-		if (RHI::bSupportRayTrace)
-		{
-			
 		}
 
 		meshAssetGPU->finishUpload();

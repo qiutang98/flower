@@ -78,6 +78,7 @@
     <ClInclude Include="Renderer\DeferredRenderer\Pass\BloomCommon.h" />
     <ClInclude Include="Scene\Component\ReflectionCapture.h" />
     <ClInclude Include="RHI\DynamicUniformBuffer.h" />
+    <ClInclude Include="Renderer\ShadingModel.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Pch.cpp" />
@@ -152,5 +153,7 @@
     <ClCompile Include="Renderer\DeferredRenderer\Pass\PMXPass.cpp" />
     <ClCompile Include="RHI\DynamicUniformBuffer.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\TerrainPass.cpp" />
+    <ClCompile Include="Renderer\DeferredRenderer\Pass\DepthOfFieldPass.cpp" />
+    <ClCompile Include="Renderer\DeferredRenderer\Pass\HDREffect.cpp" />
   </ItemGroup>
 </Project>

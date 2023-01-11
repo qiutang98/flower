@@ -15,6 +15,10 @@
 
 %~dp0/../Tool/glslc.exe -fshader-stage=comp --target-env=vulkan1.3 Source/BlueNoiseGenerate.glsl -O -o Spirv/BlueNoiseGenerate.comp.spv
 
+%~dp0/../Tool/glslc.exe -fshader-stage=comp --target-env=vulkan1.3 Source/Post_HDREffect.glsl -O -o Spirv/Post_HDREffect.comp.spv
+
+
+
 : IBL Compute Shader.
 call CompileIBL.cmd
 
@@ -45,3 +49,5 @@ call CompileAtmosphere.cmd
 call CompileSSR.cmd
 
 call CompilePMX.cmd
+
+call CompileDof.cmd

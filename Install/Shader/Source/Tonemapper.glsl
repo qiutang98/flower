@@ -51,8 +51,10 @@ layout (push_constant) uniform PushConsts
 // Gamma curve encode to srgb.
 vec3 encodeSRGB(vec3 linearRGB)
 {
+    // Most PC Monitor is 2.2 Gamma, this function is enough.
     return pow(linearRGB, vec3(1.0 / 2.2));
 
+    // TV encode Rec709 encode.
     vec3 a = 12.92 * linearRGB;
     vec3 b = 1.055 * pow(linearRGB, vec3(1.0 / 2.4)) - 0.055;
     vec3 c = step(vec3(0.0031308), linearRGB);
@@ -68,7 +70,7 @@ vec3 encodeST2084(vec3 linearRGB)
 	const float c2 = 2413. / 4096. * 32;
 	const float c3 = 2392. / 4096. * 32;
 
-    // Standard encode 10000 nit. XD
+    // Standard encode 10000 nit, same with standard DaVinci Resolve nit.
     float C = 10000.0;
 
 	   vec3 L = linearRGB / C;
@@ -198,3 +200,6 @@ void main()
     mappingColor.xyz = max(mappingColor.xyz, vec3(0.0));
     imageStore(outLdrColor, workPos, vec4(mappingColor, 1.0));
 }
+
+// NOTE: if want to output hdr to DaVinci Resolve.
+//       you need to add one ACES tonemapper fx, and input transform is ST2048. ouput tramsform is Rec709.

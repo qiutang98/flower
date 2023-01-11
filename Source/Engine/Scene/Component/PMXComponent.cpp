@@ -13,6 +13,7 @@
 #include "../../Renderer/RendererInterface.h"
 #include "../SceneArchive.h"
 
+#include "../../Renderer/ShadingModel.h"
 
 // NOTE: MMD asset is free but no MIT license.
 //       So reading every time from raw asset.
@@ -435,11 +436,12 @@ namespace Flower
 			// update current Frame camera data.
 			m_currentFrameCameraData.bValidData = true;
 
-			glm::vec3 eyeWorldPos = worldMatrix * glm::vec4(lookAtCam.m_eye, 1.0f);
+			glm::vec3 eyeWorldPos    = worldMatrix * glm::vec4(lookAtCam.m_eye, 1.0f);
 			glm::vec3 centerWorldPos = worldMatrix * glm::vec4(lookAtCam.m_center, 1.0f);
-			glm::vec3 upWorld = worldMatrix * glm::vec4(lookAtCam.m_up, 0.0f);
+			glm::vec3 upWorld        = worldMatrix * glm::vec4(lookAtCam.m_up, 0.0f);
 
 			m_currentFrameCameraData.viewMat = glm::lookAt(eyeWorldPos, centerWorldPos, upWorld);
+
 
 			auto fov = mmdCam.m_fov;
 
@@ -520,6 +522,7 @@ namespace Flower
 			params.toonTexID = material.mmdToonTex;
 			params.pixelDepthOffset = material.pixelDepthOffset;
 			params.pmxObjectID = i;
+			params.shadingModel = PMXShadingModelToParam((EPMXShadingModel)material.pmxShadingModel);
 
 			memcpy((char*)(renderer->getDynamicBufferRing()->getBuffer()->mapped) + dynamicOffset, &params, sizeof(PMXGpuParams));
 

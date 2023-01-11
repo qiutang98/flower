@@ -51,7 +51,6 @@ namespace Flower
 			return;
 		}
 
-
 		// Update mesh loading state.
 		// If mesh replace, update proxys.
 		// If mesh loading state change, upadte proxy.
@@ -59,11 +58,19 @@ namespace Flower
 		if (m_bMeshReplace || m_bMeshReady)
 		{
 			GPUMeshAsset* asset = m_cacheGPUMeshAsset->getReadyAsset();
+
+			// Now static mesh replace or load, we try to build it's BLAS if unbuild.
+			if (RHI::bSupportRayTrace)
+			{
+				asset->getOrBuilddBLAS();
+			}
+
 			m_cachePerObjectData.clear();
 
+			// Collect object.
 			GPUPerObjectData object{};
 			object.verticesArrayId = asset->getVerticesBindlessIndex();
-			object.indicesArrayId = asset->getIndicesBindlessIndex();
+			object.indicesArrayId  = asset->getIndicesBindlessIndex();
 			object.material = GPUStaticMeshStandardPBRMaterial::buildDeafult();
 
 			if (m_cacheStaticAssetHeader)
@@ -81,7 +88,6 @@ namespace Flower
 						std::make_shared<CPUStaticMeshStandardPBRMaterial>();
 
 					m_bMeshReady &= cpuMaterials->buildWithMaterialUUID(submesh.material);
-
 					object.material = cpuMaterials->buildGPU();
 
 					m_cachePerObjectData.push_back(object);
@@ -99,13 +105,13 @@ namespace Flower
 			}
 			else
 			{
-				static const glm::vec4 BuildInSphereBounds = { 0.0f, 0.0f, 0.0f, 2.0f };
-				static const glm::vec4 BuildInExtent = glm::vec4{ 1.0f, 1.0f, 1.0f, 0.0f };
+				static const glm::vec4 kBuildInSphereBounds = { 0.0f, 0.0f, 0.0f, 2.0f };
+				static const glm::vec4 kBuildInExtent = glm::vec4{ 1.0f, 1.0f, 1.0f, 0.0f };
 
 				object.indexStartPosition = 0;
 				object.indexCount = asset->getIndicesCount();
-				object.sphereBounds = BuildInSphereBounds;
-				object.extents = BuildInExtent;
+				object.sphereBounds = kBuildInSphereBounds;
+				object.extents = kBuildInExtent;
 				m_cachePerObjectData.push_back(object);
 			}
 		}

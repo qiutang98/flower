@@ -64,7 +64,6 @@ namespace Flower
 		std::vector<StaticMeshVertex> m_vertices;
 		std::vector<VertexIndexType> m_indices{ };
 
-
 	public:
 		StaticMeshAssetBin() { }
 		StaticMeshAssetBin(const std::string& name)
@@ -95,6 +94,7 @@ namespace Flower
 		std::shared_ptr<VulkanBuffer> m_indexBuffer = nullptr;
 		VkIndexType m_indexType = VK_INDEX_TYPE_UINT32;
 
+		// Every mesh asset hold one bottom level accelerate structure.
 		std::unique_ptr<AccelerateStructure> m_bottomLevelAccelerateStructure = nullptr;
 
 		std::string m_name;
@@ -151,7 +151,9 @@ namespace Flower
 			return m_vertexBuffer.get();
 		}
 
-		AccelerateStructure* getBottomLevelAccelerateStructure() { return m_bottomLevelAccelerateStructure.get(); }
+		// Return BLAS cache, if it unbuild, will insert one build task to GPU, which need flush GPU.
+		// TODO: Add async build in mesh prepare task.
+		AccelerateStructure* getOrBuilddBLAS();
 
 		const auto& getIndicesCount() const
 		{

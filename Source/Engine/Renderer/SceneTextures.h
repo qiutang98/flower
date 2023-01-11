@@ -198,6 +198,8 @@ namespace Flower
 
 		PoolImageSharedRef getHdrSceneColor();
 		PoolImageSharedRef getHdrSceneColorUpscale();
+		PoolImageSharedRef setHdrSceneColorUpscale(PoolImageSharedRef newI);
+
 		PoolImageSharedRef getGbufferA();
 		PoolImageSharedRef getGbufferB();
 		PoolImageSharedRef getGbufferS();
