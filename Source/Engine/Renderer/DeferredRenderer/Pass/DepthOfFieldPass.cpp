@@ -29,6 +29,7 @@ namespace Flower
         float focusLen;
         float filmHeight;
         float fStop;
+        float pmxFoucusMinOffset;
     };
 
     // Dof effect, baisc idea from Doom External.
@@ -228,6 +229,7 @@ namespace Flower
             .focusLen = focuseLen,
             .filmHeight = postProcessVolumeSetting.dof_FilmHeight,
             .fStop = postProcessVolumeSetting.dof_aperture,
+            .pmxFoucusMinOffset = postProcessVolumeSetting.dof_pmxFoucusMinOffset,
         };
 
         sceneDepthZ.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT));

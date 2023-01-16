@@ -121,8 +121,8 @@ float perlinfbm(vec3 p, float freq, int octaves)
 float worleyFbm(vec3 p, float freq)
 {
     return worleyNoise(p*freq, freq) * .625 +
-        	 worleyNoise(p*freq*2., freq*2.) * .25 +
-        	 worleyNoise(p*freq*4., freq*4.) * .125;
+           worleyNoise(p*freq*2., freq*2.) * .25 +
+           worleyNoise(p*freq*4., freq*4.) * .125;
 }
 
 #endif

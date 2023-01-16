@@ -10,7 +10,7 @@
 
 layout (set = 0, binding = 0, r8) uniform image3D imageWorleyNoise; // 32 x 32 x 32
 
-#define kDetailFrequency 16.0
+#define kDetailFrequency 8.0
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 void main()

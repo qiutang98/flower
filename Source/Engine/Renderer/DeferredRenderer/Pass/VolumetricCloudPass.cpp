@@ -188,7 +188,7 @@ namespace Flower
         auto& detailNoise = StaticTexturesManager::get()->getCloudWorleyNoise()->getImage();
 
         auto weatherTexture = TextureManager::get()->getImage(EngineTextures::GCloudWeatherUUID);
-        auto gradientTexture = TextureManager::get()->getImage(EngineTextures::GCloudGradientUUID);
+        auto curlNoiseTexture = TextureManager::get()->getImage(EngineTextures::GCurlNoiseUUID);
 
         // Quater resolution evaluate.
         auto computeCloud = m_rtPool->createPoolImage(
@@ -233,7 +233,7 @@ namespace Flower
         VkDescriptorImageInfo detailNoiseInfo = RHIDescriptorImageInfoSample(detailNoise.getView(buildBasicImageSubresource(), VK_IMAGE_VIEW_TYPE_3D));
 
         VkDescriptorImageInfo weatherInfo = RHIDescriptorImageInfoSample(weatherTexture->getImage().getView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo gradientInfo = RHIDescriptorImageInfoSample(gradientTexture->getImage().getView(buildBasicImageSubresource()));
+        VkDescriptorImageInfo gradientInfo = RHIDescriptorImageInfoSample(curlNoiseTexture->getImage().getView(buildBasicImageSubresource()));
 
         auto& transmittanceLut = inTextures->getAtmosphereTransmittance()->getImage();
         auto& froxelScatterLut = inTextures->getAtmosphereFroxelScatter()->getImage();

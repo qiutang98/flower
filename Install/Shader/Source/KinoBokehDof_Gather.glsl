@@ -35,9 +35,11 @@ void main()
     vec4 backGroundAcc = vec4(0);
     vec4 foreGroundAcc = vec4(0);
 
+    // TODO: Two pass gather optimize.
     const int kSampleCount = 71;
     for (int i = 0; i < kSampleCount; i++)
     {
+        // TODO: Tile max coc instead of use max coc.
         vec2 offset = DofPush.maxCoc * kVeogelDisk_71[i];
         float offsetLen = length(offset);
 

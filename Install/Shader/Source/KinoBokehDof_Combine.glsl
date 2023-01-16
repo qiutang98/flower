@@ -26,8 +26,12 @@ void main()
     const vec2 uv = (vec2(workPos) + vec2(0.5f)) * texelSize;
 
     vec4 srcColor = imageLoad(HDRSceneColorImage, workPos);
-    // vec4 blurColor = catmullRom9Sample(inExpandFillImage, linearClampEdgeSampler, uv, vec2(colorSize));
-    vec4 blurColor = texture(sampler2D(inExpandFillImage, linearClampEdgeSampler), uv);
+
+    srcColor.rgb = max(srcColor.rgb, vec3(0.0f)); // avoid pow nan.
+    srcColor.rgb = pow(srcColor.rgb, vec3(kBokehWorkingGamma));
+
+       vec4 blurColor = catmullRom9Sample(inExpandFillImage, linearClampEdgeSampler, uv, vec2(colorSize));
+    // vec4 blurColor = texture(sampler2D(inExpandFillImage, linearClampEdgeSampler), uv);
 
     // Slight jitter alpha by blue noise. 
     uvec2 offset = uvec2(vec2(0.754877669, 0.569840296) * frameData.frameIndex.x * uvec2(colorSize));
@@ -39,6 +43,10 @@ void main()
     blurColor.a += mulNoiseFactor * (blueNoise * 2.0 - 1.0) * 0.1;
     blurColor.a = saturate(blurColor.a);
     
+
     vec3 colorResult = srcColor.rgb * blurColor.a + blurColor.rgb;
+
+    colorResult.rgb = pow(colorResult.rgb, vec3(1.0 / kBokehWorkingGamma));
+
     imageStore(HDRSceneColorImage, workPos, vec4(colorResult, srcColor.a));
 }

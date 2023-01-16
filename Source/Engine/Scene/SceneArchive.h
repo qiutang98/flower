@@ -242,6 +242,10 @@ SCENE_ARCHIVE_IMPL_INHERIT(PostprocessVolumeComponent, Component)
 		{
 			archive(m_settings.dof_trackPMXMode);
 		}
+		if (version > 8)
+		{
+			archive(m_settings.dof_pmxFoucusMinOffset);
+		}
 	}
 }
 SCENE_ARCHIVE_IMPL_INHERIT_END

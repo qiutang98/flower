@@ -73,11 +73,14 @@ layout(push_constant) uniform PushConsts
     float focusLen;
     float filmHeight;
     float fStop;
+    float pmxFoucusMinOffset;
 } DofPush;
 
 bool shouldSkipRenderDof()
 {
     return (DofPush.bFocusPMXCharacter > 0) && (depthRange.pmxPixelCount == 0);
 }
+
+const float kBokehWorkingGamma = 1.0;
 
 #endif

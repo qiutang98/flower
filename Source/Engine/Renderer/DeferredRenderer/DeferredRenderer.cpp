@@ -327,7 +327,6 @@ namespace Flower
 
 			renderPMXTranslucent(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, blueNoiseMisc);
 
-
 			renderFSR2(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, tickData);
 
 			renderHDREffect(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, blueNoiseMisc);

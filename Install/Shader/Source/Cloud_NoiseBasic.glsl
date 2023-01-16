@@ -8,7 +8,6 @@
 #include "Noise.glsl"
 
 #define kBasicFrequency 4.0
-#define kBasicNoiseMixFactor 0.5
 
 layout (set = 0, binding = 0, r8) uniform image3D imageBasicNoise; // 128 x 128 x 128
 
@@ -38,7 +37,7 @@ void main()
 
     const vec3 uvw = (vec3(workPos) + vec3(0.5f)) / vec3(texSize);
 
-    float pfbm = mix(1.0, perlinfbm(uvw, kBasicFrequency, 7), kBasicNoiseMixFactor);
+    float pfbm = mix(1.0, perlinfbm(uvw, kBasicFrequency, 7), 0.5);
     pfbm = abs(pfbm * 2.0 - 1.0); // billowy perlin noise
     
     vec4 col = vec4(0.0);
@@ -46,6 +45,7 @@ void main()
     col.b += worleyFbm(uvw, kBasicFrequency * 2.0);
     col.a += worleyFbm(uvw, kBasicFrequency * 4.0);
 
-    col.r += remap(pfbm, 0., 1., col.g, 1.0); // perlin-worley
+    col.r += remap(pfbm, 0.0, 1.0, col.g, 1.0); // perlin-worley
+
 	imageStore(imageBasicNoise, workPos,  vec4(basicNoiseComposite(col)));
 }

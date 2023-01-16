@@ -78,10 +78,11 @@ void main()
     float t = tMin + stepDepth * 0.5f;
     while(transmittance > 0.001 && t < tMax)
     {
-        vec3 samplePos = marchingStartWorldPos + marchingDirection * t;
-        float normalizeHeight = (length(samplePos) - atmosphere.cloudAreaStartHeight) / atmosphere.cloudAreaThickness;
+        vec3 samplePosKm = marchingStartWorldPos + marchingDirection * t;
+        float normalizeHeight = (length(samplePosKm) - atmosphere.cloudAreaStartHeight) / atmosphere.cloudAreaThickness;
 
-        float density = cloudMap(samplePos * 1000.0, normalizeHeight);
+        vec3 weatherData = sampleCloudWeatherMap(samplePosKm, normalizeHeight, getWeatherOffset());
+        float density = cloudMap(samplePosKm, normalizeHeight, weatherData);
         if(density > 0.)
         {
             transmittance *= exp(-density * stepDepth * 1000.0); // To meter.

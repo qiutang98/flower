@@ -29,10 +29,15 @@ void main()
     // 4x src color load.
     const ivec2 hdrSrcSize = textureSize(inHDRSceneColor, 0);
     const vec2 hdrSrcTexelSize = 1.0f / vec2(hdrSrcSize);
-    const vec3 c0 = texture(sampler2D(inHDRSceneColor, linearClampEdgeSampler), uv + vec2(-0.5, -0.5) * hdrSrcTexelSize.xy).rgb; // 0.75 linear
-    const vec3 c1 = texture(sampler2D(inHDRSceneColor, linearClampEdgeSampler), uv + vec2( 0.5, -0.5) * hdrSrcTexelSize.xy).rgb;
-    const vec3 c2 = texture(sampler2D(inHDRSceneColor, linearClampEdgeSampler), uv + vec2(-0.5,  0.5) * hdrSrcTexelSize.xy).rgb;
-    const vec3 c3 = texture(sampler2D(inHDRSceneColor, linearClampEdgeSampler), uv + vec2( 0.5,  0.5) * hdrSrcTexelSize.xy).rgb;
+    vec3 c0 = texture(sampler2D(inHDRSceneColor, linearClampEdgeSampler), uv + vec2(-0.5, -0.5) * hdrSrcTexelSize.xy).rgb; // 0.75 linear
+    vec3 c1 = texture(sampler2D(inHDRSceneColor, linearClampEdgeSampler), uv + vec2( 0.5, -0.5) * hdrSrcTexelSize.xy).rgb;
+    vec3 c2 = texture(sampler2D(inHDRSceneColor, linearClampEdgeSampler), uv + vec2(-0.5,  0.5) * hdrSrcTexelSize.xy).rgb;
+    vec3 c3 = texture(sampler2D(inHDRSceneColor, linearClampEdgeSampler), uv + vec2( 0.5,  0.5) * hdrSrcTexelSize.xy).rgb;
+
+    c0 = pow(max(c0, vec3(0)), vec3(kBokehWorkingGamma));
+    c1 = pow(max(c1, vec3(0)), vec3(kBokehWorkingGamma));
+    c2 = pow(max(c2, vec3(0)), vec3(kBokehWorkingGamma));
+    c3 = pow(max(c3, vec3(0)), vec3(kBokehWorkingGamma));
 
     // 4x depth load.
     const ivec2 depthSrcSize = textureSize(inDepth, 0);
@@ -55,9 +60,12 @@ void main()
         float sumDepthF = uintBitsToFloat(depthRange.sumPmxDepth);
         uint pmxPixelNum = depthRange.pmxPixelCount;
 
-             if(DofPush.bFocusPMXCharacter == 1) { focusDepth = minDepthF + 4.0f; }
+        // TODO: Add some filter and configable.
+             if(DofPush.bFocusPMXCharacter == 1) { focusDepth = minDepthF; } 
         else if(DofPush.bFocusPMXCharacter == 2) { focusDepth = maxDepthF; }
         else {  focusDepth = sumDepthF / float(pmxPixelNum); }
+
+        focusDepth += DofPush.pmxFoucusMinOffset;
 
         focusDepth = max(focusDepth, DofPush.focusLen);
         lensCoeff = DofPush.focusLen * DofPush.focusLen / (DofPush.fStop * (focusDepth - DofPush.focusLen) * DofPush.filmHeight * 2.0);
@@ -77,11 +85,13 @@ void main()
     weights.z *= 1.0f / (max3(c2) + 1.0f);
     weights.w *= 1.0f / (max3(c3) + 1.0f);
 
-    // Weighted average of the color samples
-    vec3 avg = (c0 * weights.x + c1 * weights.y + c2 * weights.z + c3 * weights.w) / sum(weights);
+    float sumweights = sum(weights);
 
     // Output CoC = average of CoCs
     float coc = mean(cocs);
+
+    // Weighted average of the color samples
+    vec3 avg = (c0 * weights.x + c1 * weights.y + c2 * weights.z + c3 * weights.w) / sumweights;
 
     // Premultiply CoC again.
     avg *= smoothstep(0, hdrSrcTexelSize.y * 2, abs(coc));

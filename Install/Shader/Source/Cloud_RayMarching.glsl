@@ -24,79 +24,9 @@
 // Max sample count per distance. 15 tap/km
 #define kCloudDistanceToSampleMaxCount (1.0 / 15.0)
 
-#define kShadowLightStepNum 6
-#define kShadowLightStepBasicLen 0.167
-#define kShadowLightStepMul 1.1
-
 #define kFogFade 0.005
-#define kSunLightScale kPI
 
-/////////////////////////////////////////////////////
-
-float multiScatter(float VoL)
-{
-	float forwardG  =  0.8;
-	float backwardG = -0.2;
-
-	float phases = 0.0;
-
-	float c = 1.0;
-    for (int i = 0; i < 4; i++)
-    {
-        phases += mix(hgPhase(backwardG * c, VoL), hgPhase(forwardG * c, VoL), 0.5) * c;
-        c *= 0.5;
-    }
-
-	return phases;
-}
-
-float powder(float opticalDepth)
-{
-	return 1.0 - exp2(-opticalDepth * 2.0);
-}
-
-float lightRay(vec3 posKm, float cosTheta, vec3 sunDirection, in const AtmosphereParameters atmosphere)
-{
-    const float kStepLMul = kShadowLightStepMul;
-    const int kStepLight = kShadowLightStepNum;
-    float stepL = kShadowLightStepBasicLen; // km
-    
-    float d = stepL * 0.5;
-
-	// Collect total density along light ray.
-    float intensitySum = 0.0;
-	for(int j = 0; j < kStepLight; j++)
-    {
-        vec3 samplePosKm = posKm + sunDirection * d; // km
-
-        float sampleHeightKm = length(samplePosKm);
-        float sampleDt = sampleHeightKm - atmosphere.cloudAreaStartHeight;
-
-        // Start pos always inside cloud area, if out of bounds, it will never inside bounds again.
-        if(sampleDt > atmosphere.cloudAreaThickness || sampleDt < 0)
-        {
-            break;
-        }
-
-        float normalizeHeight = sampleDt / atmosphere.cloudAreaThickness;
-        vec3 samplePosMeter = samplePosKm * 1000.0f;
-
-        float intensity = cloudMap(samplePosMeter, normalizeHeight);
-        intensitySum += intensity * stepL;
-
-        d += stepL;
-        stepL *= kStepLMul;
-	}
-
-    // To meter.
-    float intensityMeter = intensitySum * 1000.0;
-
-    float beersLambert = exp(-intensityMeter);
-
-	return beersLambert; // * mix(1.0, powder, smoothstep(0.5, -0.5, cosTheta));
-
-    // float upperMask = saturate(1.0 - intensityMeter);
-}
+///////////////////////////////////////
 
 vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ)
 {
@@ -203,78 +133,129 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ)
 
     // Combine backward and forward scattering to have details in all directions.
     const float cosTheta = -VoL;
-    float phase = multiScatter(cosTheta);
+    float phase = dualLobPhase(0.5, -0.5, 0.2, cosTheta);
 
-    float transmittance  = 1.0;
+    vec3 transmittance  = vec3(1.0, 1.0, 1.0);
     vec3 scatteredLight = vec3(0.0, 0.0, 0.0);
 
     // Average ray hit pos to evaluate air perspective and height fog.
     vec3 rayHitPos = vec3(0.0);
     float rayHitPosWeight = 0.0;
 
+    const float minTransmittance = 1e-3f;
+    vec2 coverageWindOffset = getWeatherOffset();
+
     for(uint i = 0; i < stepCountUnit; i ++)
     {
         // World space sample pos, in km unit.
-        vec3 samplePos = sampleT * worldDir + worldPos;
+        vec3 samplePosKm = sampleT * worldDir + worldPos;
 
-        float sampleHeight = length(samplePos);
+        float sampleHeightKm = length(samplePosKm);
 
         // Get sample normalize height [0.0, 1.0]
-        float normalizeHeight = (sampleHeight - atmosphere.cloudAreaStartHeight)  / atmosphere.cloudAreaThickness;
+        float normalizeHeight = (sampleHeightKm - atmosphere.cloudAreaStartHeight)  / atmosphere.cloudAreaThickness;
 
-        // Convert to meter.
-        vec3 samplePosMeter = samplePos * 1000.0f;
-        float alpha = cloudMap(samplePosMeter, normalizeHeight);
+        vec3 weatherData = sampleCloudWeatherMap(samplePosKm, normalizeHeight, coverageWindOffset);
+        float cloudDensity = cloudMap(samplePosKm, normalizeHeight, weatherData);
 
-        // Add ray march pos, so we can do some average fading or atmosphere sample effect.
-        rayHitPos += samplePos * transmittance;
-        rayHitPosWeight += transmittance;
-
-        if(alpha > 0.) 
+        // Lighting.
+        if(cloudDensity > 0.0) 
         {
-            float opticalDepth = alpha * stepT * 1000.0;
+            // Add ray march pos, so we can do some average fading or atmosphere sample effect.
+            float meanT = mean(transmittance);
+            rayHitPos += samplePosKm * meanT;
+            rayHitPosWeight += meanT;
 
-            // beer's lambert.
-            float stepTransmittance = max(exp(-opticalDepth), exp(-opticalDepth * 0.25) * 0.7); // exp(-opticalDepth); // to meter unit.
+            float opticalDepth = cloudDensity * stepT * 1000.0;
+
+        #if 0
+            // Siggraph 2017's new powder formula.
+            float depthProbability = 0.05 + pow(opticalDepth, remap(normalizeHeight, 0.3, 0.85, 0.5, 2.0)); // May cause nan when density is near 1.
+            float verticalProbability = pow(max(1e-5, remap(normalizeHeight, 0.07, 0.14, 0.1, 1.0)), 0.8);
+            float powderEffect = depthProbability * verticalProbability;
+            vec3 albedo = kAlbedo * powderEffect;
+        #elif 1
+            // Unreal engine powder.
+            vec3 albedo = pow(saturate(kAlbedo * cloudDensity * kBeerPowder), vec3(kBeerPowderPower)); 
+        #else
+            vec3 albedo = kAlbedo;
+        #endif
+	           
+            vec3 extinction = kExtinctionCoefficient * cloudDensity;
 
             // Second evaluate transmittance due to participating media
             vec3 atmosphereTransmittance;
             {
-                const vec3 upVector = samplePos / sampleHeight;
+                const vec3 upVector = samplePosKm / sampleHeightKm;
                 float viewZenithCosAngle = dot(sunDirection, upVector);
                 vec2 sampleUv;
                 lutTransmittanceParamsToUv(atmosphere, viewHeight, viewZenithCosAngle, sampleUv);
                 atmosphereTransmittance = texture(sampler2D(inTransmittanceLut, linearClampEdgeSampler), sampleUv).rgb;
             }
 
-            vec3 ambientLight = frameData.directionalLight.color * mix(vec3(0.23, 0.39, 0.51), vec3(0.87, 0.98, 1.18), normalizeHeight * normalizeHeight);
+            // Sample participating media with multiple scattering
+            ParticipatingMedia participatingMedia = getParticipatingMedia(
+                albedo, 
+                extinction, 
+                kMultiScatteringScattering, 
+                kMultiScatteringExtinction, 
+                atmosphereTransmittance
+            );
 
-#if 1
-            // Siggraph 2017's new powder formula.
-            float depthProbability = 0.05 + pow(opticalDepth, remap(normalizeHeight, 0.3, 0.85, 0.5, 2.0));
-            float verticalProbability = pow(remap(normalizeHeight, 0.07, 0.14, 0.1, 1.0), 0.8);
-            float powderEffect = depthProbability * verticalProbability; //powder(opticalDepth * 2.0);
-#else
-            // Unreal engine 5's implement powder formula.
-            float powderEffect = pow(saturate(opticalDepth * 20.0), 0.5);
-#endif
+            // TODO: Sample skylight SH.
+            vec3 ambientLight = 0.1 * frameData.directionalLight.color * mix(vec3(0.23, 0.39, 0.51), vec3(0.87, 0.98, 1.18), normalizeHeight);
 
-            // Amount of sunlight that reaches the sample point through the cloud 
-            // is the combination of ambient light and attenuated direct light.
-            vec3 sunLit = kSunLightScale * sunColor * lightRay(samplePos, cosTheta, sunDirection, atmosphere);
+            // Calculate bounced light from ground onto clouds
+        #if 1
+            const float maxTransmittanceToView = max(max(transmittance.x, transmittance.y), transmittance.z);
+            if (maxTransmittanceToView > 0.01f)
+            {
+                ambientLight += getVolumetricGroundContribution(
+                    atmosphere, 
+                    samplePosKm, 
+                    sunDirection, 
+                    sunColor, 
+                    atmosphereTransmittance,
+                    normalizeHeight
+                );
+            }
+        #endif
 
-            vec3 luminance = ambientLight + sunLit * phase * powderEffect; // * alpha;
-            
-            luminance *= atmosphereTransmittance;
-            // luminance += atmosphereTransmittance *atmosphereTransmittance;
+            // Calcualte volumetric shadow
+	        getVolumetricShadow(participatingMedia, atmosphere, samplePosKm, sunDirection);
 
-            scatteredLight += transmittance * (luminance - luminance * stepTransmittance); // / alpha
-            transmittance *= stepTransmittance;
-        }
+            // float backScatterPhase = applyBackScattering(phase, mean(extinction));
+            // ParticipatingMediaPhase participatingMediaPhase = getParticipatingMediaPhase(backScatterPhase, kMultiScatteringEccentricity);
+               ParticipatingMediaPhase participatingMediaPhase = getParticipatingMediaPhase(phase, kMultiScatteringEccentricity);
 
-        if(transmittance <= 0.001)
-        {
-            break;
+            // Analytical scattering integration based on multiple scattering
+            for (int ms = kMsCount - 1; ms >= 0; ms--) // Should terminate at 0
+            {
+                const vec3 scatteringCoefficients = participatingMedia.scatteringCoefficients[ms];
+                const vec3 extinctionCoefficients = participatingMedia.extinctionCoefficients[ms];
+                const vec3 transmittanceToLight   = participatingMedia.transmittanceToLight[ms];
+                
+                vec3 sunSkyLuminance = transmittanceToLight * sunColor * participatingMediaPhase.phase[ms];
+                sunSkyLuminance += (ms == 0 ? ambientLight : vec3(0.0, 0.0, 0.0)); // only apply at last
+                
+                const vec3 scatteredLuminance = (sunSkyLuminance * scatteringCoefficients) * weatherDensity(weatherData); // + emission. Light can be emitted when media reach high heat. Could be used to make lightning
+
+                // See slide 28 at http://www.frostbite.com/2015/08/physically-based-unified-volumetric-rendering-in-frostbite/ 
+                const vec3 clampedExtinctionCoefficients = max(extinctionCoefficients, 0.0000001);
+                const vec3 sampleTransmittance = exp(-clampedExtinctionCoefficients * stepT * 1000.0); // to meter.
+                vec3 luminanceIntegral = (scatteredLuminance - scatteredLuminance * sampleTransmittance) / clampedExtinctionCoefficients; // integrate along the current step segment
+
+                scatteredLight += transmittance * luminanceIntegral; // accumulate and also take into account the transmittance from previous steps
+                if (ms == 0)
+                {
+                    transmittance *= sampleTransmittance;
+                }
+            }
+
+            if(mean(transmittance) < minTransmittance)
+            {
+                break;
+            }   
         }
 
         sampleT += stepT;
@@ -285,10 +266,10 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ)
     // Apply cloud transmittance.
     vec3 finalColor = srcColor;
 
-
+    float approxTransmittance = mean(transmittance);
 
     // Apply some additional effect.
-    if(transmittance <= 0.99999)
+    if(approxTransmittance < 1.0 - minTransmittance)
     {
         // Get average hit pos.
         rayHitPos /= rayHitPosWeight;
@@ -302,7 +283,7 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ)
 
         // Fade effect apply.
         float fading = exp(-rayHitHeight * kFogFade);
-        float cloudTransmittanceFaded = mix(1.0, transmittance, fading);
+        float cloudTransmittanceFaded = mix(1.0, approxTransmittance, fading);
 
         // Apply air perspective.
         float slice = aerialPerspectiveDepthToSlice(rayHitHeight);
@@ -330,11 +311,15 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ)
         finalColor += (1.0 - cloudTransmittanceFaded) * scatteredLight;
 
         // Update transmittance.
-        transmittance = cloudTransmittanceFaded;
+        approxTransmittance = cloudTransmittanceFaded;
+    }
+    else
+    {
+        cloudZ = 0.0;
     }
 
     // Dual mix transmittance.
-    return vec4(finalColor, transmittance);
+    return vec4(finalColor, approxTransmittance);
 }
 
 // Evaluate quater resolution.

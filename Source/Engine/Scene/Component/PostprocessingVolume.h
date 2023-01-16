@@ -53,7 +53,7 @@ namespace Flower
 		float dof_focusLength   = 50.0f; // mm
 		int32_t dof_kernelSize  = 2;
 		float dof_FilmHeight = 0.024f;// Height of the 35mm full-frame format (36mm x 24mm)
-
+		float dof_pmxFoucusMinOffset = 0.5f;
 
 		// C++ 20 save my life.
 		auto operator<=>(const PostprocessVolumeSetting&) const = default;

@@ -216,6 +216,8 @@ void ComponentDrawer::drawPostprocessVolume(std::shared_ptr<SceneNode> node)
 				if (ImGui::RadioButton("Near", mode == FocusMode_Near)) { mode = (int)FocusMode_Near; } ImGui::SameLine();
 				if (ImGui::RadioButton("Avg", mode == FocusMode_Avg)) { mode = (int)FocusMode_Avg; }
 				copySetting.dof_trackPMXMode = mode;
+
+				ImGui::DragFloat("offset", &copySetting.dof_pmxFoucusMinOffset, 0.001f);
 			}
 
 			ImGui::DragFloat("f-stop", &copySetting.dof_aperture, 0.5f, 0.1f);

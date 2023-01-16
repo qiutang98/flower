@@ -31,8 +31,8 @@ namespace Flower
 		extern const UUID GCloudWeatherUUID;
 		extern uint32_t GCloudWeatherId;
 
-		extern const UUID GCloudGradientUUID;
-		extern uint32_t GCloudGradientId;
+		extern const UUID GCurlNoiseUUID;
+		extern uint32_t GCurlNoiseId;
 	}
 
 	class ImageAssetBin;

@@ -701,4 +701,24 @@ mat3 createTBN(vec3 N)
     return transpose(TBN);
 }
 
+vec3 reinhard(vec3 hdr)
+{
+    return hdr / (hdr + 1.0f);
+}
+
+vec3 reinhardInverse(in vec3 sdr)
+{
+    return sdr / max(1.0f - sdr, 1e-5f);
+}
+
+float curve(float x)
+{
+	return x * x * (3.0 - 2.0 * x);
+}
+
+vec3 curve(vec3 x)
+{
+	return x * x * (3.0 - 2.0 * x);
+}
+
 #endif

@@ -20,7 +20,7 @@ namespace Flower
 	const UUID EngineTextures::GDefaultSpecularUUID = "424e83d1-ec41-464d-9733-7fcded599fbb";
 
 	const UUID EngineTextures::GCloudWeatherUUID = "a27c14c4-2bd5-4d58-b416-801ff2d8c71e";
-	const UUID EngineTextures::GCloudGradientUUID = "987b3e4d-27b7-4d49-bf53-6399a63b61cb";
+	const UUID EngineTextures::GCurlNoiseUUID = "987b3e4d-27b7-4d49-bf53-6399a63b61cb";
 
 	uint32_t EngineTextures::GWhiteTextureId = 0;
 	uint32_t EngineTextures::GGreyTextureId = 0;
@@ -29,7 +29,7 @@ namespace Flower
 	uint32_t EngineTextures::GNormalTextureId = 0;
 	uint32_t EngineTextures::GDefaultSpecularId = 0;
 	uint32_t EngineTextures::GCloudWeatherId = 0;
-	uint32_t EngineTextures::GCloudGradientId = 0;
+	uint32_t EngineTextures::GCurlNoiseId = 0;
 
 	void ImageAssetHeader::buildSnapshotData2D(std::shared_ptr<ImageAssetBin> inBin)
 	{
