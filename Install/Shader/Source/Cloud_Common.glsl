@@ -24,7 +24,7 @@ layout (set = 0, binding = 6) uniform texture3D inBasicNoise;
 layout (set = 0, binding = 7) uniform texture3D inWorleyNoise;
 
 layout (set = 0, binding = 8) uniform texture2D inWeatherTexture;
-layout (set = 0, binding = 9) uniform texture2D inCloudCurlNoise;
+layout (set = 0, binding = 9) uniform texture2D inGradientTexture;
 
 layout (set = 0, binding = 10) uniform texture2D inTransmittanceLut;
 layout (set = 0, binding = 11) uniform texture3D inFroxelScatter;
@@ -46,7 +46,6 @@ layout (set = 0, binding = 21) uniform texture2D inCloudDepthReconstructionTextu
 
 
 layout (set = 0, binding = 22, r8) uniform image2D imageGbufferTranslucentMask;  // full resolution.
-layout (set = 0, binding = 23) uniform texture2D inCloudGradientLut;
 
 // Other common set.
 layout (set = 1, binding = 0) uniform UniformView  { ViewData  viewData;  };
@@ -75,11 +74,6 @@ float remap(float value, float orignalMin, float orignalMax, float newMin, float
     return newMin + (saturate((value - orignalMin) / (orignalMax - orignalMin)) * (newMax - newMin));
 }
 
-float cloudGradient(float height) 
-{
-    return remap(height, 0.00, 0.10, 0.1, 1.0) * remap(height, 0.10, 0.50, 1.0, 0.2);
-}
-
 // TODO: change shape function in the future. This should be artist bias.
 float cloudMap(vec3 posMeter, float normalizeHeight)  // Meter
 {
@@ -90,38 +84,40 @@ float cloudMap(vec3 posMeter, float normalizeHeight)  // Meter
         return 0.0f;
     }
 
-    const float kCoverage = 0.5;
-    const float kDensity  = 0.1; // 0.05
+    const float kCoverage = 0.50;
+    const float kDensity  = 0.10; // 0.05
 
     const vec3 windDirection = vec3(1.0, 0.0, 0.0);
-    const float cloudSpeed = 0.1;
+    const float cloudSpeed = 0.1f;
 
     posMeter += windDirection * normalizeHeight * 500.0f;
     vec3 posKm = posMeter * 0.001;
 
     vec3 windOffset = (windDirection + vec3(0.0, 0.1, 0.0)) * frameData.appTime.x * cloudSpeed;
 
-    vec2 sampleUv = posKm.xz * 0.01;
+    vec2 sampleUv = posKm.xz * 0.005;
     vec4 weatherValue = texture(sampler2D(inWeatherTexture, linearRepeatSampler), sampleUv);
 
-    float coverage = saturate(weatherValue.r * kCoverage);
-	float gradienShape = cloudGradient(normalizeHeight);
+    float coverage = saturate(kCoverage * weatherValue.x);
+	float gradienShape = remap(normalizeHeight, 0.00, 0.10, 0.1, 1.0) * remap(normalizeHeight, 0.10, 0.80, 1.0, 0.2);
+    // float gradienShape = remap(normalizeHeight, 0.00, 0.10, 0.1, 1.0) * remap(normalizeHeight, 0.10, 0.90, 1.0, 0.6);
 
-    float basicNoise = texture(sampler3D(inBasicNoise, linearRepeatSampler), (posKm + windOffset) * vec3(0.25)).r;
+    float basicNoise = texture(sampler3D(inBasicNoise, linearRepeatSampler), (posKm + windOffset) * vec3(0.1)).r;
     
     float basicCloudNoise = gradienShape * basicNoise;
-	float basicCloudWithCoverage =  coverage * remap(basicCloudNoise, 1.0 - coverage, 1, 0, 1);
+    //    basicCloudNoise = mix(basicCloudNoise, smoothstep(0.1, 0.9, basicCloudNoise), saturate(1.0 - normalizeHeight * 6.0));
 
-    vec3 sampleDetailNoise = posKm - windOffset * 0.15;
-    float detailNoiseComposite = texture(sampler3D(inWorleyNoise, linearRepeatSampler), sampleDetailNoise * 0.50).r;
-	float detailNoiseMixByHeight = 0.25 * mix(detailNoiseComposite, 1 - detailNoiseComposite, saturate(normalizeHeight * 10.0));
+	float basicCloudWithCoverage = coverage * remap(basicCloudNoise, 1.0 - coverage, 1, 0, 1);
+
+    vec3 sampleDetailNoise = posKm - windOffset * 0.15 + vec3(basicNoise.x, 0.0, basicCloudNoise) * normalizeHeight;
+    float detailNoiseComposite = texture(sampler3D(inWorleyNoise, linearRepeatSampler), sampleDetailNoise * 0.2).r;
+	float detailNoiseMixByHeight = 0.2 * mix(detailNoiseComposite, 1 - detailNoiseComposite, saturate(normalizeHeight * 10.0));
     
-    float densityShape = saturate(0.2 + normalizeHeight * 1.0) * kDensity *
+    float densityShape = saturate(0.01 + normalizeHeight * 1.15) * kDensity *
         remap(normalizeHeight, 0.0, 0.1, 0.0, 1.0) * 
         remap(normalizeHeight, 0.8, 1.0, 1.0, 0.0);
 
     float cloudDensity = remap(basicCloudWithCoverage, detailNoiseMixByHeight, 1.0, 0.0, 1.0);
-
 	return cloudDensity * densityShape;
  
 }

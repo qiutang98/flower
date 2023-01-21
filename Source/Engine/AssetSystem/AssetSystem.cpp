@@ -79,7 +79,7 @@ namespace Flower
 		GpuUploader::get()->addTask(GEngineTexturePBRLoad);
 
 		auto GEngineTextureCloudWeather = RawAssetTextureLoadTask::build(
-			"Image/T_CloudWetherMap.png",
+			"Image/WeatherTexture.tga",
 			EngineTextures::GCloudWeatherUUID,
 			VK_FORMAT_R8G8B8A8_UNORM);
 		GpuUploader::get()->addTask(GEngineTextureCloudWeather);

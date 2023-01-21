@@ -33,7 +33,7 @@
 
 /////////////////////////////////////////////////////
 
-float multiPhase(float VoL)
+float multiScatter(float VoL)
 {
 	float forwardG  =  0.8;
 	float backwardG = -0.2;
@@ -203,7 +203,7 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ)
 
     // Combine backward and forward scattering to have details in all directions.
     const float cosTheta = -VoL;
-    float phase = multiPhase(cosTheta);
+    float phase = multiScatter(cosTheta);
 
     float transmittance  = 1.0;
     vec3 scatteredLight = vec3(0.0, 0.0, 0.0);
@@ -284,6 +284,8 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ)
 
     // Apply cloud transmittance.
     vec3 finalColor = srcColor;
+
+
 
     // Apply some additional effect.
     if(transmittance <= 0.99999)
