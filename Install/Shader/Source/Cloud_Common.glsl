@@ -24,7 +24,7 @@ layout (set = 0, binding = 6) uniform texture3D inBasicNoise;
 layout (set = 0, binding = 7) uniform texture3D inWorleyNoise;
 
 layout (set = 0, binding = 8) uniform texture2D inWeatherTexture;
-layout (set = 0, binding = 9) uniform texture2D inGradientTexture;
+layout (set = 0, binding = 9) uniform texture2D inCloudCurlNoise;
 
 layout (set = 0, binding = 10) uniform texture2D inTransmittanceLut;
 layout (set = 0, binding = 11) uniform texture3D inFroxelScatter;
@@ -46,6 +46,7 @@ layout (set = 0, binding = 21) uniform texture2D inCloudDepthReconstructionTextu
 
 
 layout (set = 0, binding = 22, r8) uniform image2D imageGbufferTranslucentMask;  // full resolution.
+layout (set = 0, binding = 23) uniform texture2D inCloudGradientLut;
 
 // Other common set.
 layout (set = 1, binding = 0) uniform UniformView  { ViewData  viewData;  };
