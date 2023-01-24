@@ -86,10 +86,10 @@ float cloudMap(vec3 posMeter, float normalizeHeight)  // Meter
     }
 
     const float kCoverage = 0.50;
-    const float kDensity  = 0.10; // 0.05
+    const float kDensity  = 0.30;
 
-    const vec3 windDirection = vec3(1.0, 0.0, 0.0);
-    const float cloudSpeed = 0.1f;
+    const vec3 windDirection = vec3(0.1, 0.0, 0.0);
+    const float cloudSpeed = 0.1;
 
     posMeter += windDirection * normalizeHeight * 500.0f;
     vec3 posKm = posMeter * 0.001;
@@ -104,7 +104,6 @@ float cloudMap(vec3 posMeter, float normalizeHeight)  // Meter
     // float gradienShape = remap(normalizeHeight, 0.00, 0.10, 0.1, 1.0) * remap(normalizeHeight, 0.10, 0.90, 1.0, 0.6);
 
     float basicNoise = texture(sampler3D(inBasicNoise, linearRepeatSampler), (posKm + windOffset) * vec3(0.1)).r;
-    
     float basicCloudNoise = gradienShape * basicNoise;
     //    basicCloudNoise = mix(basicCloudNoise, smoothstep(0.1, 0.9, basicCloudNoise), saturate(1.0 - normalizeHeight * 6.0));
 

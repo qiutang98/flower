@@ -4,6 +4,10 @@
 ** Physical based render code, develop by engineer: qiutanguu.
 */
 
+// Single scatter version volumetric cloud renderering.
+// Q: Why no use multi-scatter version? 
+// A: Ugly and no fit flower render style.
+
 #extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_samplerless_texture_functions : enable
 #include "Cloud_Common.glsl"
@@ -29,11 +33,11 @@
 #define kShadowLightStepMul 1.1
 
 #define kFogFade 0.005
-#define kSunLightScale kPI
+#define kSunLightScale 5.0
 
 /////////////////////////////////////////////////////
 
-float multiScatter(float VoL)
+float multiPhase(float VoL)
 {
 	float forwardG  =  0.8;
 	float backwardG = -0.2;
@@ -55,7 +59,7 @@ float powder(float opticalDepth)
 	return 1.0 - exp2(-opticalDepth * 2.0);
 }
 
-float lightRay(vec3 posKm, float cosTheta, vec3 sunDirection, in const AtmosphereParameters atmosphere)
+float volumetricShadow(vec3 posKm, float cosTheta, vec3 sunDirection, in const AtmosphereParameters atmosphere)
 {
     const float kStepLMul = kShadowLightStepMul;
     const int kStepLight = kShadowLightStepNum;
@@ -203,7 +207,7 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ)
 
     // Combine backward and forward scattering to have details in all directions.
     const float cosTheta = -VoL;
-    float phase = multiScatter(cosTheta);
+    float phase = multiPhase(cosTheta);
 
     float transmittance  = 1.0;
     vec3 scatteredLight = vec3(0.0, 0.0, 0.0);
@@ -232,10 +236,7 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ)
 
         if(alpha > 0.) 
         {
-            float opticalDepth = alpha * stepT * 1000.0;
-
-            // beer's lambert.
-            float stepTransmittance = max(exp(-opticalDepth), exp(-opticalDepth * 0.25) * 0.7); // exp(-opticalDepth); // to meter unit.
+            float opticalDepth = alpha * stepT * 1000.0; // to meter unit.
 
             // Second evaluate transmittance due to participating media
             vec3 atmosphereTransmittance;
@@ -247,28 +248,45 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ)
                 atmosphereTransmittance = texture(sampler2D(inTransmittanceLut, linearClampEdgeSampler), sampleUv).rgb;
             }
 
-            vec3 ambientLight = frameData.directionalLight.color * mix(vec3(0.23, 0.39, 0.51), vec3(0.87, 0.98, 1.18), normalizeHeight * normalizeHeight);
+            // beer's lambert.
+            float stepTransmittance = max(exp(-opticalDepth), exp(-opticalDepth * 0.25) * 0.7); // exp(-opticalDepth); 
 
-#if 1
-            // Siggraph 2017's new powder formula.
-            float depthProbability = 0.05 + pow(opticalDepth, remap(normalizeHeight, 0.3, 0.85, 0.5, 2.0));
-            float verticalProbability = pow(remap(normalizeHeight, 0.07, 0.14, 0.1, 1.0), 0.8);
-            float powderEffect = depthProbability * verticalProbability; //powder(opticalDepth * 2.0);
-#else
-            // Unreal engine 5's implement powder formula.
-            float powderEffect = pow(saturate(opticalDepth * 20.0), 0.5);
-#endif
+            // Compute powder term.
+            float powderEffectTerm;
+            {
+            #if 1
+                // Siggraph 2017's new powder formula.
+                float depthProbability = 0.05 + pow(opticalDepth, remap(normalizeHeight, 0.3, 0.85, 0.5, 2.0));
+                float verticalProbability = pow(remap(normalizeHeight, 0.07, 0.14, 0.1, 1.0), 0.8);
+                powderEffectTerm = depthProbability * verticalProbability; //powder(opticalDepth * 2.0);
+            #else
+                // Unreal engine 5's implement powder formula.
+                powderEffectTerm = pow(saturate(opticalDepth * 20.0), 0.5);
+            #endif
+            }
 
-            // Amount of sunlight that reaches the sample point through the cloud 
-            // is the combination of ambient light and attenuated direct light.
-            vec3 sunLit = kSunLightScale * sunColor * lightRay(samplePos, cosTheta, sunDirection, atmosphere);
+            vec3 lightTerm;
+            {
+                vec3 ambientLight = frameData.directionalLight.color * mix(vec3(0.23, 0.39, 0.51), vec3(0.87, 0.98, 1.18), normalizeHeight * normalizeHeight);
 
-            vec3 luminance = ambientLight + sunLit * phase * powderEffect; // * alpha;
+                // Amount of sunlight that reaches the sample point through the cloud 
+                // is the combination of ambient light and attenuated direct light.
+                vec3 sunLit = kSunLightScale * sunColor; 
+
+                lightTerm = ambientLight + sunLit;
+            }
+
+            float visibilityTerm = volumetricShadow(samplePos, cosTheta, sunDirection, atmosphere);
+
+            float sigmaS = alpha;
+            float sigmaE = sigmaS + 1e-4f;
             
-            luminance *= atmosphereTransmittance;
-            // luminance += atmosphereTransmittance *atmosphereTransmittance;
+            vec3 sactterLitStep = visibilityTerm * lightTerm * phase * powderEffectTerm * sigmaS;
 
-            scatteredLight += transmittance * (luminance - luminance * stepTransmittance); // / alpha
+            // See slide 28 at http://www.frostbite.com/2015/08/physically-based-unified-volumetric-rendering-in-frostbite/
+            scatteredLight += atmosphereTransmittance * transmittance * (sactterLitStep - sactterLitStep * stepTransmittance) / sigmaE;
+
+            // Beer's law.
             transmittance *= stepTransmittance;
         }
 
@@ -285,13 +303,13 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ)
     // Apply cloud transmittance.
     vec3 finalColor = srcColor;
 
-
-
     // Apply some additional effect.
     if(transmittance <= 0.99999)
     {
         // Get average hit pos.
         rayHitPos /= rayHitPosWeight;
+
+        
 
         vec3 rayHitInRender = convertToCameraUnit(rayHitPos - vec3(0.0, atmosphere.bottomRadius, 0.0), viewData);
         vec4 rayInH = viewData.camViewProj * vec4(rayHitInRender, 1.0);

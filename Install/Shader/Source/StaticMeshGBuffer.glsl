@@ -167,7 +167,7 @@ void main()
     outGBufferS.r = specularTex.b; // metal
 
     // Actually it is perceptualRoughness.
-    outGBufferS.g = clamp(specularTex.g, 0.0, 1.0) * 0.05; // roughness
+    outGBufferS.g = clamp(specularTex.g, 0.0, 1.0); // roughness
     outGBufferS.b = tex(mat.occlusionTexId, mat.occlusionSampler, vsIn.uv0).r; // mesh ao
 
     // Velocity output.
