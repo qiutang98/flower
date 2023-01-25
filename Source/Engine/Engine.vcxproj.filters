@@ -61,7 +61,7 @@
     <ClInclude Include="Renderer\SceneTextures.h" />
     <ClInclude Include="RHI\Query.h" />
     <ClInclude Include="Scene\Component\Light.h" />
-    <ClInclude Include="Scene\Component\DirectionalLight.h" />
+    <ClInclude Include="Scene\Component\SunSky.h" />
     <ClInclude Include="Scene\Component\SpotLight.h" />
     <ClInclude Include="Renderer\DeferredRenderer\Pass\FSR2Pass.h" />
     <ClInclude Include="Renderer\RenderSettingContext.h" />
@@ -73,7 +73,6 @@
     <ClInclude Include="Version.h" />
     <ClInclude Include="AssetSystem\AssetArchive.h" />
     <ClInclude Include="AssetSystem\PMXMeshAsset.h" />
-    <ClInclude Include="Scene\Component\SkyLight.h" />
     <ClInclude Include="Scene\Component\PostprocessingVolume.h" />
     <ClInclude Include="Renderer\DeferredRenderer\Pass\BloomCommon.h" />
     <ClInclude Include="Scene\Component\ReflectionCapture.h" />
@@ -127,7 +126,7 @@
     <ClCompile Include="Renderer\Parameters.cpp" />
     <ClCompile Include="RHI\Query.cpp" />
     <ClCompile Include="Scene\Component\Light.cpp" />
-    <ClCompile Include="Scene\Component\DirectionalLight.cpp" />
+    <ClCompile Include="Scene\Component\SunSky.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\SampleDistributionShadowMap.cpp" />
     <ClCompile Include="Scene\Component\SpotLight.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\BasicLightingPass.cpp" />
@@ -147,7 +146,6 @@
     <ClCompile Include="RHI\AccelerateStructure.cpp" />
     <ClCompile Include="AssetSystem\AsyncQueueSchedule.cpp" />
     <ClCompile Include="AssetSystem\PMXMeshAsset.cpp" />
-    <ClCompile Include="Scene\Component\SkyLight.cpp" />
     <ClCompile Include="Scene\Component\PostprocessingVolume.cpp" />
     <ClCompile Include="Scene\Component\ReflectionCapture.cpp" />
     <ClCompile Include="Renderer\DeferredRenderer\Pass\PMXPass.cpp" />

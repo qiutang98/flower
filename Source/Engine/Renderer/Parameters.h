@@ -13,19 +13,24 @@ namespace Flower
 	// All units in kilometers
 	struct EarthAtmosphere
 	{
-		glm::vec3  absorptionExtinction;
-		float multipleScatteringFactor;  // x4
+		glm::vec3 absorptionColor;
+		float absorptionLength; // x4
 
-		glm::vec3 rayleighScattering;
-		float miePhaseFunctionG; // x4
+		glm::vec3 rayleighScatteringColor;
+		float rayleighScatterLength;  // x4
 
-		glm::vec3 mieScattering;
-		float bottomRadius; // x4
-
-		glm::vec3 mieExtinction;
+		float multipleScatteringFactor;  
+		float miePhaseFunctionG; 
+		float bottomRadius; 
 		float topRadius; // x4
 
-		glm::vec3 mieAbsorption;
+		glm::vec3 mieScatteringColor;
+		float mieScatteringLength;// x4
+
+		glm::vec3 mieAbsColor;
+		float mieAbsLength;// x4
+
+		glm::vec3 mieAbsorption;  
 		uint32_t viewRayMarchMinSPP; // x4
 
 		glm::vec3 groundAlbedo;
@@ -46,7 +51,27 @@ namespace Flower
 		// world space position to cloud space. km is unit, so need to * 0.001 before multi this matrix.
 		glm::mat4 cloudSpaceViewProject;
 		glm::mat4 cloudSpaceViewProjectInverse;
-		void reset();
+
+		glm::vec2  cloudWeatherUVScale = { 0.005f, 0.005f }; // vec2(0.005)
+		float cloudCoverage = 0.5f; // 0.50
+		float cloudDensity = 0.1f;  // 0.10
+
+		float cloudShadingSunLightScale = 5.0f; // 5.0
+		float cloudFogFade = 0.005f; // 0.005
+		float cloudMaxTraceingDistance = 50.0f; // 50.0 km
+		float cloudTracingStartMaxDistance = 350.0f; // 350.0 km
+
+		void resetAtmosphere();
+		void resetCloud();
+
+		EarthAtmosphere()
+		{
+			resetAtmosphere();
+			resetCloud();
+		}
+
+		// C++ 20 save my life.
+		auto operator<=>(const EarthAtmosphere&) const = default;
 	};
 
 	struct GPUDirectionalLightInfo

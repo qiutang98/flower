@@ -173,9 +173,8 @@ void WidgetDetail::drawComponent(std::shared_ptr<SceneNode> node)
 			drawAddNode.template operator()<PMXComponent>(GIconPMX);
 			drawAddNode.template operator()<StaticMeshComponent>(GIconStaticMesh);
 			drawAddNode.template operator()<LandscapeComponent>(GIconLandscape);
-			drawAddNode.template operator()<DirectionalLightComponent>(GIconDirectionalLight);
+			drawAddNode.template operator()<SunSkyComponent>(GIconSunSky);
 			drawAddNode.template operator()<SpotLightComponent>(GIconSpotLight);
-			drawAddNode.template operator()<SkyLightComponent>(GIconSkyLight);
 			drawAddNode.template operator()<ReflectionCaptureComponent>(GIconReflectionCapture);
 			drawAddNode.template operator()<PostprocessVolumeComponent>(GIconPostprocessVolume);
 			if (!bExistOneNewComponent)

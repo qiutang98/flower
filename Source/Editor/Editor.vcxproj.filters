@@ -66,7 +66,7 @@
     <ClCompile Include="Widgets\DrawComponent\DrawComponentStaticMesh.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Widgets\DrawComponent\DrawComponentDirectionalLight.cpp">
+    <ClCompile Include="Widgets\DrawComponent\DrawComponentSunSky.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="Widgets\DrawComponent\DrawComponentSpotLight.cpp">
@@ -79,9 +79,6 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="Widgets\DrawComponent\DrawComponentPMX.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Widgets\DrawComponent\DrawComponentSkyLight.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="Widgets\DrawComponent\DrawComponentPostprocessVolume.cpp">

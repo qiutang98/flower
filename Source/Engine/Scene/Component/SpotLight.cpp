@@ -1,5 +1,5 @@
 #include "Pch.h"
-#include "DirectionalLight.h"
+#include "SpotLight.h"
 
 namespace Flower
 {

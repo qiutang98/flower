@@ -1,10 +1,10 @@
 #include "Pch.h"
-#include "DirectionalLight.h"
+#include "SunSky.h"
 #include "../../Renderer/Parameters.h"
 
 namespace Flower
 {
-    bool DirectionalLightComponent::setShadowFilterSize(float newValue)
+    bool SunSkyComponent::setShadowFilterSize(float newValue)
     {
         if (newValue != m_shadowFilterSize)
         {
@@ -16,7 +16,7 @@ namespace Flower
         return false;
     }
 
-    bool DirectionalLightComponent::setCascadeSplitLambda(float newValue)
+    bool SunSkyComponent::setCascadeSplitLambda(float newValue)
     {
         if (newValue != m_cascadeSplitLambda)
         {
@@ -28,7 +28,7 @@ namespace Flower
         return false;
     }
 
-    bool DirectionalLightComponent::setCascadeCount(uint32_t newValue)
+    bool SunSkyComponent::setCascadeCount(uint32_t newValue)
     {
         const auto cascadeCount = glm::clamp(
             newValue,
@@ -45,7 +45,7 @@ namespace Flower
         return false;
     }
 
-    bool DirectionalLightComponent::setPerCascadeDimXY(uint32_t newValue)
+    bool SunSkyComponent::setPerCascadeDimXY(uint32_t newValue)
     {
         const auto pageSize = glm::clamp(
             getNextPOT(newValue),
@@ -60,7 +60,7 @@ namespace Flower
         return false;
     }
 
-    bool DirectionalLightComponent::setShadowBiasConst(float newValue)
+    bool SunSkyComponent::setShadowBiasConst(float newValue)
     {
         if (newValue != m_shadowBiasConst)
         {
@@ -72,7 +72,7 @@ namespace Flower
         return false;
     }
 
-    bool DirectionalLightComponent::setShadowBiasSlope(float newValue)
+    bool SunSkyComponent::setShadowBiasSlope(float newValue)
     {
         if (newValue != m_shadowBiasSlope)
         {
@@ -83,7 +83,7 @@ namespace Flower
         return false;
     }
 
-    bool DirectionalLightComponent::setCascadeBorderAdopt(float newValue)
+    bool SunSkyComponent::setCascadeBorderAdopt(float newValue)
     {
         if (newValue != m_cascadeBorderAdopt)
         {
@@ -94,7 +94,7 @@ namespace Flower
         return false;
     }
 
-    bool DirectionalLightComponent::setCascadeEdgeLerpThreshold(float newValue)
+    bool SunSkyComponent::setCascadeEdgeLerpThreshold(float newValue)
     {
         if (newValue != m_cascadeEdgeLerpThreshold)
         {
@@ -104,7 +104,7 @@ namespace Flower
         }
         return false;
     }
-    bool DirectionalLightComponent::setMaxDrawDepthDistance(float newValue)
+    bool SunSkyComponent::setMaxDrawDepthDistance(float newValue)
     {
         if (newValue != m_maxDrawDepthDistance)
         {
@@ -114,7 +114,7 @@ namespace Flower
         }
         return false;
     }
-    bool DirectionalLightComponent::setMaxFilterSize(float newValue)
+    bool SunSkyComponent::setMaxFilterSize(float newValue)
     {
         if (newValue != m_maxFilterSize)
         {
@@ -124,4 +124,16 @@ namespace Flower
         }
         return false;
     }
+    bool SunSkyComponent::changeAtmosphere(const EarthAtmosphere& in)
+    {
+        if (in != m_earthAtmosphere)
+        {
+            m_earthAtmosphere = in;
+            return true;
+        }
+
+        return false;
+    }
+
+
 }

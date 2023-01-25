@@ -121,11 +121,10 @@
     <ClCompile Include="Widgets\Downbar.cpp" />
     <ClCompile Include="Editor.cpp" />
     <ClCompile Include="Widgets\DrawComponent\DrawComponent.cpp" />
-    <ClCompile Include="Widgets\DrawComponent\DrawComponentDirectionalLight.cpp" />
+    <ClCompile Include="Widgets\DrawComponent\DrawComponentSunSky.cpp" />
     <ClCompile Include="Widgets\DrawComponent\DrawComponentLight.cpp" />
     <ClCompile Include="Widgets\DrawComponent\DrawComponentPMX.cpp" />
     <ClCompile Include="Widgets\DrawComponent\DrawComponentReflectionCapture.cpp" />
-    <ClCompile Include="Widgets\DrawComponent\DrawComponentSkyLight.cpp" />
     <ClCompile Include="Widgets\DrawComponent\DrawComponentSpotLight.cpp" />
     <ClCompile Include="Widgets\DrawComponent\DrawComponentStaticMesh.cpp" />
     <ClCompile Include="Widgets\MainMenu.cpp" />

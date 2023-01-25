@@ -15,12 +15,6 @@
 #include "Phase.glsl"
 //////////////// Paramters ///////////////////////////
 
-// Max tracing distance, in km unit.
-#define kTracingMaxDistance 50.0f
-
-// Max start ray tracing distance. in km unit, use this avoid eye look from space very far still need tracing.
-#define kTracingStartMaxDistance 350.0f
-
 // Min max sample count define.
 #define kSampleCountMin 2
 #define kSampleCountMax 96
@@ -31,9 +25,6 @@
 #define kShadowLightStepNum 6
 #define kShadowLightStepBasicLen 0.167
 #define kShadowLightStepMul 1.1
-
-#define kFogFade 0.005
-#define kSunLightScale 5.0
 
 /////////////////////////////////////////////////////
 
@@ -182,13 +173,13 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ)
     tMax = max(tMax, 0.0);
 
     // Pre-return if too far.
-    if(tMax <= tMin || tMin > kTracingStartMaxDistance)
+    if(tMax <= tMin || tMin > frameData.earthAtmosphere.cloudTracingStartMaxDistance)
     {
         return vec4(0.0, 0.0, 0.0, 1.0);
     }
 
     // Clamp marching distance by setting.    
-    const float marchingDistance = min(kTracingMaxDistance, tMax - tMin);
+    const float marchingDistance = min(frameData.earthAtmosphere.cloudMaxTraceingDistance, tMax - tMin);
 	tMax = tMin + marchingDistance;
 
     const uint stepCountUnit =  uint(max(kSampleCountMin, kSampleCountMax * saturate((tMax - tMin) * kCloudDistanceToSampleMaxCount)));
@@ -228,15 +219,15 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ)
 
         // Convert to meter.
         vec3 samplePosMeter = samplePos * 1000.0f;
-        float alpha = cloudMap(samplePosMeter, normalizeHeight);
+        float stepCloudDensity = cloudMap(samplePosMeter, normalizeHeight);
 
         // Add ray march pos, so we can do some average fading or atmosphere sample effect.
         rayHitPos += samplePos * transmittance;
         rayHitPosWeight += transmittance;
 
-        if(alpha > 0.) 
+        if(stepCloudDensity > 0.) 
         {
-            float opticalDepth = alpha * stepT * 1000.0; // to meter unit.
+            float opticalDepth = stepCloudDensity * stepT * 1000.0; // to meter unit.
 
             // Second evaluate transmittance due to participating media
             vec3 atmosphereTransmittance;
@@ -271,14 +262,14 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ)
 
                 // Amount of sunlight that reaches the sample point through the cloud 
                 // is the combination of ambient light and attenuated direct light.
-                vec3 sunLit = kSunLightScale * sunColor; 
+                vec3 sunLit = frameData.earthAtmosphere.cloudShadingSunLightScale * sunColor; 
 
                 lightTerm = ambientLight + sunLit;
             }
 
             float visibilityTerm = volumetricShadow(samplePos, cosTheta, sunDirection, atmosphere);
 
-            float sigmaS = alpha;
+            float sigmaS = stepCloudDensity;
             float sigmaE = sigmaS + 1e-4f;
             
             vec3 sactterLitStep = visibilityTerm * lightTerm * phase * powderEffectTerm * sigmaS;
@@ -319,7 +310,7 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ)
         float rayHitHeight = length(rayHitPos);
 
         // Fade effect apply.
-        float fading = exp(-rayHitHeight * kFogFade);
+        float fading = exp(-rayHitHeight * frameData.earthAtmosphere.cloudFogFade);
         float cloudTransmittanceFaded = mix(1.0, transmittance, fading);
 
         // Apply air perspective.

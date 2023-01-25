@@ -1,14 +1,13 @@
 #pragma once
 #include "Scene.h"
 #include "SceneNode.h"
-#include "Component/DirectionalLight.h"
+#include "Component/SunSky.h"
 #include "Component/Landscape.h"
 #include "Component/Light.h"
 #include "Component/StaticMesh.h"
 #include "Component/PMXComponent.h"
 #include "Component/SpotLight.h"
 #include "Component/Transform.h"
-#include "Component/SkyLight.h"
 #include "Component/PostprocessingVolume.h"
 #include "Component/ReflectionCapture.h"
 
@@ -68,7 +67,7 @@ SCENE_ARCHIVE_IMPL_INHERIT(SpotLightComponent, LightComponent)
 }
 SCENE_ARCHIVE_IMPL_INHERIT_END
 
-SCENE_ARCHIVE_IMPL_INHERIT(DirectionalLightComponent, LightComponent)
+SCENE_ARCHIVE_IMPL_INHERIT(SunSkyComponent, LightComponent)
 {
 	archive(m_percascadeDimXY);
 	archive(m_cascadeCount);
@@ -80,6 +79,52 @@ SCENE_ARCHIVE_IMPL_INHERIT(DirectionalLightComponent, LightComponent)
 	archive(m_cascadeBorderAdopt);
 	archive(m_cascadeEdgeLerpThreshold);
 	archive(m_maxDrawDepthDistance);
+
+	if(version > 8)
+	{
+		archive(m_earthAtmosphere.absorptionColor);
+		archive(m_earthAtmosphere.absorptionLength);
+		archive(m_earthAtmosphere.rayleighScatteringColor);
+		archive(m_earthAtmosphere.rayleighScatterLength);
+
+		archive(m_earthAtmosphere.multipleScatteringFactor);
+		archive(m_earthAtmosphere.miePhaseFunctionG);
+		archive(m_earthAtmosphere.bottomRadius);
+		archive(m_earthAtmosphere.topRadius);
+
+		archive(m_earthAtmosphere.mieScatteringColor);
+		archive(m_earthAtmosphere.mieScatteringLength);
+		archive(m_earthAtmosphere.mieAbsColor);
+		archive(m_earthAtmosphere.mieAbsLength);
+
+		archive(m_earthAtmosphere.mieAbsorption);
+		archive(m_earthAtmosphere.viewRayMarchMinSPP);
+		archive(m_earthAtmosphere.groundAlbedo);
+		archive(m_earthAtmosphere.viewRayMarchMaxSPP);
+
+		for(uint32_t i = 0; i < 12; i++)
+		{
+			archive(m_earthAtmosphere.rayleighDensity[i]);
+			archive(m_earthAtmosphere.mieDensity[i]);
+			archive(m_earthAtmosphere.absorptionDensity[i]);
+		}
+		
+
+
+		archive(m_earthAtmosphere.cloudAreaStartHeight);
+		archive(m_earthAtmosphere.cloudAreaThickness);
+		archive(m_earthAtmosphere.atmospherePreExposure);
+		archive(m_earthAtmosphere.cloudShadowExtent);
+
+		archive(m_earthAtmosphere.cloudWeatherUVScale);
+		archive(m_earthAtmosphere.cloudCoverage);
+		archive(m_earthAtmosphere.cloudDensity);
+		archive(m_earthAtmosphere.cloudShadingSunLightScale);
+
+		archive(m_earthAtmosphere.cloudFogFade);
+		archive(m_earthAtmosphere.cloudMaxTraceingDistance);
+		archive(m_earthAtmosphere.cloudTracingStartMaxDistance);
+	}
 }
 SCENE_ARCHIVE_IMPL_INHERIT_END
 
@@ -160,12 +205,6 @@ SCENE_ARCHIVE_IMPL_INHERIT(PMXComponent, Component)
 		archive(m_materials);
 	}
 	
-}
-SCENE_ARCHIVE_IMPL_INHERIT_END
-
-SCENE_ARCHIVE_IMPL_INHERIT(SkyLightComponent, Component)
-{
-	archive(m_bRealtimeCapture);
 }
 SCENE_ARCHIVE_IMPL_INHERIT_END
 

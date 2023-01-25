@@ -318,11 +318,11 @@ void WidgetSceneOutliner::popupMenu()
 			newNode->getScene()->addComponent<LandscapeComponent>(std::make_shared<LandscapeComponent>(), newNode);
 		}
 
-		if (ImGui::MenuItem(GIconDirectionalLight.c_str()))
+		if (ImGui::MenuItem(GIconSunSky.c_str()))
 		{
-			auto newNode = m_scene->createNode("DirectionalLight", node);
+			auto newNode = m_scene->createNode("SunSky", node);
 			newNode->getTransform()->setRotation(glm::quat(glm::radians(glm::vec3(45, 45, 0))));
-			newNode->getScene()->addComponent<DirectionalLightComponent>(std::make_shared<DirectionalLightComponent>(), newNode);
+			newNode->getScene()->addComponent<SunSkyComponent>(std::make_shared<SunSkyComponent>(), newNode);
 		}
 		if (ImGui::MenuItem(GIconSpotLight.c_str()))
 		{

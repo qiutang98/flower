@@ -57,7 +57,7 @@ namespace Flower
 		// Load directional light.
 		{
 			std::vector<GPUDirectionalLightInfo> directionalLights = {};
-			scene->loopComponents<DirectionalLightComponent>([&](std::shared_ptr<DirectionalLightComponent> comp) -> bool
+			scene->loopComponents<SunSkyComponent>([&](std::shared_ptr<SunSkyComponent> comp) -> bool
 			{
 				GPUDirectionalLightInfo newDirectionalLight{};
 				newDirectionalLight.intensity = comp->getIntensity();
@@ -75,6 +75,8 @@ namespace Flower
 				newDirectionalLight.maxFilterSize = comp->getMaxFilterSize();
 				directionalLights.push_back(newDirectionalLight);
 
+				m_earthAtmosphereInfo = comp->getAtmosphere();
+
 				// NOTE: current we only support one directional light, so pre-return when first directional light collect finish.
 				return true;
 			});
@@ -87,8 +89,6 @@ namespace Flower
 				{
 					// Current use first directional light.
 					m_importanceLights.directionalLights = directionalLights[0];
-
-					m_earthAtmosphereInfo = RenderSettingManager::get()->earthAtmosphere.earthAtmosphere;
 
 					m_importanceLights.directionalLightCount++;
 				}

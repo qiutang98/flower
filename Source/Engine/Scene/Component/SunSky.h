@@ -4,7 +4,7 @@
 
 namespace Flower
 {
-	class DirectionalLightComponent : public LightComponent
+	class SunSkyComponent : public LightComponent
 	{
 		ARCHIVE_DECLARE;
 
@@ -26,14 +26,16 @@ namespace Flower
 		float m_cascadeEdgeLerpThreshold = 0.8f;
 		float m_maxDrawDepthDistance = 200.0f;
 
+		EarthAtmosphere m_earthAtmosphere;
+
 	////////////////////////////// Serialize area //////////////////////////////
 #pragma endregion SerializeField
 
 	public:
-		DirectionalLightComponent() {}
-		virtual ~DirectionalLightComponent() = default;
+		SunSkyComponent() {}
+		virtual ~SunSkyComponent() = default;
 
-		DirectionalLightComponent(std::shared_ptr<SceneNode> sceneNode)
+		SunSkyComponent(std::shared_ptr<SceneNode> sceneNode)
 			: LightComponent(sceneNode)
 		{
 
@@ -70,7 +72,9 @@ namespace Flower
 		float getMaxFilterSize() const { return m_maxFilterSize; }
 		bool setMaxFilterSize(float newValue);
 
-		
+	public:
+		const EarthAtmosphere& getAtmosphere() const { return m_earthAtmosphere; }
+		bool changeAtmosphere(const EarthAtmosphere& in);
 
 	
 	};

@@ -148,17 +148,23 @@ float luminanceRec709(vec3 color)
 // Earth atmosphere info.
 struct EarthAtmosphere // Color space 2020
 {
-	vec3  absorptionExtinction;
-	float multipleScatteringFactor;  // x4
+    vec3 absorptionColor;
+    float absorptionLength; // x4
 
-	vec3 rayleighScattering; 
-	float miePhaseFunctionG; // x4
+	
+	vec3 rayleighScatteringColor;
+    float rayleighScatterLength;  // x4
 
-	vec3 mieScattering;  
-	float bottomRadius; // x4
-
-	vec3 mieExtinction;  
+    float multipleScatteringFactor;  
+	float miePhaseFunctionG; 
+    float bottomRadius; 
 	float topRadius; // x4
+
+    vec3 mieScatteringColor;
+    float mieScatteringLength;// x4
+
+    vec3 mieAbsColor;
+    float mieAbsLength;// x4
 
 	vec3 mieAbsorption;  
 	uint viewRayMarchMinSPP; // x4
@@ -174,15 +180,25 @@ struct EarthAtmosphere // Color space 2020
     float cloudAreaStartHeight; // km
     float cloudAreaThickness;
     float atmospherePreExposure;
-    float cloudShadowExtent;
+    float cloudShadowExtent; // x4
 
     vec3 camWorldPos; // cameraworld Position, in atmosphere space unit.
-    float pad2;
+    float pad2; // x4
 
     // World space to cloud space view project matrix.
     // Unit also is km.
     mat4 cloudSpaceViewProject;
     mat4 cloudSpaceViewProjectInverse;
+
+    // Cloud settings.
+    vec2  cloudWeatherUVScale; // vec2(0.005)
+    float cloudCoverage; // 0.50
+    float cloudDensity;  // 0.10 // x4
+
+    float cloudShadingSunLightScale; // 5.0
+    float cloudFogFade; // 0.005
+    float cloudMaxTraceingDistance; // 50.0 km
+    float cloudTracingStartMaxDistance; // 350.0 km // x4
 };
 
 struct DirectionalLightInfo
@@ -338,39 +354,49 @@ struct AtmosphereParameters
 AtmosphereParameters getAtmosphereParameters(in const FrameData frameData)
 {
 	AtmosphereParameters parameters;
-	parameters.absorptionExtinction = frameData.earthAtmosphere.absorptionExtinction;
+    
+    // 
+	parameters.absorptionExtinction = frameData.earthAtmosphere.absorptionColor * frameData.earthAtmosphere.absorptionLength;
 
-	// Traslation from Bruneton2017 parameterisation.
-	parameters.rayleighDensityExpScale = frameData.earthAtmosphere.rayleighDensity[1].w;
-	parameters.mieDensityExpScale = frameData.earthAtmosphere.mieDensity[1].w;
-	parameters.absorptionDensity0LayerWidth = frameData.earthAtmosphere.absorptionDensity[0].x;
-	parameters.absorptionDensity0ConstantTerm = frameData.earthAtmosphere.absorptionDensity[1].x;
-	parameters.absorptionDensity0LinearTerm = frameData.earthAtmosphere.absorptionDensity[0].w;
-	parameters.absorptionDensity1ConstantTerm = frameData.earthAtmosphere.absorptionDensity[2].y;
-	parameters.absorptionDensity1LinearTerm = frameData.earthAtmosphere.absorptionDensity[2].x;
-
-	parameters.miePhaseG = frameData.earthAtmosphere.miePhaseFunctionG;
-	parameters.rayleighScattering = frameData.earthAtmosphere.rayleighScattering;
-	parameters.mieScattering = frameData.earthAtmosphere.mieScattering;
-	parameters.mieAbsorption = frameData.earthAtmosphere.mieAbsorption;
-	parameters.mieExtinction = frameData.earthAtmosphere.mieExtinction;
-	parameters.groundAlbedo = frameData.earthAtmosphere.groundAlbedo;
-	parameters.bottomRadius = frameData.earthAtmosphere.bottomRadius;
-	parameters.topRadius = frameData.earthAtmosphere.topRadius;
-
+    // Copy parameters.
+    parameters.groundAlbedo             = frameData.earthAtmosphere.groundAlbedo;
+	parameters.bottomRadius             = frameData.earthAtmosphere.bottomRadius;
+	parameters.topRadius                = frameData.earthAtmosphere.topRadius;
+    parameters.viewRayMarchMinSPP       = frameData.earthAtmosphere.viewRayMarchMinSPP;
+	parameters.viewRayMarchMaxSPP       = frameData.earthAtmosphere.viewRayMarchMaxSPP;
+	parameters.miePhaseG                = frameData.earthAtmosphere.miePhaseFunctionG;
+    parameters.atmospherePreExposure    = frameData.earthAtmosphere.atmospherePreExposure;
 	parameters.multipleScatteringFactor = frameData.earthAtmosphere.multipleScatteringFactor;
 
-	parameters.viewRayMarchMinSPP = frameData.earthAtmosphere.viewRayMarchMinSPP;
-	parameters.viewRayMarchMaxSPP = frameData.earthAtmosphere.viewRayMarchMaxSPP;
+	// Traslation from Bruneton2017 parameterisation.
+	parameters.rayleighDensityExpScale        = frameData.earthAtmosphere.rayleighDensity[1].w;
+	parameters.mieDensityExpScale             = frameData.earthAtmosphere.mieDensity[1].w;
+	parameters.absorptionDensity0LayerWidth   = frameData.earthAtmosphere.absorptionDensity[0].x;
+	parameters.absorptionDensity0ConstantTerm = frameData.earthAtmosphere.absorptionDensity[1].x;
+	parameters.absorptionDensity0LinearTerm   = frameData.earthAtmosphere.absorptionDensity[0].w;
+	parameters.absorptionDensity1ConstantTerm = frameData.earthAtmosphere.absorptionDensity[2].y;
+	parameters.absorptionDensity1LinearTerm   = frameData.earthAtmosphere.absorptionDensity[2].x;
 
-
-    parameters.cloudAreaStartHeight = frameData.earthAtmosphere.cloudAreaStartHeight;
-    parameters.cloudAreaThickness = frameData.earthAtmosphere.cloudAreaThickness;
-    parameters.atmospherePreExposure = frameData.earthAtmosphere.atmospherePreExposure;
-
-
-    parameters.cloudShadowViewProj = frameData.earthAtmosphere.cloudSpaceViewProject;
+    // Cloud altitude info.
+    parameters.cloudAreaStartHeight       = frameData.earthAtmosphere.cloudAreaStartHeight;
+    parameters.cloudAreaThickness         = frameData.earthAtmosphere.cloudAreaThickness;
+    parameters.cloudShadowViewProj        = frameData.earthAtmosphere.cloudSpaceViewProject;
     parameters.cloudShadowViewProjInverse = frameData.earthAtmosphere.cloudSpaceViewProjectInverse;
+
+
+
+    parameters.mieAbsorption      = frameData.earthAtmosphere.mieAbsorption;
+
+	parameters.rayleighScattering = frameData.earthAtmosphere.rayleighScatteringColor * frameData.earthAtmosphere.rayleighScatterLength;
+	parameters.mieScattering      = frameData.earthAtmosphere.mieScatteringColor * frameData.earthAtmosphere.mieScatteringLength;
+	parameters.mieExtinction      = parameters.mieScattering + frameData.earthAtmosphere.mieAbsColor * frameData.earthAtmosphere.mieAbsLength;
+
+
+
+
+
+
+
 
 	return parameters;
 }
