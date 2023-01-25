@@ -402,9 +402,13 @@ void Console::inputCallbackOnHistory(ImGuiInputTextCallbackData* data)
     {
         if (data->EventKey == ImGuiKey_UpArrow)
         {
-            if (--m_selectedCommandIndex <= 0)
+            if (m_selectedCommandIndex <= 0)
             {
                 m_selectedCommandIndex = int(m_activeCommands.size()) - 1;
+            }
+            else
+            {
+                m_selectedCommandIndex --;
             }
         }
         else if (data->EventKey == ImGuiKey_DownArrow)

@@ -296,6 +296,15 @@ namespace Flower
 				depthZ.transitionLayout(graphicsCmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, rangeClearDepth);
 			}
 
+			// Prepare sky lut.
+			renderAtmosphere(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, false);
+
+			// Composite sky.
+			renderAtmosphere(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, true);
+
+			renderVolumetricCloud(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, blueNoiseMisc);
+
+
 			// Render terrain.
 			renderTerrain(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU);
 
@@ -311,8 +320,7 @@ namespace Flower
 			auto hizTex = renderHiZ(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU);
 			auto GTAOTex = renderGTAO(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, hizTex, blueNoiseMisc);
 
-			// Prepare sky lut.
-			renderAtmosphere(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, false);
+
 
 			renderBasicLighting(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, GTAOTex);
 
@@ -320,10 +328,6 @@ namespace Flower
 
 
 
-			// Composite sky.
-			renderAtmosphere(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, true);
-
-			renderVolumetricCloud(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, blueNoiseMisc);
 
 			renderPMXTranslucent(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, blueNoiseMisc);
 

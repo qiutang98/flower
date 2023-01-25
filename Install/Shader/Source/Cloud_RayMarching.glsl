@@ -358,8 +358,6 @@ void main()
         return;
     }
 
-    // TODO: Tile optimize or ray classify, pre-return if behind opaque objects.
-
     // Get bayer offset matrix.
     uint bayerIndex = frameData.frameIndex.x % 16;
     ivec2 bayerOffset = ivec2(bayerFilter4x4[bayerIndex] % 4, bayerFilter4x4[bayerIndex] / 4);
@@ -372,7 +370,7 @@ void main()
     const vec2 uv = (vec2(fullResWorkPos) + vec2(0.5f)) / vec2(fullResSize);
 
     // Offset retarget for new seeds each frame
-    uvec2 offset = uvec2(vec2(0.754877669, 0.569840296) * frameData.frameIndex.x * uvec2(fullResSize));
+    uvec2 offset = uvec2(vec2(0.754877669, 0.569840296) * (frameData.frameIndex.x) * uvec2(fullResSize));
     uvec2 offsetId = fullResWorkPos.xy + offset;
     offsetId.x = offsetId.x % fullResSize.x;
     offsetId.y = offsetId.y % fullResSize.y;

@@ -204,7 +204,7 @@ namespace Flower
             // Hdr scene color.
             RHIRenderingAttachmentInfo(
                 inTextures->getHdrSceneColor()->getImage().getView(buildBasicImageSubresource()),
-                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE, 
+                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE, 
                 VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}),
 
             // Gbuffer A

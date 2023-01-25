@@ -24,6 +24,7 @@ namespace Flower
 
         float tonemmaper_s = 500.0f;  // scale 
         uint32_t bDisplayHDR_rec2020_PQ = 0;     // HDR display?
+        float saturation = 1.0f;
     };
 
     class TonemapperPass : public PassInterface
@@ -169,6 +170,7 @@ namespace Flower
                 .tonemapper_b = postProcessVolumeSetting.tonemapper_b,  // pedestal
                 .tonemmaper_s = postProcessVolumeSetting.tonemmaper_s, // scale 
                 .bDisplayHDR_rec2020_PQ = uint32_t(RenderSettingManager::get()->displayMode),
+                .saturation = postProcessVolumeSetting.saturation,
             };
 
             vkCmdPushConstants(cmd, pass->pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(compositePush), &compositePush);

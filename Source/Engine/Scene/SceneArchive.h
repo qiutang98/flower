@@ -69,6 +69,10 @@ SCENE_ARCHIVE_IMPL_INHERIT_END
 
 SCENE_ARCHIVE_IMPL_INHERIT(SunSkyComponent, LightComponent)
 {
+	if(version <= 8)
+	{
+		return;
+	}
 	archive(m_percascadeDimXY);
 	archive(m_cascadeCount);
 	archive(m_shadowFilterSize);
@@ -248,6 +252,7 @@ SCENE_ARCHIVE_IMPL_INHERIT(PostprocessVolumeComponent, Component)
 	archive(m_settings.tonemapper_c);
 	archive(m_settings.tonemapper_b);
 	archive(m_settings.tonemmaper_s);
+	archive(m_settings.saturation);
 
 	if (version > 3)
 	{

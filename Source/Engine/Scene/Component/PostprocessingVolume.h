@@ -34,12 +34,14 @@ namespace Flower
 		float gtaoIntensity = 1.0f;
 
 		float tonemapper_P = 10000.0f;  // Max brightness.
-		float tonemapper_a = 1.0f;  // contrast
+		float tonemapper_a = 1.25f;  // contrast
 		float tonemapper_m = 0.22f; // linear section start
 		float tonemapper_l = 0.4f;  // linear section length
 		float tonemapper_c = 1.33f; // black
 		float tonemapper_b = 0.0f;  // pedestal
 		float tonemmaper_s = 4.0f; // scale 
+
+		float saturation = 1.0f;
 
 		bool bDofEnable = false;
 		bool dof_bNearBlur = true;

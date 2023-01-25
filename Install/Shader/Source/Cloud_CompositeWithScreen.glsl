@@ -23,19 +23,12 @@ void main()
     const vec2 uv = (vec2(workPos) + vec2(0.5f)) / vec2(texSize);
 
     vec4 srcColor = imageLoad(imageHdrSceneColor, workPos);
-    float sceneZ = texture(sampler2D(inDepth, pointClampEdgeSampler), uv).r;
 
     vec4 cloudColor = texture(sampler2D(inCloudReconstructionTexture, linearClampEdgeSampler), uv);
     float cloudDepth = texture(sampler2D(inCloudDepthReconstructionTexture, linearClampEdgeSampler), uv).r;
     cloudDepth = max(1e-5f, cloudDepth); // very far cloud may be negative, use small value is enough.
 
-    if(sceneZ <= cloudDepth) // reverse z.
-    {
-        vec3 result = mix(srcColor.rgb, cloudColor.rgb, 1.0 - cloudColor.a);
-	    imageStore(imageHdrSceneColor, workPos, vec4(result, 1.0));
 
-        // TODO: Sometimes the cloud is ghost and fsr can't clip it. Need to write depth and velocity. :(
-        //       Need fix.
-        // imageStore(imageGbufferReactiveMask, workPos, 0.5);
-    }
+    vec3 result = mix(srcColor.rgb, cloudColor.rgb, 1.0 - cloudColor.a);
+	imageStore(imageHdrSceneColor, workPos, vec4(result, 1.0));
 }

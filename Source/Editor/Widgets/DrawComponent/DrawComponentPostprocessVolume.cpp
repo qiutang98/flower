@@ -161,7 +161,7 @@ void ComponentDrawer::drawPostprocessVolume(std::shared_ptr<SceneNode> node)
 		ImGui::DragFloat("black", &copySetting.tonemapper_c, 1.0f, 1.0f);
 		ImGui::DragFloat("pedestal", &copySetting.tonemapper_b, 1.0f, 1.0f);
 
-
+		ImGui::DragFloat("saturation", &copySetting.saturation);
 
 		ImGui::PopItemWidth();
 		ImGui::Unindent();

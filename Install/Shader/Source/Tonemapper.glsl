@@ -42,6 +42,7 @@ layout (push_constant) uniform PushConsts
     float tonemapper_b;    // pedestal
     float tonemmaper_s;  // scale 
     uint bDisplayHDR_rec2020_PQ;     // HDR display?
+    float saturation;
 };
 
 #include "TonemapperFunction.glsl"
@@ -85,7 +86,15 @@ vec3 encodeST2084(vec3 linearRGB)
 	return P;
 }
 
+float lumaSRGB(vec3 c)
+{
+    return 0.212 * c.r + 0.701 * c.g + 0.087 * c.b;
+}
 
+vec3 applySaturationSRGB(vec3 c, float saturation)
+{
+    return mix(vec3(lumaSRGB(c)), c, saturation);
+}
 
 layout (local_size_x = 8, local_size_y = 8) in;
 void main()
@@ -159,11 +168,15 @@ void main()
     colorSrgb.y = uchimuraTonemapper(colorSrgb.y, P, a, m, l, c, b);
     colorSrgb.z = uchimuraTonemapper(colorSrgb.z, P, a, m, l, c, b);
 
+    colorSrgb = applySaturationSRGB(colorSrgb, saturation);
+
     vec3 mappingColor;
     if(bSrgb) // Gamma encode srgb
     {
         // OETF = gamma(1.0/2.2)
         mappingColor.xyz = encodeSRGB(colorSrgb.xyz);
+
+
     }   
     else // PQ encode BT2020.
     {
@@ -180,6 +193,8 @@ void main()
         // OETF = inverse pq
         mappingColor.xyz = encodeST2084(colorRec2020.xyz * LinearToNitsScale);
     }
+
+
 
     
     // TODO: Need jitter in R11G10B11 when in HDR display mode, but current looks good, so just use blue noise 8bit jitter.
