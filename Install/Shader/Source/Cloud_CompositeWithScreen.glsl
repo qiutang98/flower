@@ -8,6 +8,7 @@
 #extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_samplerless_texture_functions : enable
 #include "Cloud_Common.glsl"
+#include "KuwaharaFilter.glsl"
 
 layout (local_size_x = 8, local_size_y = 8) in;
 void main()
@@ -24,7 +25,10 @@ void main()
 
     vec4 srcColor = imageLoad(imageHdrSceneColor, workPos);
 
-    vec4 cloudColor = texture(sampler2D(inCloudReconstructionTexture, linearClampEdgeSampler), uv);
+    vec4 cloudColor = kuwaharaFilter(inCloudReconstructionTexture, linearClampEdgeSampler,uv);
+
+    // cloudColor.a = texture(sampler2D(inCloudReconstructionTexture, linearClampEdgeSampler), uv).a;
+
     float cloudDepth = texture(sampler2D(inCloudDepthReconstructionTexture, linearClampEdgeSampler), uv).r;
     cloudDepth = max(1e-5f, cloudDepth); // very far cloud may be negative, use small value is enough.
 

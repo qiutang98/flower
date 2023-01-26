@@ -262,7 +262,7 @@ namespace Flower
 		auto& sceneDepthZ = inTextures->getDepth()->getImage();
 		auto& sceneColorHdr = inTextures->getHdrSceneColor()->getImage();
 		auto& gbufferA = inTextures->getGbufferA()->getImage();
-		auto& sdsmShadowDepth = (m_cacheFrameData.bSdsmDraw > 0) ? inTextures->getSDSMDepth()->getImage() : inTextures->getDepth()->getImage();
+		auto& sdsmShadowDepth = (m_cacheFrameData.bSdsmDraw > 0 && inTextures->getSDSMDepth()) ? inTextures->getSDSMDepth()->getImage() : inTextures->getDepth()->getImage();
 		auto cascadeInfoBuffer = scene->getCascadeInfoPtr();
 
 		auto* pass = getPasses()->getPass<AtmospherePass>();
