@@ -210,6 +210,11 @@ namespace Flower
 		return m_sdsmDepthTextures;
 	}
 
+	bool SceneTextures::isSDSMDepthExist() const
+	{
+		return m_sdsmDepthTextures != nullptr;
+	}
+
 	PoolImageSharedRef SceneTextures::getSDSMShadowMask()
 	{
 		if (!m_sdsmShadowMask)
@@ -242,14 +247,16 @@ namespace Flower
 		return m_atmosphereTransmittance;
 	}
 
+	constexpr auto SkyViewLookupDim = 256;
+
 	PoolImageSharedRef SceneTextures::getAtmosphereSkyView()
 	{
 		if (!m_atmosphereSkyView)
 		{
 			m_atmosphereSkyView = m_rtPool->createPoolImage(
 				"AtmosphereSkyView",
-				256,
-				256,
+				SkyViewLookupDim,
+				SkyViewLookupDim,
 				VK_FORMAT_R16G16B16A16_SFLOAT,
 				VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
 			);
@@ -258,6 +265,36 @@ namespace Flower
 		return m_atmosphereSkyView;
 	}
 
+	PoolImageSharedRef SceneTextures::getAtmosphereSkyViewCloudBottom()
+	{
+		if (!m_atmosphereSkyViewCloudBottom)
+		{
+			m_atmosphereSkyViewCloudBottom = m_rtPool->createPoolImage(
+				"AtmosphereSkyViewCloudBottom",
+				SkyViewLookupDim,
+				SkyViewLookupDim,
+				VK_FORMAT_R16G16B16A16_SFLOAT,
+				VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
+			);
+		}
+
+		return m_atmosphereSkyViewCloudBottom;
+	}
+	PoolImageSharedRef SceneTextures::getAtmosphereSkyViewCloudTop()
+	{
+		if (!m_atmosphereSkyViewCloudTop)
+		{
+			m_atmosphereSkyViewCloudTop = m_rtPool->createPoolImage(
+				"AtmosphereSkyViewCloudTop",
+				SkyViewLookupDim,
+				SkyViewLookupDim,
+				VK_FORMAT_R16G16B16A16_SFLOAT,
+				VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
+			);
+		}
+
+		return m_atmosphereSkyViewCloudTop;
+	}
 	PoolImageSharedRef SceneTextures::getAtmosphereMultiScatter()
 	{
 		if (!m_atmosphereMultiScatter)

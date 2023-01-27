@@ -2,7 +2,7 @@
 #define KUWAHARA_FILTER_GLSL
 
 #ifndef ROTATE_FILTER
-#define ROTATE_FILTER 0
+#define ROTATE_FILTER 1
 #endif
 
 vec4 kuwaharaMeanKernelVariance(
@@ -95,10 +95,10 @@ vec4 kuwaharaFilter(
 
     vec4 means[4];
     vec4 variances;
-    means[0] = kuwaharaMeanKernelVariance(inSrcTexture, inSampler, uv, sobeWindow, rotationMatrix, vec2(-1, -1), variances.x);
-    means[1] = kuwaharaMeanKernelVariance(inSrcTexture, inSampler, uv, sobeWindow, rotationMatrix, vec2( 1, -1), variances.y);
-    means[2] = kuwaharaMeanKernelVariance(inSrcTexture, inSampler, uv, sobeWindow, rotationMatrix, vec2(-1,  1), variances.z);
-    means[3] = kuwaharaMeanKernelVariance(inSrcTexture, inSampler, uv, sobeWindow, rotationMatrix, vec2( 1,  1), variances.w);
+    means[0] = kuwaharaMeanKernelVariance(inSrcTexture, inSampler, uv, sobeWindow, rotationMatrix, 2.0f * vec2(-1, -1), variances.x);
+    means[1] = kuwaharaMeanKernelVariance(inSrcTexture, inSampler, uv, sobeWindow, rotationMatrix, 2.0f * vec2( 1, -1), variances.y);
+    means[2] = kuwaharaMeanKernelVariance(inSrcTexture, inSampler, uv, sobeWindow, rotationMatrix, 2.0f * vec2(-1,  1), variances.z);
+    means[3] = kuwaharaMeanKernelVariance(inSrcTexture, inSampler, uv, sobeWindow, rotationMatrix, 2.0f * vec2( 1,  1), variances.w);
     
     vec4 finalColor = means[0];
     float minimumVariance = variances[0];

@@ -194,18 +194,20 @@ namespace Flower
 	{
 		auto& inAtmosphere = *this;
 
-		inAtmosphere.cloudAreaStartHeight = inAtmosphere.bottomRadius + 5.0f; // km
+		inAtmosphere.cloudAreaStartHeight = inAtmosphere.bottomRadius + 1.0f; // km
 		inAtmosphere.cloudAreaThickness = 10.0f; // km
 
 		inAtmosphere.cloudWeatherUVScale = { 0.005f, 0.005f }; // vec2(0.005)
 		inAtmosphere.cloudCoverage = 0.5f; // 0.50
-		inAtmosphere.cloudDensity = 0.1f;  // 0.10
+		inAtmosphere.cloudDensity  = 0.1f;  // 0.10
 
-		inAtmosphere.cloudShadingSunLightScale = 5.0f; // 5.0
+		inAtmosphere.cloudShadingSunLightScale = 1.0f; // 5.0
 		inAtmosphere.cloudFogFade = 0.005f; // 0.005
 		inAtmosphere.cloudMaxTraceingDistance = 50.0f; // 50.0 km
 		inAtmosphere.cloudTracingStartMaxDistance = 350.0f; // 350.0 km
 
+		inAtmosphere.cloudDirection = glm::normalize(glm::vec3{ 0.8, 0.2, 0.4 });
+		inAtmosphere.cloudSpeed = 0.1f;
 	}
 
 }

@@ -199,6 +199,9 @@ struct EarthAtmosphere // Color space 2020
     float cloudFogFade; // 0.005
     float cloudMaxTraceingDistance; // 50.0 km
     float cloudTracingStartMaxDistance; // 350.0 km // x4
+
+    vec3 cloudDirection;
+    float cloudSpeed;
 };
 
 struct DirectionalLightInfo
@@ -445,6 +448,63 @@ void uvToLutTransmittanceParams(
 	viewZenithCosAngle = clamp(viewZenithCosAngle, -1.0, 1.0);
 }
 
+float fromUnitToSubUvs(float u, float resolution) { return (u + 0.5f / resolution) * (resolution / (resolution + 1.0f)); }
+float fromSubUvsToUnit(float u, float resolution) { return (u - 0.5f / resolution) * (resolution / (resolution - 1.0f)); }
+
+void skyViewLutParamsToUv(
+	in const AtmosphereParameters atmosphere, 
+	in bool  bIntersectGround, 
+	in float viewZenithCosAngle, 
+	in float lightViewCosAngle, 
+	in float viewHeight, 
+    in vec2 lutSize,
+	out vec2 uv)
+{
+	float vHorizon = sqrt(viewHeight * viewHeight - atmosphere.bottomRadius * atmosphere.bottomRadius);
+
+	// Ground to horizon cos.
+	float cosBeta = vHorizon / viewHeight;		
+
+	float beta = acos(cosBeta);
+	float zenithHorizonAngle = kPI - beta;
+
+	if (!bIntersectGround)
+	{
+		float coord = acos(viewZenithCosAngle) / zenithHorizonAngle;
+		coord = 1.0 - coord;
+		coord = sqrt(coord); // Non-linear sky view lut.
+
+		coord = 1.0 - coord;
+		uv.y = coord * 0.5f;
+	}
+	else
+	{
+		float coord = (acos(viewZenithCosAngle) - zenithHorizonAngle) / beta;
+		coord = sqrt(coord); // Non-linear sky view lut.
+
+		uv.y = coord * 0.5f + 0.5f;
+	}
+
+	// UV x remap.
+	{
+		float coord = -lightViewCosAngle * 0.5f + 0.5f;
+		coord = sqrt(coord);
+		uv.x = coord;
+	}
+
+	// Constrain uvs to valid sub texel range (avoid zenith derivative issue making LUT usage visible)
+	uv = vec2(fromUnitToSubUvs(uv.x, lutSize.x), fromUnitToSubUvs(uv.y, lutSize.y));
+}
+
+vec3 skyPrepareOut(vec3 inColor, in const AtmosphereParameters atmosphere, in FrameData frameData, vec2 workPos)
+{
+	vec3 c = inColor / atmosphere.atmospherePreExposure * frameData.directionalLight.intensity; 
+
+	// Maybe add blue noise jitter is better.
+	// c = quantise(c, workPos, frameData);
+
+	return c;
+}
 
 mat4 buildJitterMatrix(vec2 jitterData)
 {
@@ -745,6 +805,11 @@ float curve(float x)
 vec3 curve(vec3 x)
 {
 	return x * x * (3.0 - 2.0 * x);
+}
+
+float lumaSRGB(vec3 c)
+{
+    return 0.212 * c.r + 0.701 * c.g + 0.087 * c.b;
 }
 
 #endif

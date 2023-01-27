@@ -10,22 +10,6 @@
 #include "UE4_AtmosphereCommon.glsl"
 #include "Deband16.glsl"
 
-vec3 drawSun(vec3 rayDir, vec3 sunDir) 
-{
-    return vec3(0.0);
-
-    const float dT = dot(rayDir, sunDir);
-
-    const float theta = 0.1 * kPI / 180.0;
-    const vec3 sunCenterColor = vec3(1.0f, 0.92549, 0.87843) * 39.0f * 100;
-
-    const float cT = cos(theta);
-    if (dT >= cT) 
-    {
-        return sunCenterColor;
-    }
-}
-
 #include "Schedule.glsl"
 
 layout (local_size_x = 8, local_size_y = 8) in;
@@ -69,26 +53,8 @@ void main()
     const bool bUnderAtmosphere =  viewHeight < atmosphere.topRadius;
 
     vec3 upVector = normalize(worldPos);
-	
-    float sunZenithCosAngle = dot(sunDirection, upVector);
-	vec2 sampleTransmittanceUv;
-	lutTransmittanceParamsToUv(atmosphere, viewHeight, sunZenithCosAngle, sampleTransmittanceUv);
-	vec3 transmittanceToSun = texture(sampler2D(inTransmittanceLut, linearClampEdgeSampler), sampleTransmittanceUv).rgb;
 
 
-    vec3 sunLum = drawSun(worldDir, sunDirection) * transmittanceToSun;
-    {
-        // Use smoothstep to limit the effect, so it drops off to actual zero.
-        // sunLum = smoothstep(0.002, 1.0, sunLum);
-        if (length(sunLum) > 0.0) 
-        {
-            bool bIntersectGround = raySphereIntersectNearest(worldPos, worldDir, vec3(0.0), atmosphere.bottomRadius) >= 0.0f;
-		    if (bIntersectGround)
-            {
-                sunLum *= 0.0;
-            }
-        }
-    }
 
     // Back ground and under atmosphere pixel, sample sky view lut.
     if (bUnderAtmosphere && (!bShadingModelValid))
@@ -108,11 +74,11 @@ void main()
 		bool bIntersectGround = raySphereIntersectNearest(worldPos, worldDir, vec3(0.0), atmosphere.bottomRadius) >= 0.0f;
 
         vec2 sampleUv;
-		skyViewLutParamsToUv(atmosphere, bIntersectGround, viewZenithCosAngle, lightViewCosAngle, viewHeight, sampleUv);
+		skyViewLutParamsToUv(atmosphere, bIntersectGround, viewZenithCosAngle, lightViewCosAngle, viewHeight, vec2(textureSize(inSkyViewLut, 0)), sampleUv);
 
 		vec3 luminance = texture(sampler2D(inSkyViewLut, linearClampEdgeSampler), sampleUv).rgb;
 
-		imageStore(imageHdrSceneColor, workPos, vec4(prepareOut(luminance, atmosphere, vec2(pixPos)) + sunLum, 1.0f));
+		imageStore(imageHdrSceneColor, workPos, vec4(skyPrepareOut(luminance, atmosphere,frameData, vec2(pixPos)), 1.0f));
         return;
 	}
 
@@ -142,8 +108,6 @@ void main()
         const vec4 airPerspective = weight * texture(sampler3D(inFroxelScatter, linearClampEdgeSampler), vec3(uv, w));
         L.rgb += airPerspective.rgb;
         opacity = airPerspective.a;
-
-        sunLum = vec3(0.0);
     }
     else if(!bShadingModelValid)
     {
@@ -155,7 +119,7 @@ void main()
         {
             // Ray is not intersecting the atmosphere, return.	
             vec3 srcColor = imageLoad(imageHdrSceneColor, workPos).rgb;
-            imageStore(imageHdrSceneColor, workPos, vec4(srcColor + sunLum, 1.0f));
+            imageStore(imageHdrSceneColor, workPos, vec4(srcColor, 1.0f));
             return;
         }
 
@@ -185,15 +149,11 @@ void main()
         const float transmittance = mean(throughput);
         opacity = 1.0 - transmittance;
     }
-    else
-    {
-        sunLum = vec3(0.0);
-    }
 
-    L.rgb = prepareOut(L.rgb, atmosphere, vec2(pixPos));
+    L.rgb = skyPrepareOut(L.rgb, atmosphere,frameData, vec2(pixPos));
 
     vec3 srcColor = imageLoad(imageHdrSceneColor, workPos).rgb;
-    vec3 outColor = L.rgb + sunLum + (1.0 - opacity) * srcColor;
+    vec3 outColor = L.rgb + (1.0 - opacity) * srcColor;
 
     imageStore(imageHdrSceneColor, workPos, vec4(outColor, 1.0f));
 }

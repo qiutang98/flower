@@ -299,11 +299,6 @@ namespace Flower
 			// Prepare sky lut.
 			renderAtmosphere(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, false);
 
-			// Composite sky.
-			renderAtmosphere(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, true);
-
-			renderVolumetricCloud(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, blueNoiseMisc);
-
 
 			// Render terrain.
 			renderTerrain(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU);
@@ -326,10 +321,13 @@ namespace Flower
 
 			renderSSR(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, hizTex, GTAOTex, blueNoiseMisc);
 
-
-
-
 			renderPMXTranslucent(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, blueNoiseMisc);
+
+			// Composite sky.
+			renderAtmosphere(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, true);
+
+			// Render cloud and composition.
+			renderVolumetricCloud(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, blueNoiseMisc);
 
 			renderFSR2(graphicsCmd, renderer, &sceneTexures, renderScene, viewDataGPU, frameDataGPU, tickData);
 

@@ -54,12 +54,15 @@ namespace Flower
 
 		glm::vec2  cloudWeatherUVScale = { 0.005f, 0.005f }; // vec2(0.005)
 		float cloudCoverage = 0.5f; // 0.50
-		float cloudDensity = 0.1f;  // 0.10
+		float cloudDensity  = 0.1f;  // 0.10
 
-		float cloudShadingSunLightScale = 5.0f; // 5.0
+		float cloudShadingSunLightScale = 1.0f; // 1.0
 		float cloudFogFade = 0.005f; // 0.005
 		float cloudMaxTraceingDistance = 50.0f; // 50.0 km
 		float cloudTracingStartMaxDistance = 350.0f; // 350.0 km
+
+		glm::vec3 cloudDirection = { 1.0, 0.0, 0.0};
+		float cloudSpeed = 0.1f;
 
 		void resetAtmosphere();
 		void resetCloud();

@@ -21,7 +21,8 @@ namespace Flower
         VkPipeline reconstructionPipeline = VK_NULL_HANDLE;
         VkPipeline compositeCloudPipeline = VK_NULL_HANDLE;
         
-
+        VkPipeline envCapturePipeline = VK_NULL_HANDLE;
+        VkPipelineLayout envCapturePipelineLayout = VK_NULL_HANDLE;
     public:
         virtual void init() override
         {
@@ -48,8 +49,11 @@ namespace Flower
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, GCommonShaderStage, 19) // inCloudReconstructionTexture
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, GCommonShaderStage, 20) // inCloudReconstructionTexture
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, GCommonShaderStage, 21) // inCloudReconstructionTexture
-                .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, GCommonShaderStage, 22) // imageCloudRenderTexture
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, GCommonShaderStage, 22) // imageCaptureEnv
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, GCommonShaderStage, 23) // inDepth
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, GCommonShaderStage, 24) // inCloudBottom
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, GCommonShaderStage, 25) // inCloudTop
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, GCommonShaderStage, 26) // inSkyView
                 .buildNoInfoPush(setLayout);
 
             std::vector<VkDescriptorSetLayout> setLayouts =
@@ -141,6 +145,32 @@ namespace Flower
                 computePipelineCreateInfo.stage = shaderStageCI;
                 RHICheck(vkCreateComputePipelines(RHI::Device, nullptr, 1, &computePipelineCreateInfo, nullptr, &compositeCloudPipeline));
             }
+
+            // Env capture pipeline compute.
+            {
+                CHECK(envCapturePipeline == VK_NULL_HANDLE);
+                CHECK(envCapturePipelineLayout == VK_NULL_HANDLE);
+
+                auto shaderModule = RHI::ShaderManager->getShader("AtmosphereEnvironmentCapture_Cloud.comp.spv", true);
+
+                // Vulkan build functions.
+                VkPipelineLayoutCreateInfo plci = RHIPipelineLayoutCreateInfo();
+                plci.setLayoutCount = (uint32_t)setLayouts.size();
+                plci.pSetLayouts = setLayouts.data();
+                envCapturePipelineLayout = RHI::get()->createPipelineLayout(plci);
+
+                VkPipelineShaderStageCreateInfo shaderStageCI{};
+                shaderStageCI.module = shaderModule;
+                shaderStageCI.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+                shaderStageCI.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+                shaderStageCI.pName = "main";
+                VkComputePipelineCreateInfo computePipelineCreateInfo{};
+                computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+                computePipelineCreateInfo.layout = envCapturePipelineLayout;
+                computePipelineCreateInfo.flags = 0;
+                computePipelineCreateInfo.stage = shaderStageCI;
+                RHICheck(vkCreateComputePipelines(RHI::Device, nullptr, 1, &computePipelineCreateInfo, nullptr, &envCapturePipeline));
+            }
         }
 
         virtual void release() override
@@ -151,6 +181,9 @@ namespace Flower
             RHISafeRelease(compositeCloudPipeline);
             RHISafeRelease(shadowMapPipeline);
             RHISafeRelease(reconstructionPipeline);
+
+            RHISafeRelease(envCapturePipeline);
+            RHISafeRelease(envCapturePipelineLayout);
 
             setLayout = VK_NULL_HANDLE;
         }
@@ -267,7 +300,29 @@ namespace Flower
             sceneDepthZ.getExtent().height,
             VK_FORMAT_R32_SFLOAT,
             VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+        auto& envCapture = inTextures->getAtmosphereEnvCapture()->getImage();
 
+        auto captureViewRange = VkImageSubresourceRange
+        {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 6 
+        };
+
+        VkDescriptorImageInfo envCaptureImageInfo = RHIDescriptorImageInfoStorage(envCapture.getView(captureViewRange, VK_IMAGE_VIEW_TYPE_CUBE));
+
+
+        auto& skyViewLutCloudBottom = inTextures->getAtmosphereSkyViewCloudBottom()->getImage();
+        auto& skyViewLutCloudTop = inTextures->getAtmosphereSkyViewCloudTop()->getImage();
+        auto& skyViewLut = inTextures->getAtmosphereSkyView()->getImage();
+
+
+
+        VkDescriptorImageInfo skyViewLutInfoBottom = RHIDescriptorImageInfoSample(skyViewLutCloudBottom.getView(buildBasicImageSubresource()));
+        VkDescriptorImageInfo skyViewLutInfoTop = RHIDescriptorImageInfoSample(skyViewLutCloudTop.getView(buildBasicImageSubresource()));
+        VkDescriptorImageInfo skyViewLutInfo = RHIDescriptorImageInfoSample(skyViewLut.getView(buildBasicImageSubresource()));
         if (!m_cloudReconstruction)
         {
             m_cloudReconstruction = m_rtPool->createPoolImage(
@@ -321,9 +376,11 @@ namespace Flower
             RHIPushWriteDescriptorSetImage(19,  VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &reconstructDepthInfo),
             RHIPushWriteDescriptorSetImage(20,  VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &hisRecInfo),
             RHIPushWriteDescriptorSetImage(21,  VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &hisRecDepthInfo),
-            RHIPushWriteDescriptorSetImage(22,  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &translucentMaskInfo),
+            RHIPushWriteDescriptorSetImage(22,  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &envCaptureImageInfo),
             RHIPushWriteDescriptorSetImage(23,  VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &sceneDepthZInfoPrev),
-            
+            RHIPushWriteDescriptorSetImage(24,  VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &skyViewLutInfoBottom),
+            RHIPushWriteDescriptorSetImage(25,  VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &skyViewLutInfoTop),
+            RHIPushWriteDescriptorSetImage(26,  VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &skyViewLutInfo),
         };
 
         std::vector<VkDescriptorSet> compPassSets =
@@ -381,6 +438,26 @@ namespace Flower
             vkCmdDispatch(cmd, getGroupCount(sceneColorHdr.getExtent().width, 8), getGroupCount(sceneColorHdr.getExtent().height, 8), 1);
             sceneColorHdr.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
             gbufferTranslucentMask.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+        }
+
+        // Capture pass.
+        {
+            envCapture.transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, captureViewRange);
+            RHI::ScopePerframeMarker marker(cmd, "EnvCapture", { 1.0f, 1.0f, 0.0f, 1.0f });
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->envCapturePipeline);
+
+            // Push owner set #0.
+            RHI::PushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->envCapturePipelineLayout, 0, uint32_t(writes.size()), writes.data());
+
+            // Set #1..3
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
+                pass->envCapturePipelineLayout, 1,
+                (uint32_t)compPassSets.size(), compPassSets.data(),
+                0, nullptr
+            );
+
+            vkCmdDispatch(cmd, getGroupCount(envCapture.getExtent().width, 8), getGroupCount(envCapture.getExtent().height, 8), 6);
+            envCapture.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, captureViewRange);
         }
 
         m_cloudReconstruction = newCloudReconstruction;

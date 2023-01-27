@@ -56,7 +56,7 @@ void main()
 		bool bIntersectGround = raySphereIntersectNearest(worldPos, worldDir, vec3(0.0), atmosphere.bottomRadius) >= 0.0f;
 
         vec2 sampleUv;
-		skyViewLutParamsToUv(atmosphere, bIntersectGround, viewZenithCosAngle, lightViewCosAngle, viewHeight, sampleUv);
+		skyViewLutParamsToUv(atmosphere, bIntersectGround, viewZenithCosAngle, lightViewCosAngle, viewHeight, vec2(textureSize(inSkyViewLut, 0)), sampleUv);
 
 		result = texture(sampler2D(inSkyViewLut, linearClampEdgeSampler), sampleUv).rgb;
     }
@@ -89,6 +89,6 @@ void main()
         }
     }
 
-    imageStore(imageCubeEnv, cubeCoord, vec4(prepareOut(result, atmosphere, vec2(pixPos)), 1.0));
+    imageStore(imageCubeEnv, cubeCoord, vec4(skyPrepareOut(result, atmosphere, frameData, vec2(pixPos)), 1.0));
     return;
 }

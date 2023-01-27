@@ -187,6 +187,8 @@ namespace Flower
 		// Atmosphere lut.
 		PoolImageSharedRef m_atmosphereTransmittance = nullptr;
 		PoolImageSharedRef m_atmosphereSkyView = nullptr;
+		PoolImageSharedRef m_atmosphereSkyViewCloudBottom = nullptr;
+		PoolImageSharedRef m_atmosphereSkyViewCloudTop = nullptr;
 		PoolImageSharedRef m_atmosphereMultiScatter = nullptr;
 		PoolImageSharedRef m_atmosphereFroxelScatter = nullptr;
 		PoolImageSharedRef m_atmosphereEnvCapture = nullptr;
@@ -210,10 +212,13 @@ namespace Flower
 
 		void allocateSDSMTexture(uint32_t dimXY, uint32_t cascadeCount);
 		PoolImageSharedRef getSDSMDepth();
+		bool isSDSMDepthExist() const;
 		PoolImageSharedRef getSDSMShadowMask();
 
 		PoolImageSharedRef getAtmosphereTransmittance();
 		PoolImageSharedRef getAtmosphereSkyView();
+		PoolImageSharedRef getAtmosphereSkyViewCloudBottom();
+		PoolImageSharedRef getAtmosphereSkyViewCloudTop();
 		PoolImageSharedRef getAtmosphereMultiScatter();
 		PoolImageSharedRef getAtmosphereFroxelScatter();
 		PoolImageSharedRef getAtmosphereEnvCapture();

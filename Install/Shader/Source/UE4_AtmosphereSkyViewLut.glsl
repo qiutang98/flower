@@ -24,64 +24,26 @@ void main()
 
     AtmosphereParameters atmosphere = getAtmosphereParameters();
 
-    // We are revert z.
-    vec4 clipSpace = vec4(uv.x * 2.0f - 1.0f, 1.0f - uv.y * 2.0f, 0.0, 1.0);
-	vec4 viewPosH = viewData.camInvertProj * clipSpace;
-    vec3 viewDir = viewPosH.xyz / viewPosH.w;
+    {
+	    vec3 worldPos = convertToAtmosphereUnit(viewData.camWorldPos.xyz) + vec3(0.0, atmosphere.bottomRadius, 0.0);
+        vec3 scatteredLight = getPosScatterLight(atmosphere, worldPos, uv, true, pixPos);
+        imageStore(imageSkyViewLut, workPos, vec4(scatteredLight, 1.0f));
+    }
 
-    vec3 worldDir = normalize((viewData.camInvertView * vec4(viewDir, 0.0)).xyz);
-	vec3 worldPos = convertToAtmosphereUnit(viewData.camWorldPos.xyz) + vec3(0.0, atmosphere.bottomRadius, 0.0);
+    // TODO: These cloud lookup just need compute once when atmosphere change or cloud change.
+    {
+        vec3 worldPosCloudTop = vec3(0.0, atmosphere.cloudAreaStartHeight + atmosphere.cloudAreaThickness, 0.0);
+        worldPosCloudTop.y = max(worldPosCloudTop.y, atmosphere.bottomRadius +  1e-3f);
 
-    float viewHeight = length(worldPos);
-	float viewZenithCosAngle;
-	float lightViewCosAngle;
-	uvToSkyViewLutParams(atmosphere, viewZenithCosAngle, lightViewCosAngle, viewHeight, uv);
+        vec3 scatteredLightCloudTop = getPosScatterLight(atmosphere, worldPosCloudTop, uv, true, pixPos);
+        imageStore(imageSkyViewLutCloudTop, workPos, vec4(scatteredLightCloudTop, 1.0f));
+    }
+    {
+        vec3 worldPosCloudBottom = vec3(0.0, atmosphere.cloudAreaStartHeight, 0.0);
+        worldPosCloudBottom.y = max(worldPosCloudBottom.y, atmosphere.bottomRadius + 1e-3f);
 
-	vec3 sunDir;
-	{
-		vec3 upVector = worldPos / viewHeight;
-		float sunZenithCosAngle = dot(upVector, -normalize(frameData.directionalLight.direction));
-		sunDir = normalize(vec3(sqrt(1.0 - sunZenithCosAngle * sunZenithCosAngle), sunZenithCosAngle, 0.0));
-	}
+        vec3 scatteredLightCloudBottom = getPosScatterLight(atmosphere, worldPosCloudBottom, uv, true, pixPos);
+        imageStore(imageSkyViewLutCloudBottom, workPos, vec4(scatteredLightCloudBottom, 1.0f));
+    }
 
-    // Use view height as world pos here.
-    worldPos = vec3(0.0, viewHeight, 0.0);
-	float viewZenithSinAngle = sqrt(1 - viewZenithCosAngle * viewZenithCosAngle);
-	worldDir = vec3(
-		viewZenithSinAngle * lightViewCosAngle,
-        viewZenithCosAngle,
-		viewZenithSinAngle * sqrt(1.0 - lightViewCosAngle * lightViewCosAngle)
-    );
-
-    // Move to top atmospehre
-	if (!moveToTopAtmosphere(worldPos, worldDir, atmosphere.topRadius)) 
-	{
-		// Ray is not intersecting the atmosphere
-        imageStore(imageSkyViewLut, workPos, vec4(0.0, 0.0, 0.0, 1.0f));
-        return;
-	}
-
-    const bool bGround = false;
-	const float sampleCountIni = 30;
-	const float depthBufferValue = -1.0;
-    const bool bMieRayPhase = true;
-    const float tMaxMax = kDefaultMaxT;
-	const bool bVariableSampleCount = true;
-
-	SingleScatteringResult ss = integrateScatteredLuminance(
-        pixPos, 
-        worldPos, 
-        worldDir, 
-        sunDir, 
-        atmosphere, 
-        bGround, 
-        sampleCountIni, 
-        depthBufferValue, 
-        bMieRayPhase,
-        tMaxMax,
-        bVariableSampleCount
-    );
-
-    ss.scatteredLight = min(ss.scatteredLight, vec3(kMaxHalfFloat));
-    imageStore(imageSkyViewLut, workPos, vec4(ss.scatteredLight, 1.0f));
 }

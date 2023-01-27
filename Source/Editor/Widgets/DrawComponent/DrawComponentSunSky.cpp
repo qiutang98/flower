@@ -109,6 +109,11 @@ void ComponentDrawer::drawSunSky(std::shared_ptr<SceneNode> node)
 			
 			ImGui::SliderFloat2("Wether UV scale", &earthAtmosphere.cloudWeatherUVScale.x, 0.0f, 0.01f);
 			ImGui::DragFloat("cloud sun light scale", &earthAtmosphere.cloudShadingSunLightScale, 0.1f, 0.1f, 10.0f);
+
+
+			UIHelper::drawVector3("wind dir", earthAtmosphere.cloudDirection, {0.8f, 0.2f, 0.4f}, ImGui::GetFontSize() * 3.0f);
+			ImGui::DragFloat("wind speed", &earthAtmosphere.cloudSpeed, 0.1f, 0.0f, 1.0f);
+
 			ImGui::Spacing();
 			ImGui::PopItemWidth();
 		}

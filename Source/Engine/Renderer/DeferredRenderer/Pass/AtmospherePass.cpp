@@ -49,6 +49,8 @@ namespace Flower
 				.bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, GCommonShaderStage, 11) // inSDSMShadowDepth
 				.bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, GCommonShaderStage, 12) // SSBOCascadeInfoBuffer
 				.bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, GCommonShaderStage, 13) // imageCaptureEnv
+				.bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, GCommonShaderStage, 14) // imageSkyViewLutCloudBottom
+				.bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, GCommonShaderStage, 15) // imageSkyViewLutCloudTop
 				.buildNoInfoPush(setLayout);
 
 			std::vector<VkDescriptorSetLayout> setLayouts =
@@ -255,6 +257,10 @@ namespace Flower
 
 		auto& tansmittanceLut = inTextures->getAtmosphereTransmittance()->getImage();
 		auto& skyViewLut = inTextures->getAtmosphereSkyView()->getImage();
+
+		auto& skyViewLutCloudBottom = inTextures->getAtmosphereSkyViewCloudBottom()->getImage();
+		auto& skyViewLutCloudTop = inTextures->getAtmosphereSkyViewCloudTop()->getImage();
+
 		auto& multiScatterLut = inTextures->getAtmosphereMultiScatter()->getImage();
 		auto& froxelScatterLut = inTextures->getAtmosphereFroxelScatter()->getImage();
 		auto& envCapture = inTextures->getAtmosphereEnvCapture()->getImage();
@@ -262,10 +268,13 @@ namespace Flower
 		auto& sceneDepthZ = inTextures->getDepth()->getImage();
 		auto& sceneColorHdr = inTextures->getHdrSceneColor()->getImage();
 		auto& gbufferA = inTextures->getGbufferA()->getImage();
-		auto& sdsmShadowDepth = (m_cacheFrameData.bSdsmDraw > 0 && inTextures->getSDSMDepth()) ? inTextures->getSDSMDepth()->getImage() : inTextures->getDepth()->getImage();
+		auto& sdsmShadowDepth = (m_cacheFrameData.bSdsmDraw > 0 && inTextures->isSDSMDepthExist()) ? inTextures->getSDSMDepth()->getImage() : inTextures->getDepth()->getImage();
 		auto cascadeInfoBuffer = scene->getCascadeInfoPtr();
 
 		auto* pass = getPasses()->getPass<AtmospherePass>();
+
+		VkDescriptorImageInfo skyViewLutImageInfoCloudBottom = RHIDescriptorImageInfoStorage(skyViewLutCloudBottom.getView(buildBasicImageSubresource()));
+		VkDescriptorImageInfo skyViewLutImageInfoCloudTop = RHIDescriptorImageInfoStorage(skyViewLutCloudTop.getView(buildBasicImageSubresource()));
 
 		VkDescriptorImageInfo tansmittanceLutImageInfo = RHIDescriptorImageInfoStorage(tansmittanceLut.getView(buildBasicImageSubresource()));
 		VkDescriptorImageInfo tansmittanceLutInfo = RHIDescriptorImageInfoSample(tansmittanceLut.getView(buildBasicImageSubresource()));
@@ -306,6 +315,8 @@ namespace Flower
 			RHIPushWriteDescriptorSetImage(11, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &sdsmDepthInfo),
 			RHIPushWriteDescriptorSetBuffer(12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &cascadeBufferInfo),
 			RHIPushWriteDescriptorSetImage(13,  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &envCaptureImageInfo),
+			RHIPushWriteDescriptorSetImage(14,  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &skyViewLutImageInfoCloudBottom),
+			RHIPushWriteDescriptorSetImage(15,  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &skyViewLutImageInfoCloudTop),
 		};	
 
 		std::vector<VkDescriptorSet> compPassSets =
@@ -365,7 +376,8 @@ namespace Flower
 			// Pass #2. sky view lut.
 			{
 				skyViewLut.transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
-
+				skyViewLutCloudBottom.transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+				skyViewLutCloudTop.transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
 				RHI::ScopePerframeMarker marker(cmd, "SkyVIewLut", { 1.0f, 1.0f, 0.0f, 1.0f });
 				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->skyViewLutPipeline);
 
@@ -381,6 +393,9 @@ namespace Flower
 
 				vkCmdDispatch(cmd, getGroupCount(skyViewLut.getExtent().width, 8), getGroupCount(skyViewLut.getExtent().height, 8), 1);
 				skyViewLut.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+
+				skyViewLutCloudBottom.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+				skyViewLutCloudTop.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
 			}
 
 			// Pass #3. froxel lut.
@@ -403,6 +418,12 @@ namespace Flower
 				froxelScatterLut.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
 			}
 
+
+
+			m_gpuTimer.getTimeStamp(cmd, "SkyPrepare");
+		}
+		else
+		{
 			// Capture pass.
 			{
 				envCapture.transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, captureViewRange);
@@ -423,10 +444,6 @@ namespace Flower
 				envCapture.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, captureViewRange);
 			}
 
-			m_gpuTimer.getTimeStamp(cmd, "SkyPrepare");
-		}
-		else
-		{
 			// Pass #4. composite.
 			sceneColorHdr.transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
 

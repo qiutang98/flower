@@ -45,6 +45,9 @@ layout (set = 0, binding = 12) buffer SSBOCascadeInfoBuffer{ CascadeInfo cascade
 
 layout (set = 0, binding = 13, rgba16f) writeonly uniform imageCube imageCubeEnv;
 
+layout (set = 0, binding = 14, rgba16f) uniform image2D imageSkyViewLutCloudBottom;
+layout (set = 0, binding = 15, rgba16f) uniform image2D imageSkyViewLutCloudTop;
+
 // Other common set.
 layout (set = 1, binding = 0) uniform UniformView  { ViewData  viewData;  };
 layout (set = 2, binding = 0) uniform UniformFrame { FrameData frameData; };
@@ -79,16 +82,6 @@ vec3 convertToCameraUnit(vec3 o)
 {
 	return convertToCameraUnit(o, viewData);
 }  
-
-vec3 prepareOut(vec3 inColor, in const AtmosphereParameters atmosphere, vec2 workPos)
-{
-	vec3 c = inColor / atmosphere.atmospherePreExposure * frameData.directionalLight.intensity; 
-
-	// Maybe add blue noise jitter is better.
-	// c = quantise(c, workPos, frameData);
-
-	return c;
-}
 
 // Get shadow from sdsm.
 float getShadow(in const AtmosphereParameters atmospehre, vec3 p)
@@ -264,9 +257,6 @@ float rangedTransmittanceIS(float extinction, float transmittance, float zeta)
 	return -log(1.0f - zeta * (1.0f - transmittance)) / extinction;
 }
 
-float fromUnitToSubUvs(float u, float resolution) { return (u + 0.5f / resolution) * (resolution / (resolution + 1.0f)); }
-float fromSubUvsToUnit(float u, float resolution) { return (u - 0.5f / resolution) * (resolution / (resolution - 1.0f)); }
-
 // https://www.youtube.com/watch?v=y-oBGzDCZKI at 9:20
 void uvToSkyViewLutParams(
 	in  const AtmosphereParameters atmosphere, 
@@ -307,51 +297,6 @@ void uvToSkyViewLutParams(
 	coord *= coord;
 
 	lightViewCosAngle = -(coord * 2.0 - 1.0);
-}
-
-void skyViewLutParamsToUv(
-	in const AtmosphereParameters atmosphere, 
-	in bool  bIntersectGround, 
-	in float viewZenithCosAngle, 
-	in float lightViewCosAngle, 
-	in float viewHeight, 
-	out vec2 uv)
-{
-	float vHorizon = sqrt(viewHeight * viewHeight - atmosphere.bottomRadius * atmosphere.bottomRadius);
-
-	// Ground to horizon cos.
-	float cosBeta = vHorizon / viewHeight;		
-
-	float beta = acos(cosBeta);
-	float zenithHorizonAngle = kPI - beta;
-
-	if (!bIntersectGround)
-	{
-		float coord = acos(viewZenithCosAngle) / zenithHorizonAngle;
-		coord = 1.0 - coord;
-		coord = sqrt(coord); // Non-linear sky view lut.
-
-		coord = 1.0 - coord;
-		uv.y = coord * 0.5f;
-	}
-	else
-	{
-		float coord = (acos(viewZenithCosAngle) - zenithHorizonAngle) / beta;
-		coord = sqrt(coord); // Non-linear sky view lut.
-
-		uv.y = coord * 0.5f + 0.5f;
-	}
-
-	// UV x remap.
-	{
-		float coord = -lightViewCosAngle * 0.5f + 0.5f;
-		coord = sqrt(coord);
-		uv.x = coord;
-	}
-
-	// Constrain uvs to valid sub texel range (avoid zenith derivative issue making LUT usage visible)
-	vec2 lutSize = vec2(textureSize(inSkyViewLut, 0));
-	uv = vec2(fromUnitToSubUvs(uv.x, lutSize.x), fromUnitToSubUvs(uv.y, lutSize.y));
 }
 
 vec3 getMultipleScattering(
@@ -633,4 +578,64 @@ SingleScatteringResult integrateScatteredLuminance(
 	return result;
 }
 
+
+vec3 getPosScatterLight(
+    in const AtmosphereParameters atmosphere,
+    in const vec3 inWorldPos,
+    in const vec2 uv,
+    in const bool bGround,
+	in const vec2 pixPos
+)
+{
+    float viewHeight = length(inWorldPos);
+	float viewZenithCosAngle;
+	float lightViewCosAngle;
+	uvToSkyViewLutParams(atmosphere, viewZenithCosAngle, lightViewCosAngle, viewHeight, uv);
+
+	vec3 sunDir;
+	{
+		vec3 upVector = inWorldPos / viewHeight;
+		float sunZenithCosAngle = dot(upVector, -normalize(frameData.directionalLight.direction));
+		sunDir = normalize(vec3(sqrt(1.0 - sunZenithCosAngle * sunZenithCosAngle), sunZenithCosAngle, 0.0));
+	}
+
+    // Use view height as world pos here.
+    vec3 worldPos = vec3(0.0, viewHeight, 0.0);
+	float viewZenithSinAngle = sqrt(1 - viewZenithCosAngle * viewZenithCosAngle);
+	vec3 worldDir = vec3(
+		viewZenithSinAngle * lightViewCosAngle,
+        viewZenithCosAngle,
+		viewZenithSinAngle * sqrt(1.0 - lightViewCosAngle * lightViewCosAngle)
+    );
+
+    // Move to top atmospehre
+	if (!moveToTopAtmosphere(worldPos, worldDir, atmosphere.topRadius)) 
+	{
+		// Ray is not intersecting the atmosphere
+        return vec3(0.0, 0.0, 0.0);
+	}
+
+	const float sampleCountIni      = 30;
+	const float depthBufferValue    = -1.0;
+    const bool bMieRayPhase         = true;
+    const float tMaxMax             = kDefaultMaxT;
+	const bool bVariableSampleCount = true;
+
+	SingleScatteringResult ss = integrateScatteredLuminance(
+        pixPos, 
+        worldPos, 
+        worldDir, 
+        sunDir, 
+        atmosphere, 
+        bGround, 
+        sampleCountIni, 
+        depthBufferValue, 
+        bMieRayPhase,
+        tMaxMax,
+        bVariableSampleCount
+    );
+    ss.scatteredLight = min(ss.scatteredLight, vec3(kMaxHalfFloat));
+
+    return ss.scatteredLight;
+}
 #endif
