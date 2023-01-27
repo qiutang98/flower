@@ -401,7 +401,7 @@ namespace Flower
         auto& gbufferS = inTextures->getGbufferS()->getImage();
         auto& gbufferV = inTextures->getGbufferV()->getImage();
         auto& sceneDepthZ = inTextures->getDepth()->getImage();
-        auto& atmosphereEnvCubeImage = inTextures->getAtmosphereEnvCapture()->getImage();
+        auto& skyPrefilterImage = inTextures->getSkyPrefilter()->getImage();
 
         hdrSceneColor.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
         gbufferA.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
@@ -409,7 +409,7 @@ namespace Flower
         gbufferS.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
         gbufferV.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
         sceneDepthZ.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT));
-        atmosphereEnvCubeImage.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresourceCube());
+        skyPrefilterImage.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresourceCube());
 
         VkDescriptorImageInfo hizInfo = RHIDescriptorImageInfoSample(inHiz->getImage().getView(buildBasicImageSubresource()));
         VkDescriptorImageInfo depthInfo = RHIDescriptorImageInfoSample(sceneDepthZ.getView(RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT)));
@@ -431,11 +431,7 @@ namespace Flower
             preGBufferBInfo = RHIDescriptorImageInfoSample(m_prevGBufferB->getImage().getView(buildBasicImageSubresource()));
         }
 
-        VkImageView globalPrefilterView = atmosphereEnvCubeImage.getView(buildBasicImageSubresourceCube(), VK_IMAGE_VIEW_TYPE_CUBE);
-        if (StaticTexturesManager::get()->isIBLReady())
-        {
-            globalPrefilterView = StaticTexturesManager::get()->getIBLPrefilter()->getImage().getView(buildBasicImageSubresourceCube(), VK_IMAGE_VIEW_TYPE_CUBE);
-        }
+        VkImageView globalPrefilterView = skyPrefilterImage.getView(buildBasicImageSubresourceCube(), VK_IMAGE_VIEW_TYPE_CUBE);
         VkDescriptorImageInfo globalPrefilterInfo = RHIDescriptorImageInfoSample(globalPrefilterView);
 
         VkDescriptorImageInfo hdrImageInfo = RHIDescriptorImageInfoStorage(hdrSceneColor.getView(buildBasicImageSubresource()));

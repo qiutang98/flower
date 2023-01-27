@@ -27,4 +27,6 @@ uvec2 remap8x8(uint lane) // gl_LocalInvocationIndex in 8x8 threadgroup.
     );
 }
 
+#define kSubgroupSize 32
+
 #endif

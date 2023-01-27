@@ -315,12 +315,17 @@ namespace Flower
 	{
 		RHICheck(vkCreateImage(RHI::Device, &m_createInfo, nullptr, &m_image));
 
-		m_layouts.resize(m_createInfo.mipLevels);
-		m_ownerQueueFamilys.resize(m_layouts.size());
-		for (size_t i = 0; i < m_layouts.size(); i++)
+		m_layouts.resize(m_createInfo.arrayLayers);
+		m_ownerQueueFamilys.resize(m_createInfo.arrayLayers);
+		for (size_t i = 0; i < m_createInfo.arrayLayers; i++)
 		{
-			m_layouts[i] = VK_IMAGE_LAYOUT_UNDEFINED;
-			m_ownerQueueFamilys[i] = VK_QUEUE_FAMILY_IGNORED;
+			m_layouts[i].resize(m_createInfo.mipLevels);
+			m_ownerQueueFamilys[i].resize(m_createInfo.mipLevels);
+			for (size_t j = 0; j < m_createInfo.mipLevels; j++)
+			{
+				m_layouts[i][j] = VK_IMAGE_LAYOUT_UNDEFINED;
+				m_ownerQueueFamilys[i][j] = VK_QUEUE_FAMILY_IGNORED;
+			}
 		}
 
 		VkMemoryRequirements memRequirements;
@@ -475,125 +480,124 @@ namespace Flower
 		VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
 		VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
 
-		uint32_t maxMip = glm::min(range.baseMipLevel + range.levelCount, m_createInfo.mipLevels);
-		for (uint32_t i = range.baseMipLevel; i < maxMip; i++)
+		uint32_t maxLayer = glm::min(range.baseArrayLayer + range.layerCount, m_createInfo.arrayLayers);
+		for (uint32_t layerIndex = range.baseArrayLayer; layerIndex < maxLayer; layerIndex++)
 		{
-			VkImageLayout oldLayout = m_layouts.at(i);
-			uint32_t oldFamily = m_ownerQueueFamilys.at(i);
-
-			if ((newLayout == oldLayout) && (oldFamily == newQueueFamily))
+			uint32_t maxMip = glm::min(range.baseMipLevel + range.levelCount, m_createInfo.mipLevels);
+			for (uint32_t mipIndex = range.baseMipLevel; mipIndex < maxMip; mipIndex++)
 			{
-				continue;
-			}
-				
+				VkImageLayout oldLayout = m_layouts.at(layerIndex).at(mipIndex);
+				uint32_t oldFamily = m_ownerQueueFamilys.at(layerIndex).at(mipIndex);
 
-			m_layouts[i] = newLayout;
-			m_ownerQueueFamilys[i] = newQueueFamily;
-
-			VkImageMemoryBarrier barrier{};
-			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-			barrier.oldLayout = oldLayout;
-			barrier.newLayout = newLayout;
-			barrier.srcQueueFamilyIndex = (oldFamily == VK_QUEUE_FAMILY_IGNORED) ? newQueueFamily : oldFamily;
-			barrier.dstQueueFamilyIndex = newQueueFamily;
-			barrier.image = m_image;
-
-			VkImageSubresourceRange rangSpecial {
-				.aspectMask = range.aspectMask,
-				.baseMipLevel = i,
-				.levelCount = 1,
-				.baseArrayLayer = range.baseArrayLayer, 
-				.layerCount = range.layerCount,
-			};
-
-			if (range.layerCount < m_createInfo.arrayLayers)
-			{
-				// TODO: Maybe we also need to control per-level resource layout and ownership. wtf bullshit thing here.
-				//       Which meaning we need to manage miplevelscount x layerlevelsCount layout and ownership.
-				CHECK_ENTRY();
-			}
-
-			barrier.subresourceRange = rangSpecial;
-
-			
-			VkAccessFlags srcMask{};
-			VkAccessFlags dstMask{};
-
-			
-
-			switch (oldLayout)
-			{
-			case VK_IMAGE_LAYOUT_UNDEFINED:
-				srcMask = 0;
-				break;
-			case VK_IMAGE_LAYOUT_PREINITIALIZED:
-				srcMask = VK_ACCESS_HOST_WRITE_BIT;
-				break;
-			case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-				srcMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-				break;
-			case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-				srcMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-				break;
-			case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-				srcMask = VK_ACCESS_TRANSFER_READ_BIT;
-				break;
-			case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-				srcMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-				break;
-			case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-				srcMask = VK_ACCESS_SHADER_READ_BIT;
-				break;
-			case VK_IMAGE_LAYOUT_GENERAL:
-				srcMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-				break;
-			default:
-				LOG_RHI_FATAL("Image layout transition no support.");
-				srcMask = ~0;
-				break;
-			}
-
-			switch (newLayout)
-			{
-			case VK_IMAGE_LAYOUT_GENERAL:
-				dstMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-				break;
-
-			case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-				dstMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-				break;
-
-			case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-				dstMask = VK_ACCESS_TRANSFER_READ_BIT;
-				break;
-
-			case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-				dstMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-				break;
-
-			case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-				dstMask = dstMask | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-				break;
-
-			case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-				if (srcMask == 0)
+				if ((newLayout == oldLayout) && (oldFamily == newQueueFamily))
 				{
-					srcMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+					continue;
 				}
-				dstMask = VK_ACCESS_SHADER_READ_BIT;
-				break;
-			default:
-				LOG_RHI_FATAL("Image layout transition no support.");
-				dstMask = ~0;
-				break;
+
+
+				m_layouts[layerIndex][mipIndex] = newLayout;
+				m_ownerQueueFamilys[layerIndex][mipIndex] = newQueueFamily;
+
+				VkImageMemoryBarrier barrier{};
+				barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+				barrier.oldLayout = oldLayout;
+				barrier.newLayout = newLayout;
+				barrier.srcQueueFamilyIndex = (oldFamily == VK_QUEUE_FAMILY_IGNORED) ? newQueueFamily : oldFamily;
+				barrier.dstQueueFamilyIndex = newQueueFamily;
+				barrier.image = m_image;
+
+				VkImageSubresourceRange rangSpecial{
+					.aspectMask = range.aspectMask,
+					.baseMipLevel = mipIndex,
+					.levelCount = 1,
+					.baseArrayLayer = layerIndex,
+					.layerCount = 1,
+				};
+
+				barrier.subresourceRange = rangSpecial;
+
+
+				VkAccessFlags srcMask{};
+				VkAccessFlags dstMask{};
+
+
+
+				switch (oldLayout)
+				{
+				case VK_IMAGE_LAYOUT_UNDEFINED:
+					srcMask = 0;
+					break;
+				case VK_IMAGE_LAYOUT_PREINITIALIZED:
+					srcMask = VK_ACCESS_HOST_WRITE_BIT;
+					break;
+				case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+					srcMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+					break;
+				case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+					srcMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+					break;
+				case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+					srcMask = VK_ACCESS_TRANSFER_READ_BIT;
+					break;
+				case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+					srcMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+					break;
+				case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+					srcMask = VK_ACCESS_SHADER_READ_BIT;
+					break;
+				case VK_IMAGE_LAYOUT_GENERAL:
+					srcMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+					break;
+				default:
+					LOG_RHI_FATAL("Image layout transition no support.");
+					srcMask = ~0;
+					break;
+				}
+
+				switch (newLayout)
+				{
+				case VK_IMAGE_LAYOUT_GENERAL:
+					dstMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+					break;
+
+				case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+					dstMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+					break;
+
+				case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+					dstMask = VK_ACCESS_TRANSFER_READ_BIT;
+					break;
+
+				case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+					dstMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+					break;
+
+				case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+					dstMask = dstMask | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+					break;
+
+				case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+					if (srcMask == 0)
+					{
+						srcMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+					}
+					dstMask = VK_ACCESS_SHADER_READ_BIT;
+					break;
+				default:
+					LOG_RHI_FATAL("Image layout transition no support.");
+					dstMask = ~0;
+					break;
+				}
+
+				barrier.srcAccessMask = srcMask;
+				barrier.dstAccessMask = dstMask;
+
+				barriers.push_back(barrier);
 			}
 
-			barrier.srcAccessMask = srcMask;
-			barrier.dstAccessMask = dstMask;
-
-			barriers.push_back(barrier);
 		}
-		
+
+
 		if (barriers.empty())
 		{
 			return;

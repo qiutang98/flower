@@ -100,8 +100,9 @@ namespace Flower
         auto& gbufferB = inTextures->getGbufferB()->getImage();
         auto& gbufferS = inTextures->getGbufferS()->getImage();
         auto& sceneDepthZ = inTextures->getDepth()->getImage();
+        auto& atmosphereEnvCubeImageIrradiance = inTextures->getSkyIrradiance()->getImage();
+        auto& atmosphereEnvCubeImagePrefilter = inTextures->getSkyPrefilter()->getImage();
         auto& atmosphereEnvCubeImage = inTextures->getAtmosphereEnvCapture()->getImage();
-        
         {
             hdrSceneColor.transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
             gbufferA.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
@@ -109,17 +110,13 @@ namespace Flower
             gbufferS.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
             sceneDepthZ.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT));
 
+            atmosphereEnvCubeImageIrradiance.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresourceCube());
+            atmosphereEnvCubeImagePrefilter.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresourceCube());
             atmosphereEnvCubeImage.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresourceCube());
         }
 
-        VkImageView globalIrradianceView = atmosphereEnvCubeImage.getView(buildBasicImageSubresourceCube(), VK_IMAGE_VIEW_TYPE_CUBE);
-        VkImageView globalPrefilterView = atmosphereEnvCubeImage.getView(buildBasicImageSubresourceCube(), VK_IMAGE_VIEW_TYPE_CUBE);
-        if (StaticTexturesManager::get()->isIBLReady())
-        {
-            globalIrradianceView = StaticTexturesManager::get()->getIBLIrradiance()->getImage().getView(buildBasicImageSubresourceCube(), VK_IMAGE_VIEW_TYPE_CUBE);
-
-            globalPrefilterView = StaticTexturesManager::get()->getIBLPrefilter()->getImage().getView(buildBasicImageSubresourceCube(), VK_IMAGE_VIEW_TYPE_CUBE);
-        }
+        VkImageView globalIrradianceView = atmosphereEnvCubeImageIrradiance.getView(buildBasicImageSubresourceCube(), VK_IMAGE_VIEW_TYPE_CUBE);
+        VkImageView globalPrefilterView = atmosphereEnvCubeImagePrefilter.getView(buildBasicImageSubresourceCube(), VK_IMAGE_VIEW_TYPE_CUBE);
 
         const bool bExistDirectionalLight = scene->getImportanceLights().directionalLightCount > 0;
 

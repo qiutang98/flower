@@ -93,8 +93,8 @@ namespace Flower
 		VmaAllocation m_allocation = nullptr;
 		VkImageCreateInfo m_createInfo = {};
 
-		std::vector<uint32_t> m_ownerQueueFamilys;
-		std::vector<VkImageLayout> m_layouts;
+		std::vector<std::vector<uint32_t>> m_ownerQueueFamilys;
+		std::vector<std::vector<VkImageLayout>> m_layouts;
 
 		std::unordered_map<size_t, VkImageView> m_cacheImageViews { };
 	public:
@@ -148,6 +148,6 @@ namespace Flower
 			VkImageSubresourceRange range
 		);
 
-		VkImageLayout getCurrentLayout(uint32_t mipLevel) const { return m_layouts.at(mipLevel); }
+		VkImageLayout getCurrentLayout(uint32_t layerIndex, uint32_t mipLevel) const { return m_layouts.at(layerIndex).at(mipLevel); }
 	};
 }

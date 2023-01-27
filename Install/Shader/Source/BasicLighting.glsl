@@ -151,7 +151,7 @@ void main()
 
     color += directColor;
     {
-        vec3 diffuseLight = texture(samplerCube(inCubeGlobalIrradiance, linearClampEdgeSampler), normal).rgb  * frameData.globalIBLIntensity;// ;
+        vec3 diffuseLight = texture(samplerCube(inCubeGlobalIrradiance, linearClampEdgeSampler), normal).rgb;// ;
         color += diffuseLight * diffuseColor;
     }
 

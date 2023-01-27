@@ -32,12 +32,9 @@ vec3 getIBLContribution(float perceptualRoughness, vec3 specularColor, vec3 spec
     vec2 brdf = texture(sampler2D(inBRDFLut, linearClampEdgeSampler), brdfSamplePoint).rg;
 
     vec3 specularLightEnv = textureLod(samplerCube(inCubeGlobalPrefilter, linearClampEdgeSampler), reflection, lod).rgb;
-    
-    // Also apply ibl intensity.
-    specularLightEnv = specularLightEnv * frameData.globalIBLIntensity;
 
     // Add env ibl specular light, also scale ssr radiance.
-    specularLight = max(specularLight, vec3(0.0)) * 2.0 + specularLightEnv;
+    specularLight = max(specularLight, vec3(0.0)) + specularLightEnv;
 
     vec3 specular = specularLight * (specularColor * brdf.x + brdf.y); 
 

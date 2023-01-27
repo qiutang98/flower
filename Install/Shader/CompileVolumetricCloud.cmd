@@ -6,6 +6,4 @@
 %~dp0/../Tool/glslc.exe -fshader-stage=comp --target-env=vulkan1.3 Source/Cloud_ShadowMap.glsl -O -o Spirv/Cloud_ShadowMap.comp.spv
 %~dp0/../Tool/glslc.exe -fshader-stage=comp --target-env=vulkan1.3 Source/Cloud_Reconstruction.glsl -O -o Spirv/Cloud_Reconstruction.comp.spv
 
-
-
 %~dp0/../Tool/glslc.exe -fshader-stage=comp --target-env=vulkan1.3 Source/SkyEnvCapture.glsl -O -o Spirv/AtmosphereEnvironmentCapture_Cloud.comp.spv

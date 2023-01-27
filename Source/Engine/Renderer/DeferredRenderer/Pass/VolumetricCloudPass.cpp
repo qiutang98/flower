@@ -464,6 +464,12 @@ namespace Flower
         m_cloudReconstructionDepth = newCloudReconstructionDepth;
 
         m_gpuTimer.getTimeStamp(cmd, "Volumetric Cloud");
+
+
+        {
+            inTextures->bakeSkyIBL(cmd, m_tickCount % 6);
+        }
+        m_gpuTimer.getTimeStamp(cmd, "Skylight Bake");
     }
 
 

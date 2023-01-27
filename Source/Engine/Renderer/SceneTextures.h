@@ -64,23 +64,20 @@ namespace Flower
 
 		// BRDF lut.
 		PoolImageSharedRef m_brdfLut = nullptr;
-		PoolImageSharedRef m_iblEnvCube = nullptr;
-		PoolImageSharedRef m_iblIrradiance = nullptr;
-		PoolImageSharedRef m_iblPrefilter = nullptr;
+
+		PoolImageSharedRef m_iblSkyIrradiance = nullptr;
+		PoolImageSharedRef m_iblSkyPrefilter = nullptr;
 
 		PoolImageSharedRef m_cloudBasicNoise = nullptr;
 		PoolImageSharedRef m_cloudWorleyNoise = nullptr;
 
-		void initIBL(VkCommandBuffer cmd, bool bRebuildLut);
+		void initIBL(VkCommandBuffer cmd);
 		void initCloudTexture(VkCommandBuffer cmd);
 
 	public:
 		PoolImageSharedRef getBRDFLut();
 
-		bool isIBLReady() const;
-		PoolImageSharedRef getIBLEnvCube();
-		PoolImageSharedRef getIBLIrradiance();
-		PoolImageSharedRef getIBLPrefilter();
+		bool isSkyIBLReady() const;
 
 		PoolImageSharedRef getCloudBasicNoise();
 		PoolImageSharedRef getCloudWorleyNoise();
@@ -92,12 +89,8 @@ namespace Flower
 			if (bRebuildLut)
 			{
 				m_brdfLut = nullptr;
+				initIBL(cmd);
 			}
-			
-			m_iblIrradiance = nullptr;
-			m_iblPrefilter = nullptr;
-
-			initIBL(cmd, bRebuildLut);
 		}
 
 		void rebuildCloudTexture(VkCommandBuffer cmd)
@@ -191,11 +184,16 @@ namespace Flower
 		PoolImageSharedRef m_atmosphereSkyViewCloudTop = nullptr;
 		PoolImageSharedRef m_atmosphereMultiScatter = nullptr;
 		PoolImageSharedRef m_atmosphereFroxelScatter = nullptr;
+
 		PoolImageSharedRef m_atmosphereEnvCapture = nullptr;
+		PoolImageSharedRef m_atmosphereEnvPrefilter = nullptr;
+		PoolImageSharedRef m_atmosphereEnvIrradiance = nullptr;
 
 	public:
 		// Release all textures.
 		void release();
+
+		void bakeSkyIBL(VkCommandBuffer cmd, uint32_t faceIndex);
 
 
 		PoolImageSharedRef getHdrSceneColor();
@@ -222,6 +220,9 @@ namespace Flower
 		PoolImageSharedRef getAtmosphereMultiScatter();
 		PoolImageSharedRef getAtmosphereFroxelScatter();
 		PoolImageSharedRef getAtmosphereEnvCapture();
+
+		PoolImageSharedRef getSkyPrefilter();
+		PoolImageSharedRef getSkyIrradiance();
 
 	public:
 		explicit SceneTextures(RendererInterface* in);

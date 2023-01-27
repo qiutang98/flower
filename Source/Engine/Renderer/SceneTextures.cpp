@@ -333,16 +333,52 @@ namespace Flower
 	{
 		if (!m_atmosphereEnvCapture)
 		{
+			// Need mipmaps.
 			m_atmosphereEnvCapture = m_rtPool->createPoolCubeImage(
 				"AtmosphereEnvCapture",
 				128,  // Must can divide by 8.
 				128,  // Must can divide by 8.
 				VK_FORMAT_R16G16B16A16_SFLOAT,
-				VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
+				VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+				-1
 			);
 		}
 
 		return m_atmosphereEnvCapture;
+	}
+
+	PoolImageSharedRef SceneTextures::getSkyPrefilter()
+	{
+		if (!m_atmosphereEnvPrefilter)
+		{
+			// Need mipmaps.
+			m_atmosphereEnvPrefilter = m_rtPool->createPoolCubeImage(
+				"SkyIBLPrefilter",
+				128,  // Must can divide by 8.
+				128,  // Must can divide by 8.
+				VK_FORMAT_R16G16B16A16_SFLOAT,
+				VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+				-1
+			);
+		}
+
+		return m_atmosphereEnvPrefilter;
+	}
+
+	PoolImageSharedRef SceneTextures::getSkyIrradiance()
+	{
+		if (!m_atmosphereEnvIrradiance)
+		{
+			m_atmosphereEnvIrradiance = m_rtPool->createPoolCubeImage(
+				"SkyIBLIrradiance",
+				32,  // Must can divide by 8.
+				32,  // Must can divide by 8.
+				VK_FORMAT_R16G16B16A16_SFLOAT,
+				VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
+			);
+		}
+
+		return m_atmosphereEnvIrradiance;
 	}
 
 	PoolImageSharedRef StaticTextures::getBRDFLut()
@@ -351,27 +387,9 @@ namespace Flower
 		return m_brdfLut;
 	}
 
-	bool StaticTextures::isIBLReady() const
+	bool StaticTextures::isSkyIBLReady() const
 	{
-		return m_brdfLut && m_iblIrradiance && m_iblPrefilter;
-	}
-
-	PoolImageSharedRef StaticTextures::getIBLEnvCube()
-	{
-		CHECK(m_iblEnvCube && "You should call initBRDFLut() once when engine init.");
-		return m_iblEnvCube;
-	}
-
-	PoolImageSharedRef StaticTextures::getIBLIrradiance()
-	{
-		CHECK(m_iblIrradiance && "You should call initBRDFLut() once when engine init.");
-		return m_iblIrradiance;
-	}
-
-	PoolImageSharedRef StaticTextures::getIBLPrefilter()
-	{
-		CHECK(m_iblPrefilter && "You should call initBRDFLut() once when engine init.");
-		return m_iblPrefilter;
+		return m_brdfLut && m_iblSkyIrradiance && m_iblSkyPrefilter;
 	}
 
 	PoolImageSharedRef StaticTextures::getCloudBasicNoise()
@@ -397,7 +415,7 @@ namespace Flower
 		RHICheck(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 		{
 			// Init basic resource for engine.
-			initIBL(cmd, true);
+			initIBL(cmd);
 
 			initCloudTexture(cmd);
 		}
@@ -430,6 +448,16 @@ namespace Flower
 	struct IBLPrefilterPushConst
 	{
 		float perceptualRoughness;
+		int samplesCount;     // 1024
+		float maxBrightValue; // 10.0f
+		float filterRoughnessMin; // 0.05f
+		int updateFaceIndex;
+	};
+
+	struct IBLIrradiancePushConst
+	{
+		uint32_t convolutionSampleCount; // 4096
+		int updateFaceIndex;
 	};
 
 	class IBLComputePass : public PassInterface
@@ -542,6 +570,11 @@ namespace Flower
 
 				// Vulkan buid functions.
 				VkPipelineLayoutCreateInfo plci = RHIPipelineLayoutCreateInfo();
+
+				VkPushConstantRange pushConstRange{ .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT, .offset = 0, .size = sizeof(IBLIrradiancePushConst) };
+				plci.pushConstantRangeCount = 1;
+				plci.pPushConstantRanges = &pushConstRange;
+
 				plci.setLayoutCount = (uint32_t)setLayouts.size();
 				plci.pSetLayouts = setLayouts.data();
 				irradiancePipelineLayout = RHI::get()->createPipelineLayout(plci);
@@ -621,11 +654,9 @@ namespace Flower
 		}
 	};
 
-	void StaticTextures::initIBL(VkCommandBuffer cmd, bool bRebuildLut)
+	void StaticTextures::initIBL(VkCommandBuffer cmd)
 	{
 		auto* pass = m_passCollector->getPass<IBLComputePass>();
-
-		if (bRebuildLut)
 		{
 			CHECK(m_brdfLut == nullptr && "BRDF lut only init once.");
 			m_brdfLut = m_rtPool->createPoolImage(
@@ -653,208 +684,176 @@ namespace Flower
 			}
 			m_brdfLut->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
 		}
-		
-		if (RenderSettingManager::get()->ibl.iblEnable())
+	}
+
+	void SceneTextures::bakeSkyIBL(VkCommandBuffer cmd, uint32_t faceIndex)
+	{
+		CHECK(faceIndex < 6u);
+
+		auto* pass = StaticTexturesManager::get()->getPasses()->getPass<IBLComputePass>();
+
+		auto skyEnvCube = getAtmosphereEnvCapture();
+
+		std::vector<VkDescriptorSet> compPassSets =
 		{
-			// TODO: When ibl bake ready, should release this hdr src owner lazy 3 frame.
-			// TODO: Also should release env cubemap.
-			RenderSettingManager::get()->ibl.setDirty(false);
+			 RHI::SamplerManager->getCommonDescriptorSet()
+		};
 
-			std::vector<VkDescriptorSet> compPassSets =
-			{
-				 RHI::SamplerManager->getCommonDescriptorSet()
-			};
+		auto inCubeViewRangeAll = VkImageSubresourceRange
+		{
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0,
+			.levelCount = skyEnvCube->getImage().getInfo().mipLevels,
+			.baseArrayLayer = 0,
+			.layerCount = 6
+		};
 
-			m_iblEnvCube = m_rtPool->createPoolCubeImage(
-				"GlobalIBLCubemap",
-				512,  // Must can divide by 8.
-				512,  // Must can divide by 8.
-				VK_FORMAT_R16G16B16A16_SFLOAT,
-				VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-				-1
-			);
+		skyEnvCube->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, inCubeViewRangeAll);
+		skyEnvCube->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, inCubeViewRangeAll);
 
-			// Spherical to cubemap level 0.
-			{
-				auto cubemapViewRange = VkImageSubresourceRange
-				{
-					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					.baseMipLevel = 0,
-					.levelCount = 1,
-					.baseArrayLayer = 0,
-					.layerCount = 6
-				};
-
-				m_iblEnvCube->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, cubemapViewRange);
-				{
-					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->sphericalMapToCubePipeline);
-					vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
-						pass->sphericalMapToCubePipelineLayout, 1,
-						(uint32_t)compPassSets.size(), compPassSets.data(),
-						0, nullptr
-					);
-
-					VkDescriptorImageInfo imageInfo = RHIDescriptorImageInfoStorage(m_iblEnvCube->getImage().getView(cubemapViewRange, VK_IMAGE_VIEW_TYPE_CUBE));
-					VkDescriptorImageInfo hdrInfo = RHIDescriptorImageInfoSample(RenderSettingManager::get()->ibl.hdrSrc->getImage().getView(buildBasicImageSubresource()));
-					std::vector<VkWriteDescriptorSet> writes
-					{
-						RHIPushWriteDescriptorSetImage(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &imageInfo),
-						RHIPushWriteDescriptorSetImage(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &hdrInfo),
-					};
-
-					// Push owner set #0.
-					RHI::PushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->sphericalMapToCubePipelineLayout, 0, uint32_t(writes.size()), writes.data());
-
-					// Mip 0
-					vkCmdDispatch(cmd,
-						getGroupCount(m_iblEnvCube->getImage().getExtent().width >> 0, 8),
-						getGroupCount(m_iblEnvCube->getImage().getExtent().height >> 0, 8),
-						6
-					);
-				}
-				
-				// Mip 0 as src input.
-				m_iblEnvCube->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, cubemapViewRange);
-
-				VkImageMemoryBarrier barrier{};
-				barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-				barrier.image = m_iblEnvCube->getImage().getImage();
-				barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-				barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-				barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-				barrier.subresourceRange.baseArrayLayer = 0;
-				barrier.subresourceRange.layerCount = 6;
-				barrier.subresourceRange.levelCount = 1;
-
-				// Generate cubemap mips.
-				int32_t mipWidth = m_iblEnvCube->getImage().getExtent().width;
-				int32_t mipHeight = m_iblEnvCube->getImage().getExtent().height;
-				for (uint32_t i = 1; i < m_iblEnvCube->getImage().getInfo().mipLevels; i++)
-				{
-					// Layout for write.
-					barrier.subresourceRange.baseMipLevel = i;
-					barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-					barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-					barrier.srcAccessMask = VK_ACCESS_NONE;
-					barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-					vkCmdPipelineBarrier(cmd,
-						VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
-						0, nullptr,
-						0, nullptr,
-						1, &barrier);
-
-					VkImageBlit blit{};
-
-					blit.srcOffsets[0] = { 0, 0, 0 };
-					blit.dstOffsets[0] = { 0, 0, 0 };
-
-					blit.srcOffsets[1] = { mipWidth, mipHeight, 1 };
-					blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 };
-
-					blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-					blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-
-					blit.srcSubresource.mipLevel = i - 1;
-					blit.dstSubresource.mipLevel = i;
-
-					blit.srcSubresource.baseArrayLayer = 0;
-					blit.dstSubresource.baseArrayLayer = 0;
-
-					blit.srcSubresource.layerCount = 6; // Cube map.
-					blit.dstSubresource.layerCount = 6;
-
-					vkCmdBlitImage(cmd,
-						m_iblEnvCube->getImage().getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-						m_iblEnvCube->getImage().getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-						1, &blit,
-						VK_FILTER_LINEAR
-					);
-
-					// Layout for read.
-					barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-					barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-					barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-					barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-					vkCmdPipelineBarrier(cmd,
-						VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
-						0, nullptr,
-						0, nullptr,
-						1, &barrier);
-
-					if (mipWidth  > 1) mipWidth  /= 2;
-					if (mipHeight > 1) mipHeight /= 2;
-				}
-
-				cubemapViewRange.levelCount = m_iblEnvCube->getImage().getInfo().mipLevels;
-				m_iblEnvCube->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cubemapViewRange);
-			}
-
-			auto inCubeViewRange = VkImageSubresourceRange
+		// Generate cubemap mips for filter.
+		{
+			auto cubemapViewRange = VkImageSubresourceRange
 			{
 				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 				.baseMipLevel = 0,
-				.levelCount = m_iblEnvCube->getImage().getInfo().mipLevels,
+				.levelCount = 1,
+				.baseArrayLayer = faceIndex,
+				.layerCount = 1
+			};
+
+			// Mip 0 as src input.
+			skyEnvCube->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, cubemapViewRange);
+
+			VkImageMemoryBarrier barrier{};
+			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+			barrier.image = skyEnvCube->getImage().getImage();
+			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			barrier.subresourceRange.baseArrayLayer = faceIndex;
+			barrier.subresourceRange.layerCount = 1;
+			barrier.subresourceRange.levelCount = 1;
+
+			// Generate cubemap mips.
+			int32_t mipWidth = skyEnvCube->getImage().getExtent().width;
+			int32_t mipHeight = skyEnvCube->getImage().getExtent().height;
+			for (uint32_t i = 1; i < skyEnvCube->getImage().getInfo().mipLevels; i++)
+			{
+				// Layout for write.
+				barrier.subresourceRange.baseMipLevel = i;
+				barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+				barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+				barrier.srcAccessMask = VK_ACCESS_NONE;
+				barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+				vkCmdPipelineBarrier(cmd,
+					VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+					0, nullptr,
+					0, nullptr,
+					1, &barrier);
+
+				VkImageBlit blit{};
+
+				blit.srcOffsets[0] = { 0, 0, 0 };
+				blit.dstOffsets[0] = { 0, 0, 0 };
+
+				blit.srcOffsets[1] = { mipWidth, mipHeight, 1 };
+				blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 };
+
+				blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+				blit.srcSubresource.mipLevel = i - 1;
+				blit.dstSubresource.mipLevel = i;
+
+				blit.srcSubresource.baseArrayLayer = faceIndex;
+				blit.dstSubresource.baseArrayLayer = faceIndex;
+
+				blit.srcSubresource.layerCount = 1; // Cube map, only update one face
+				blit.dstSubresource.layerCount = 1;
+
+				vkCmdBlitImage(cmd,
+					skyEnvCube->getImage().getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+					skyEnvCube->getImage().getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					1, &blit,
+					VK_FILTER_LINEAR
+				);
+
+				// Layout for read.
+				barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+				barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+				barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+				barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+				vkCmdPipelineBarrier(cmd,
+					VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+					0, nullptr,
+					0, nullptr,
+					1, &barrier);
+
+				if (mipWidth > 1) mipWidth /= 2;
+				if (mipHeight > 1) mipHeight /= 2;
+			}
+
+			cubemapViewRange.levelCount = skyEnvCube->getImage().getInfo().mipLevels;
+			skyEnvCube->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cubemapViewRange);
+		}
+
+		skyEnvCube->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, inCubeViewRangeAll);
+		skyEnvCube->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, inCubeViewRangeAll);
+		VkDescriptorImageInfo hdrCubeInfo = RHIDescriptorImageInfoSample(skyEnvCube->getImage().getView(inCubeViewRangeAll, VK_IMAGE_VIEW_TYPE_CUBE));
+
+		// Irradiance Compute.
+		{
+			auto irradianceMap = getSkyIrradiance();
+			
+			auto irradianceViewRange = VkImageSubresourceRange
+			{
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1,
 				.baseArrayLayer = 0,
 				.layerCount = 6
 			};
-			VkDescriptorImageInfo hdrCubeInfo = RHIDescriptorImageInfoSample(m_iblEnvCube->getImage().getView(inCubeViewRange, VK_IMAGE_VIEW_TYPE_CUBE));
 
-			// Irradiance
+			irradianceMap->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, irradianceViewRange);
 			{
-				m_iblIrradiance = m_rtPool->createPoolCubeImage(
-					"GlobalIBLIrradiance",
-					128,  // Must can divide by 8.
-					128,  // Must can divide by 8.
-					VK_FORMAT_R16G16B16A16_SFLOAT,
-					VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
-				);
+				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->irradiancePipeline);
 
-				auto irradianceViewRange = VkImageSubresourceRange
+				VkDescriptorImageInfo imageInfo = RHIDescriptorImageInfoStorage(irradianceMap->getImage().getView(irradianceViewRange, VK_IMAGE_VIEW_TYPE_CUBE));
+				std::vector<VkWriteDescriptorSet> writes
 				{
-					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					.baseMipLevel = 0,
-					.levelCount = 1,
-					.baseArrayLayer = 0,
-					.layerCount = 6
+					RHIPushWriteDescriptorSetImage(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &imageInfo),
+					RHIPushWriteDescriptorSetImage(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &hdrCubeInfo),
 				};
 
-				m_iblIrradiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, irradianceViewRange);
-				{
-					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->irradiancePipeline);
+				// Push owner set #0.
+				RHI::PushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->irradiancePipelineLayout, 0, uint32_t(writes.size()), writes.data());
 
-					VkDescriptorImageInfo imageInfo = RHIDescriptorImageInfoStorage(m_iblIrradiance->getImage().getView(irradianceViewRange, VK_IMAGE_VIEW_TYPE_CUBE));
-					std::vector<VkWriteDescriptorSet> writes
-					{
-						RHIPushWriteDescriptorSetImage(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &imageInfo),
-						RHIPushWriteDescriptorSetImage(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &hdrCubeInfo),
-					};
-
-					// Push owner set #0.
-					RHI::PushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->irradiancePipelineLayout, 0, uint32_t(writes.size()), writes.data());
-
-					vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
-						pass->irradiancePipelineLayout, 1,
-						(uint32_t)compPassSets.size(), compPassSets.data(),
-						0, nullptr
-					);
-
-					vkCmdDispatch(cmd, getGroupCount(m_iblIrradiance->getImage().getExtent().width, 8), getGroupCount(m_iblIrradiance->getImage().getExtent().height, 8), 6);
-				}
-				m_iblIrradiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, irradianceViewRange);
-			}
-
-
-			// Prefilter
-			{
-				m_iblPrefilter = m_rtPool->createPoolCubeImage(
-					"GlobalIBLPrefilter",
-					512,  // Must can divide by 8.
-					512,  // Must can divide by 8.
-					VK_FORMAT_R16G16B16A16_SFLOAT,
-					VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-					-1
+				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
+					pass->irradiancePipelineLayout, 1,
+					(uint32_t)compPassSets.size(), compPassSets.data(),
+					0, nullptr
 				);
 
+				IBLIrradiancePushConst push
+				{
+					.convolutionSampleCount = 1024,
+					.updateFaceIndex = int(faceIndex),
+				};
+				vkCmdPushConstants(cmd, pass->irradiancePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push), &push);
+
+
+				vkCmdDispatch(cmd, 
+					irradianceMap->getImage().getExtent().width,
+					irradianceMap->getImage().getExtent().height,
+					1u
+				);
+			}
+			irradianceMap->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, irradianceViewRange);
+
+			auto skyPrefilter = getSkyPrefilter();
+			// Prefilter
+			{
 				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->prefilterPipeline);
 
 				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
@@ -863,11 +862,10 @@ namespace Flower
 					0, nullptr
 				);
 
-				const float deltaRoughness = 1.0f / std::max(float(m_iblPrefilter->getImage().getInfo().mipLevels), 1.0f);
+				const float deltaRoughness = 1.0f / std::max(float(skyPrefilter->getImage().getInfo().mipLevels), 1.0f);
 
-				for (uint32_t i = 0; i < m_iblPrefilter->getImage().getInfo().mipLevels; i ++)
+				for (uint32_t i = 0; i < skyPrefilter->getImage().getInfo().mipLevels; i++)
 				{
-
 					auto viewRange = VkImageSubresourceRange
 					{
 						.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -877,10 +875,10 @@ namespace Flower
 						.layerCount = 6
 					};
 
-					m_iblPrefilter->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, viewRange);
+					skyPrefilter->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, viewRange);
 					{
-						VkDescriptorImageInfo imageInfo = RHIDescriptorImageInfoStorage(m_iblPrefilter->getImage().getView(viewRange, VK_IMAGE_VIEW_TYPE_CUBE));
-						
+						VkDescriptorImageInfo imageInfo = RHIDescriptorImageInfoStorage(skyPrefilter->getImage().getView(viewRange, VK_IMAGE_VIEW_TYPE_CUBE));
+
 						std::vector<VkWriteDescriptorSet> writes
 						{
 							RHIPushWriteDescriptorSetImage(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &imageInfo),
@@ -890,18 +888,30 @@ namespace Flower
 						// Push owner set #0.
 						RHI::PushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->prefilterPipelineLayout, 0, uint32_t(writes.size()), writes.data());
 
-						IBLPrefilterPushConst push{ .perceptualRoughness = float(i) * deltaRoughness };
-
+						IBLPrefilterPushConst push
+						{ 
+							.perceptualRoughness = float(i) * deltaRoughness,
+							.samplesCount       = 512, 
+							.maxBrightValue     = 10000.0f, 
+							.filterRoughnessMin = 0.05f,  // Realtime filter all roughness.
+							.updateFaceIndex = int(faceIndex),
+						};
 						vkCmdPushConstants(cmd, pass->prefilterPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push), &push);
 
-						vkCmdDispatch(cmd, 
-							getGroupCount(glm::max(1u, m_iblPrefilter->getImage().getExtent().width >> i), 8),
-							getGroupCount(glm::max(1u, m_iblPrefilter->getImage().getExtent().height >> i), 8),
-							6);
+						vkCmdDispatch(cmd,
+							glm::max(1u, skyPrefilter->getImage().getExtent().width  >> i),
+							glm::max(1u, skyPrefilter->getImage().getExtent().height >> i),
+							1u);
 					}
-					m_iblPrefilter->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, viewRange);
+					skyPrefilter->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, viewRange);
 				}
 			}
+
+
+			irradianceMap->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, inCubeViewRangeAll);
+			irradianceMap->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, inCubeViewRangeAll);
+			skyPrefilter->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, inCubeViewRangeAll);
+			skyPrefilter->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, inCubeViewRangeAll);
 		}
 
 	}
