@@ -24,8 +24,6 @@ namespace Flower
 
 	bool Renderer::init()
 	{
-		RenderSettingManager::get()->reset();
-
 		UIManager::get()->init();
 		m_uiPass.init();
 		m_sceneData = std::make_unique<RenderSceneData>();
@@ -81,11 +79,6 @@ namespace Flower
 				// Update scene data.
 				m_sceneData->tick(tickData, graphicsCmd);
 
-				// Rebuild some global assset.
-				if (RenderSettingManager::get()->ibl.needRebuild())
-				{
-					StaticTexturesManager::get()->rebuildIBL(graphicsCmd, false);
-				}
 
 				// Broadcast renderer tick functions.
 				rendererTickHooks.broadcast(tickData, graphicsCmd);
@@ -140,7 +133,5 @@ namespace Flower
 		StaticTexturesManager::get()->release();
 		m_uiPass.release();
 		UIManager::get()->release();
-
-		RenderSettingManager::get()->release();
 	}
 }

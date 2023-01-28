@@ -183,7 +183,7 @@ struct EarthAtmosphere // Color space 2020
     float cloudShadowExtent; // x4
 
     vec3 camWorldPos; // cameraworld Position, in atmosphere space unit.
-    float pad2; // x4
+    uint updateFaceIndex; // update face index for cloud cubemap capture
 
     // World space to cloud space view project matrix.
     // Unit also is km.

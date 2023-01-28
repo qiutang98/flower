@@ -129,7 +129,8 @@ void main()
     const PerObjectData objectData = objectDatas[inObjectId];
     const StaticMeshStandardPBR mat = objectData.material;
 
-    const vec4 baseColor = tex(mat.baseColorId, mat.baseColorSampler, vsIn.uv0);
+    vec4 baseColor = tex(mat.baseColorId, mat.baseColorSampler, vsIn.uv0);
+    baseColor = baseColor * mat.baseColorMul + mat.baseColorAdd;
     if(baseColor.a < mat.cutoff)
     {
         discard;
@@ -142,8 +143,9 @@ void main()
     outGBufferA.a = kShadingModelStandardPBR;
 
     // Emissive color.
-    vec4 emissiveTex = tex(mat.emissiveTexId, mat.emissiveSampler, vsIn.uv0);
-    outHDRSceneColor.rgb = inputColorPrepare(emissiveTex.rgb) * 2.0;
+    vec4 emissiveColor = tex(mat.emissiveTexId, mat.emissiveSampler, vsIn.uv0);
+    emissiveColor = emissiveColor * mat.emissiveMul + mat.emissiveAdd;
+    outHDRSceneColor.rgb = inputColorPrepare(emissiveColor.rgb);
 
     // World normal build.
     vec4 normalTex = tex(mat.normalTexId, mat.normalSampler, vsIn.uv0);
@@ -164,10 +166,14 @@ void main()
 
     // Specular texture.
     vec4 specularTex = tex(mat.specTexId, mat.specSampler, vsIn.uv0);
-    outGBufferS.r = specularTex.b; // metal
+
+    float roughness = saturate(specularTex.g * mat.roughnessMul + mat.roughnessAdd);
+    float metallic = saturate(specularTex.b * mat.metalMul + mat.metalAdd);
+
+    outGBufferS.r = metallic; // metal
 
     // Actually it is perceptualRoughness.
-    outGBufferS.g = clamp(specularTex.g, 0.0, 1.0); // roughness
+    outGBufferS.g = roughness; // roughness
     outGBufferS.b = tex(mat.occlusionTexId, mat.occlusionSampler, vsIn.uv0).r; // mesh ao
 
     // Velocity output.

@@ -48,67 +48,7 @@ void WidgetRenderSetting::onVisibleTick(const RuntimeModuleTickData& tickData)
 	ImGui::Checkbox("Hdr10_2084", &bHDR);
 	RenderSettingManager::get()->displayMode = bHDR ? RHI::DISPLAYMODE_HDR10_2084 : RHI::DISPLAYMODE_SDR;
 
-	if (ImGui::CollapsingHeader("IBL Setting"))
-	{
-		ImGui::Spacing();
-		ImGui::Indent();
-		ImGui::PushItemWidth(100.0f);
 
-
-
-		ImGui::Checkbox("IBL Lighting", &RenderSettingManager::get()->ibl.bEnableIBLLight);
-
-		if (!RenderSettingManager::get()->ibl.bEnableIBLLight)
-		{
-			ImGui::BeginDisabled();
-		}
-
-		if (ImGui::Button("Select IBL texture"))
-		{
-			ImGui::OpenPopup("IBLSelectPopup");
-			
-		}
-
-		if (ImGui::BeginPopup("IBLSelectPopup"))
-		{
-			const auto& map = AssetRegistryManager::get()->getTypeAssetSetMap();
-			if (map.contains(size_t(EAssetType::Texture)))
-			{
-				const auto& texMap = map.at(size_t(EAssetType::Texture));
-				for (const auto& texId : texMap)
-				{
-					std::shared_ptr<ImageAssetHeader> tex = std::dynamic_pointer_cast<ImageAssetHeader>(AssetRegistryManager::get()->getHeaderMap().at(texId));
-					if (tex->isHdr())
-					{
-						if (ImGui::MenuItem(tex->getName().c_str()))
-						{
-							auto nexSrc = TextureManager::get()->getOrCreateImage(tex);
-							if (RenderSettingManager::get()->ibl.hdrSrc != nexSrc)
-							{
-								RenderSettingManager::get()->ibl.hdrSrc = nexSrc;
-								RenderSettingManager::get()->ibl.setDirty(true);
-							}
-							
-						}
-					}
-				}
-			}
-			ImGui::EndPopup();
-		}
-
-		ImGui::DragFloat("Intensity", &RenderSettingManager::get()->ibl.intensity, 0.01f, 0.0f, 1.0);
-
-		if (!RenderSettingManager::get()->ibl.bEnableIBLLight)
-		{
-			ImGui::EndDisabled();
-		}
-
-		ImGui::PopItemWidth();
-		ImGui::Unindent();
-		ImGui::Spacing();
-	}
-
-	
 	if (ImGui::CollapsingHeader("Viewport Camera Control"))
 	{
 		ImGui::Spacing();

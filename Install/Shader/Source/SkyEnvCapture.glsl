@@ -19,18 +19,16 @@
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 void main()
 {
-    ivec3 cubeCoord = ivec3(gl_GlobalInvocationID);
+    ivec3 cubeCoord = ivec3(gl_GlobalInvocationID.xy, frameData.earthAtmosphere.updateFaceIndex);
     ivec2 cubeSize = imageSize(imageCubeEnv);
 
-    if(cubeCoord.x >= cubeSize.x || cubeCoord.y >= cubeSize.y || cubeCoord.z >= 6)
+    if(cubeCoord.x >= cubeSize.x || cubeCoord.y >= cubeSize.y)
     {
         return;
     }
 
     const vec2 pixPos = vec2(cubeCoord) + vec2(0.5f);
     const vec2 uv = pixPos / vec2(cubeSize);
-
-
 
     float depth = 0.0;
     vec3 worldDir = getSamplingVector(cubeCoord.z, uv);

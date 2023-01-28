@@ -120,7 +120,7 @@ void main()
     outGBufferB.a = pmxParam.pmxObjectID; // pmx object id. todo.
 
     outGBufferS.r = 0.0f; // metal
-    outGBufferS.g = 0.5f; // roughness
+    outGBufferS.g = 0.6f; // roughness
     outGBufferS.b = 1.0f; // ao
 
     outHDRSceneColor = vec4(0.0, 0.0, 0.0, 1.0);

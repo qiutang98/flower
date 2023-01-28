@@ -54,6 +54,17 @@ struct StaticMeshStandardPBR
     uint emissiveSampler;
     float cutoff;
     float faceCut; // > 1.0f is backface cut, < -1.0f is frontface cut, [-1.0f, 1.0f] is no face cut.
+
+    vec4 baseColorMul;
+	vec4 baseColorAdd;// x4
+
+	float metalMul;
+	float metalAdd;
+	float roughnessMul;
+	float roughnessAdd;// x4
+
+	vec4 emissiveMul;
+	vec4 emissiveAdd;
 };
 
 struct PerObjectData

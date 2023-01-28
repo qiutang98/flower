@@ -105,6 +105,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Undo.cpp" />
+    <ClCompile Include="Widgets\AssetInspector.cpp" />
+    <ClCompile Include="Widgets\DrawAssetInspector\DrawMaterialType.cpp" />
+    <ClCompile Include="Widgets\DrawAssetInspector\DrawStaticMeshType.cpp" />
+    <ClCompile Include="Widgets\DrawAssetInspector\DrawTextureType.cpp" />
     <ClCompile Include="Widgets\DrawComponent\DrawComponentLandscape.cpp" />
     <ClCompile Include="Widgets\DrawComponent\DrawComponentPostprocessVolume.cpp" />
     <ClCompile Include="EditorAsset.cpp" />
@@ -138,12 +142,14 @@
   <ItemGroup>
     <ClInclude Include="EditorAsset.h" />
     <ClInclude Include="Pch.h" />
+    <ClInclude Include="Widgets\AssetInspector.h" />
     <ClInclude Include="Widgets\Console.h" />
     <ClInclude Include="Widgets\ContentViewer.h" />
     <ClInclude Include="Widgets\Detail.h" />
     <ClInclude Include="Widgets\Dockspace.h" />
     <ClInclude Include="Widgets\Downbar.h" />
     <ClInclude Include="Editor.h" />
+    <ClInclude Include="Widgets\DrawAssetInspector\DrawAssetInspector.h" />
     <ClInclude Include="Widgets\DrawComponent\DrawComponent.h" />
     <ClInclude Include="Undo.h" />
     <ClInclude Include="Widgets\MainMenu.h" />

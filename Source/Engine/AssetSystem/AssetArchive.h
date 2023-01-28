@@ -109,5 +109,15 @@ ASSET_ARCHIVE_IMPL_INHERIT(StandardPBRMaterialHeader, AssetMaterialHeader)
 		specularTexture, 
 		emissiveTexture, 
 		aoTexture);
+
+	if (version > 0)
+	{
+		archive(
+			baseColorMul, baseColorAdd, 
+			metalMul, metalAdd, 
+			roughnessMul, roughnessAdd, 
+			emissiveMul, emissiveAdd,
+			cutoff, faceCut);
+	}
 }
 ASSET_ARCHIVE_IMPL_INHERIT_END

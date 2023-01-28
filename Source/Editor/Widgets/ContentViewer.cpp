@@ -28,6 +28,11 @@ WidgetContentViewer::~WidgetContentViewer() noexcept
 
 }
 
+const std::unordered_set<Flower::UUID>& WidgetContentViewer::getSelectionAssets() const
+{
+	return m_dragDropObjects->selectAssets;
+}
+
 void WidgetContentViewer::onInit()
 {
 	m_assetTypeDrawer = std::unique_ptr<AssetTypeDrawer>(new AssetTypeDrawer(this));

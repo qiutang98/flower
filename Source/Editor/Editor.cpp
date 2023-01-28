@@ -58,6 +58,11 @@ void Editor::preInit(const LauncherInfo& info)
 		m_renderSetting = newWidget.get();
 		m_widgets.push_back(std::move(newWidget));
 	}
+	{
+		auto newWidget = std::make_unique<std::remove_pointer_t<decltype(m_assetInspector)>>();
+		m_assetInspector = newWidget.get();
+		m_widgets.push_back(std::move(newWidget));
+	}
 }
 
 void Editor::init()

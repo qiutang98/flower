@@ -3,11 +3,23 @@
 
 namespace Flower::UIHelper
 {
-	extern void drawVector3(
+	// return true if data change.
+	extern bool drawVector3(
 		const std::string& label,
 		glm::vec3& values,
 		const glm::vec3& resetValue,
 		float labelWidth);
+
+	extern bool drawVector4(
+		const std::string& label,
+		glm::vec4& values,
+		const glm::vec4& resetValue,
+		float labelWidth);
+
+	extern bool drawFloat(
+		const std::string& label,
+		float& values,
+		const float& resetValue);
 
 	extern void helpMarker(const char* desc);
 

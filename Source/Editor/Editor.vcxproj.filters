@@ -93,6 +93,18 @@
     <ClCompile Include="Undo.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="Widgets\AssetInspector.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Widgets\DrawAssetInspector\DrawTextureType.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Widgets\DrawAssetInspector\DrawStaticMeshType.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Widgets\DrawAssetInspector\DrawMaterialType.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Pch.h">
@@ -147,6 +159,12 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="Undo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Widgets\AssetInspector.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Widgets\DrawAssetInspector\DrawAssetInspector.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

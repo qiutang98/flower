@@ -18,6 +18,8 @@ private:
 	WidgetProjectSelect* m_projectSelect;
 	WidgetContentViewer* m_contentViewer;
 	WidgetRenderSetting* m_renderSetting;
+	WidgetAssetInspector* m_assetInspector;
+
 public:
 	void run();
 
@@ -31,6 +33,8 @@ public:
 	auto* getContentViewer() { return m_contentViewer; }
 
 	auto* getRenderSetting() { return m_renderSetting; }
+	auto* getAssetInspector() { return m_assetInspector; }
+
 private:
 	void preInit(const Flower::LauncherInfo& info);
 	void init();

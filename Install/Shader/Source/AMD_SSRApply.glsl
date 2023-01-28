@@ -75,8 +75,6 @@ void main()
     float ao = texture(sampler2D(inGTAO, linearClampEdgeSampler), uv).r * inGbufferSValue.b;
     
     vec4 ssrResult = texelFetch(inSSRIntersection, workPos, 0);
-
-    
     ssrResult.xyz =  getIBLContribution(perceptualRoughness, specularColor, ssrResult.xyz, n, v) * ao;
 
 

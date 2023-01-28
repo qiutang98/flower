@@ -7,7 +7,7 @@
 namespace Flower
 {
 	template<typename T>
-	struct FutureCollection : NonCopyable
+	struct FutureCollection
 	{
 		std::vector<std::future<T>> futures;
 

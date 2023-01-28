@@ -66,6 +66,8 @@ public:
 		}
 	}
 
+	const std::unordered_set<Flower::UUID>& getSelectionAssets() const;
+
 protected:
 	// event init.
 	virtual void onInit() override;

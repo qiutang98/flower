@@ -39,6 +39,8 @@ namespace Flower
 		std::vector<std::shared_ptr<struct AssetLoadTask>> m_uploadTasks;
 		std::vector<std::shared_ptr<LRUAssetInterface>> m_unusedAseets;
 
+		std::atomic<uint64_t> m_runtimeAssetVersion = 0;
+
 	private:
 		void engineAssetInit();
 

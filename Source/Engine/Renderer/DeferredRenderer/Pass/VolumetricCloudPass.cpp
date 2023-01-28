@@ -456,7 +456,7 @@ namespace Flower
                 0, nullptr
             );
 
-            vkCmdDispatch(cmd, getGroupCount(envCapture.getExtent().width, 8), getGroupCount(envCapture.getExtent().height, 8), 6);
+            vkCmdDispatch(cmd, getGroupCount(envCapture.getExtent().width, 8), getGroupCount(envCapture.getExtent().height, 8), 1);
             envCapture.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, captureViewRange);
         }
 

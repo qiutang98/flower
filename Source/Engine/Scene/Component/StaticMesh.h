@@ -2,16 +2,48 @@
 #include "../Component.h"
 #include "../../Renderer/MeshMisc.h"
 #include "../../Renderer/Parameters.h"
+#include "../../AssetSystem/MaterialManager.h"
 
 namespace Flower
 {
 	class SceneNode;
 	class GPUMeshAsset;
 	class StaticMeshAssetHeader;
+	class StandardPBRMaterialHeader;
 
 	class StaticMeshComponent : public Component
 	{
 		friend class cereal::access;
+
+	public:
+		using MaterialHeaderUUID = UUID;
+
+		// SOA for insert and multi thread.
+		struct PerObjectCache
+		{
+			// Cache perobject data.
+			std::vector<GPUPerObjectData> m_cachePerObjectData;
+
+			// Cache perobject data id.
+			std::vector<MaterialHeaderUUID> m_cachePerObjectDataId;
+
+			void clear()
+			{
+				m_cachePerObjectData.clear();
+				m_cachePerObjectDataId.clear();
+			}
+			void resize(size_t i)
+			{
+				m_cachePerObjectData.resize(i);
+				m_cachePerObjectDataId.resize(i);
+			}
+		};
+
+		struct MaterialCache
+		{
+			StandardPBRTexturesHandle handle;
+			std::shared_ptr<StandardPBRMaterialHeader> header;
+		};
 
 	protected:
 		// Mesh already replace?
@@ -26,11 +58,11 @@ namespace Flower
 		// header is optional, some asset no exist header, we store mesh info in gpu mesh asset directly.
 		std::shared_ptr<StaticMeshAssetHeader> m_cacheStaticAssetHeader = nullptr;
 
-		// Cache perobject data.
-		std::vector<GPUPerObjectData> m_cachePerObjectData;
+		// Cache perobject info.
+		PerObjectCache m_perobjectCache;
 
 		// Cache perobject material.
-		std::vector<std::shared_ptr<CPUStaticMeshStandardPBRMaterial>> m_cachePerObjectMaterials;
+		std::map<MaterialHeaderUUID, MaterialCache> m_cachePerObjectMaterials;
 
 #pragma region SerializeField
 	////////////////////////////// Serialize area //////////////////////////////
@@ -81,11 +113,15 @@ namespace Flower
 	private:
 		bool setUUID(const Flower::UUID& in);
 
-		void updateObjectCollectInfo();
+		void updateObjectCollectInfo(const RuntimeModuleTickData* tickData);
 
 		void loadAssetByUUID();
 
 		void clearCache();
+
+		void asyncLoadStateHandle();
+
+		void updateMaterials();
 	};
 
 }

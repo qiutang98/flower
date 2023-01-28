@@ -158,9 +158,8 @@ namespace Flower
 			frame.jitterPeriod = jitterPhaseCount;
 		}
 
-		auto& ibl = RenderSettingManager::get()->ibl;
-		frame.globalIBLEnable = ibl.iblEnable() ? 1u : 0u;
-		frame.globalIBLIntensity = ibl.intensity;
+		frame.globalIBLEnable = 1u;
+		frame.globalIBLIntensity = 1.0f;
 
 		// Fill importance light infos.
 		const auto& importanceLights = renderScene->getImportanceLights();
@@ -216,6 +215,8 @@ namespace Flower
 
 			frame.earthAtmosphere.cloudSpaceViewProject = shadowProj * shadowView;
 			frame.earthAtmosphere.cloudSpaceViewProjectInverse = glm::inverse(frame.earthAtmosphere.cloudSpaceViewProject);
+
+			frame.earthAtmosphere.updateFaceIndex = m_tickCount % 6; // update face index for cloud cubemap capture
 		}
 
 		frameData->buffer.updateData(frame);

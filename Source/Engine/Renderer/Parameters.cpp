@@ -29,7 +29,8 @@ namespace Flower
 		};
 
 		RHI::SamplerManager->createSampler(info, linearId);
-		return GPUStaticMeshStandardPBRMaterial
+
+		GPUStaticMeshStandardPBRMaterial result = 
 		{
 			.baseColorId = EngineTextures::GGreyTextureId,
 			.baseColorSampler = linearId,
@@ -42,68 +43,20 @@ namespace Flower
 			.emissiveTexId = EngineTextures::GTranslucentTextureId,
 			.emissiveSampler = linearId,
 		};
-	}
 
-	bool CPUStaticMeshStandardPBRMaterial::buildWithMaterialUUID(UUID materialId)
-	{
-		// Unvalid materials.
-		if (!AssetRegistryManager::get()->getHeaderMap().contains(materialId))
-		{
-			return true; // always fallback.
-		}
-
-		bool bAllAssetReady = true;
-
-		auto header = std::dynamic_pointer_cast<StandardPBRMaterialHeader>(AssetRegistryManager::get()->getHeaderMap().at(materialId));
-
-		auto loadTex = [&](const UUID& in, std::shared_ptr<GPUImageAsset>& outId)
-		{
-			auto tex = TextureManager::get()->getImage(in);
-			if (tex == nullptr)
-			{
-				auto assetHeader = std::dynamic_pointer_cast<ImageAssetHeader>(AssetRegistryManager::get()->getHeaderMap().at(in));
-				tex = TextureManager::get()->getOrCreateImage(assetHeader);
-			}
-
-			bAllAssetReady &= tex->isAssetReady();
-			outId = tex;
-		};
-
-		loadTex(header->baseColorTexture, baseColor);
-		loadTex(header->normalTexture, normal);
-		loadTex(header->specularTexture, specular);
-		loadTex(header->aoTexture, occlusion);
-		loadTex(header->emissiveTexture, emissive);
-
-		return bAllAssetReady;
-	}
-
-	GPUStaticMeshStandardPBRMaterial CPUStaticMeshStandardPBRMaterial::buildGPU()
-	{
-		// Build fallback first.
-		GPUStaticMeshStandardPBRMaterial result = GPUStaticMeshStandardPBRMaterial::buildDeafult();
-
-		auto loadTex = [&](const std::shared_ptr<GPUImageAsset>& in, uint32_t& outId)
-		{
-			if (in)
-			{
-				if (in->isAssetReady())
-				{
-					outId = in->getReadyAsset()->getBindlessIndex();
-				}
-			}
-		};
-
-		loadTex(baseColor, result.baseColorId);
-		loadTex(normal, result.normalTexId);
-		loadTex(specular, result.specTexId);
-		loadTex(occlusion, result.occlusionTexId);
-		loadTex(emissive, result.emissiveTexId);
+		result.cutoff = 0.5f; 
+		result.faceCut = 0.0f; 
+		result.baseColorMul = glm::vec4{ 1.0f };
+		result.baseColorAdd = glm::vec4{ 0.0f };// x4
+		result.metalMul = 1.0f;
+		result.metalAdd = 0.0f;
+		result.roughnessMul = 1.0f;
+		result.roughnessAdd = 0.0f;// x4
+		result.emissiveMul = glm::vec4{ 1.0f };
+		result.emissiveAdd = glm::vec4{ 0.0f };
 
 		return result;
 	}
-
-
 
 	// An atmosphere layer of width 'width', and whose density is defined as
 	//   'exp_term' * exp('exp_scale' * h) + 'linear_term' * h + 'constant_term',

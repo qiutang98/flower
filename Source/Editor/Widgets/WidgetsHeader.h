@@ -10,3 +10,4 @@
 #include "ProjectSelect.h"
 #include "ContentViewer.h"
 #include "RenderSetting.h"
+#include "AssetInspector.h"

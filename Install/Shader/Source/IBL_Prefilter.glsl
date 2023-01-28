@@ -24,8 +24,8 @@ layout (set = 0, binding = 1) uniform textureCube inHdrCube;
 layout(push_constant) uniform PushConstants
 {
 	float alphaRoughness;
-    int samplesCount;     // 1024
-    float maxBrightValue; // 10.0f
+    int samplesCount;         // 1024
+    float maxBrightValue;     // 1000.0f
     float filterRoughnessMin; // 0.05f
     int updateFaceIndex;
 };
@@ -51,6 +51,8 @@ void main()
     if(alphaRoughness < filterRoughnessMin)
     {
         vec3 sampleColor = textureLod(samplerCube(inHdrCube, linearClampEdgeSampler), N, 0).xyz;
+
+        // NOTE: Smooth surface accumulate may cause flicking hightlight, so don't evaluate this.
         if(bFirstThreadInGroup)
         {
             imageStore(imageCubeEnv, cubeCoord, vec4(sampleColor, 1.0));

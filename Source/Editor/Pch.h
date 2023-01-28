@@ -26,3 +26,5 @@
 #include "../Engine/Scene/SceneArchive.h"
 
 #include "../Engine/Renderer/RenderSettingContext.h"
+#include "../Engine/AssetSystem/MaterialManager.h"
+#include "../Engine/AssetSystem/TextureManager.h"

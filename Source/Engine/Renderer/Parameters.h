@@ -46,7 +46,7 @@ namespace Flower
 		float cloudShadowExtent = 10.0f;
 
 		glm::vec3 camWorldPos; // cameraworld Position, in atmosphere space unit.
-		float pad2;
+		uint32_t updateFaceIndex; // update face index for cloud cubemap capture
 
 		// world space position to cloud space. km is unit, so need to * 0.001 before multi this matrix.
 		glm::mat4 cloudSpaceViewProject;
@@ -203,27 +203,6 @@ namespace Flower
 		float pad1;
 		float pad2;
 	};
-
-	class GPUImageAsset;
-	struct GPUStaticMeshStandardPBRMaterial;
-	struct CPUStaticMeshStandardPBRMaterial
-	{
-		// Material keep image shared reference avoid release.
-		std::shared_ptr<GPUImageAsset> baseColor;
-		std::shared_ptr<GPUImageAsset> normal;
-		std::shared_ptr<GPUImageAsset> specular;
-		std::shared_ptr<GPUImageAsset> occlusion;
-		std::shared_ptr<GPUImageAsset> emissive;
-
-		float cutoff = 0.5f;
-		float faceCut = 0.0f; 
-			// > 1.0f is backface cut, < -1.0f is frontface cut, [-1.0f, 1.0f] is no face cut.
-
-		bool buildWithMaterialUUID(UUID materialId);
-
-		// Return: all material asset load already?
-		GPUStaticMeshStandardPBRMaterial buildGPU();
-	};
 	
 	struct GPUStaticMeshStandardPBRMaterial
 	{
@@ -239,11 +218,21 @@ namespace Flower
 
 		uint32_t emissiveTexId;
 		uint32_t emissiveSampler;
-
 		float cutoff = 0.5f; // base color alpha cut off.
 		float faceCut = 0.0f; // > 1.0f is backface cut, < -1.0f is frontface cut, [-1.0f, 1.0f] is no face cut.
 
 		// x4
+
+		glm::vec4 baseColorMul = glm::vec4{ 1.0f };
+		glm::vec4 baseColorAdd = glm::vec4{ 0.0f };// x4
+
+		float metalMul = 1.0f;
+		float metalAdd = 0.0f;
+		float roughnessMul = 1.0f;
+		float roughnessAdd = 0.0f;// x4
+
+		glm::vec4 emissiveMul = glm::vec4{ 1.0f };
+		glm::vec4 emissiveAdd = glm::vec4{ 0.0f };
 
 		static GPUStaticMeshStandardPBRMaterial buildDeafult();
 	};
