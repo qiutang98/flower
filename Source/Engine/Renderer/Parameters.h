@@ -65,9 +65,9 @@ namespace Flower
 		float cloudSpeed = 0.1f;
 
 		float cloudMultiScatterExtinction = 0.5f;
-		float cloudMultiScatterScatter = 0.5f;
-		float padaa;
-		float padbb;
+		float cloudMultiScatterScatter = 0.3f;
+		float cloudBasicNoiseScale = 0.15f;
+		float cloudDetailNoiseScale = 0.30f;
 
 		void resetAtmosphere();
 		void resetCloud();

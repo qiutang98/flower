@@ -205,8 +205,8 @@ struct EarthAtmosphere // Color space 2020
 
     float cloudMultiScatterExtinction;
     float cloudMultiScatterScatter;
-    float padaa;
-    float padbb;
+    float cloudBasicNoiseScale;
+    float cloudDetailNoiseScale;
 };
 
 struct DirectionalLightInfo

@@ -128,13 +128,13 @@ float cloudMap(vec3 posMeter, float normalizeHeight)  // Meter
     float coverage = saturate(kCoverage * weatherValue.x);
 	float gradienShape = remap(normalizeHeight, 0.00, 0.10, 0.1, 1.0) * remap(normalizeHeight, 0.10, 0.80, 1.0, 0.2);
 
-    float basicNoise = texture(sampler3D(inBasicNoise, linearRepeatSampler), (posKm + windOffset) * vec3(0.1)).r;
+    float basicNoise = texture(sampler3D(inBasicNoise, linearRepeatSampler), (posKm + windOffset) * vec3(frameData.earthAtmosphere.cloudBasicNoiseScale)).r;
     float basicCloudNoise = gradienShape * basicNoise;
 
 	float basicCloudWithCoverage = coverage * remap(basicCloudNoise, 1.0 - coverage, 1, 0, 1);
 
     vec3 sampleDetailNoise = posKm - windOffset * 0.15 + vec3(basicNoise.x, 0.0, basicCloudNoise) * normalizeHeight;
-    float detailNoiseComposite = texture(sampler3D(inWorleyNoise, linearRepeatSampler), sampleDetailNoise * 0.2).r;
+    float detailNoiseComposite = texture(sampler3D(inWorleyNoise, linearRepeatSampler), sampleDetailNoise * frameData.earthAtmosphere.cloudDetailNoiseScale).r;
 	float detailNoiseMixByHeight = 0.2 * mix(detailNoiseComposite, 1 - detailNoiseComposite, saturate(normalizeHeight * 10.0));
     
     float densityShape = saturate(0.01 + normalizeHeight * 1.15) * kDensity *

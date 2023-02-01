@@ -108,6 +108,10 @@ void ComponentDrawer::drawSunSky(std::shared_ptr<SceneNode> node)
 			ImGui::DragFloat("cloud max tracing start distance", &earthAtmosphere.cloudTracingStartMaxDistance, 1.0f, 300.0f, 500.0f);
 			
 			ImGui::SliderFloat2("Wether UV scale", &earthAtmosphere.cloudWeatherUVScale.x, 0.0f, 0.01f);
+
+			ImGui::DragFloat("basic noise scale", &earthAtmosphere.cloudBasicNoiseScale, 0.01f, 0.0f, 1.0f);
+			ImGui::DragFloat("detail noise scale", &earthAtmosphere.cloudDetailNoiseScale, 0.01f, 0.0f, 1.0f);
+
 			ImGui::DragFloat("cloud sun light scale", &earthAtmosphere.cloudShadingSunLightScale, 0.1f, 0.1f, 10.0f);
 
 

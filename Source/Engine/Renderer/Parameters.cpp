@@ -163,7 +163,10 @@ namespace Flower
 		inAtmosphere.cloudSpeed = 0.1f;
 
 		inAtmosphere.cloudMultiScatterExtinction = 0.5f;
-		inAtmosphere.cloudMultiScatterScatter = 0.5f;
+		inAtmosphere.cloudMultiScatterScatter = 0.3f;
+
+		inAtmosphere.cloudBasicNoiseScale = 0.15f;
+		inAtmosphere.cloudDetailNoiseScale = 0.30f;
 	}
 
 }
