@@ -202,6 +202,11 @@ struct EarthAtmosphere // Color space 2020
 
     vec3 cloudDirection;
     float cloudSpeed;
+
+    float cloudMultiScatterExtinction;
+    float cloudMultiScatterScatter;
+    float padaa;
+    float padbb;
 };
 
 struct DirectionalLightInfo
@@ -807,9 +812,10 @@ vec3 curve(vec3 x)
 	return x * x * (3.0 - 2.0 * x);
 }
 
+// Luminance for srgb colorspace.
 float lumaSRGB(vec3 c)
 {
-    return 0.212 * c.r + 0.701 * c.g + 0.087 * c.b;
+    return 0.2125 * c.r + 0.7154 * c.g + 0.0721 * c.b;
 }
 
 #endif

@@ -84,6 +84,14 @@ layout (set = 2, binding = 0) uniform UniformFrame { FrameData frameData; };
 #define kShadowLightStepBasicLen 0.167
 #define kShadowLightStepMul 1.1
 
+#define kMsCount 2
+
+struct ParticipatingMedia
+{
+	float extinctionCoefficients[kMsCount];
+    float transmittanceToLight[kMsCount];
+};
+
 /////////////////////////////////////////////////////
 ////////////////////////////////////////////////////
 // Cloud shape.
@@ -158,6 +166,7 @@ float multiPhase(float VoL)
 	return phases;
 }
 
+
 float powder(float opticalDepth)
 {
 	return 1.0 - exp2(-opticalDepth * 2.0);
@@ -187,8 +196,21 @@ vec3 lookupSkylight(vec3 worldDir, vec3 worldPos, float viewHeight, vec3 upVecto
     return skyPrepareOut(luminance, atmosphere, frameData, vec2(workPos));
 }
 
-float volumetricShadow(vec3 posKm, float cosTheta, vec3 sunDirection, in const AtmosphereParameters atmosphere)
+ParticipatingMedia volumetricShadow(vec3 posKm, float cosTheta, vec3 sunDirection, in const AtmosphereParameters atmosphere)
 {
+    ParticipatingMedia participatingMedia;
+
+	int ms = 0;
+
+	float extinctionAccumulation[kMsCount];
+    float extinctionCoefficients[kMsCount];
+
+	for (ms = 0; ms < kMsCount; ms++)
+	{
+		extinctionAccumulation[ms] = 0.0f;
+        extinctionCoefficients[ms] = 0.0f;
+	}
+
     const float kStepLMul = kShadowLightStepMul;
     const int kStepLight = kShadowLightStepNum;
     float stepL = kShadowLightStepBasicLen; // km
@@ -196,7 +218,6 @@ float volumetricShadow(vec3 posKm, float cosTheta, vec3 sunDirection, in const A
     float d = stepL * 0.5;
 
 	// Collect total density along light ray.
-    float intensitySum = 0.0;
 	for(int j = 0; j < kStepLight; j++)
     {
         vec3 samplePosKm = posKm + sunDirection * d; // km
@@ -213,21 +234,87 @@ float volumetricShadow(vec3 posKm, float cosTheta, vec3 sunDirection, in const A
         float normalizeHeight = sampleDt / atmosphere.cloudAreaThickness;
         vec3 samplePosMeter = samplePosKm * 1000.0f;
 
-        float intensity = cloudMap(samplePosMeter, normalizeHeight);
-        intensitySum += intensity * stepL;
+        extinctionCoefficients[0] = cloudMap(samplePosMeter, normalizeHeight);
+        extinctionAccumulation[0] += extinctionCoefficients[0] * stepL;
+
+        float MsExtinctionFactor = frameData.earthAtmosphere.cloudMultiScatterExtinction;
+        for (ms = 1; ms < kMsCount; ms++)
+		{
+            extinctionCoefficients[ms] = extinctionCoefficients[ms - 1] * MsExtinctionFactor;
+            MsExtinctionFactor *= MsExtinctionFactor;
+
+			extinctionAccumulation[ms] += extinctionCoefficients[ms] * stepL;
+		}
 
         d += stepL;
         stepL *= kStepLMul;
 	}
 
-    // To meter.
-    float intensityMeter = intensitySum * 1000.0;
+    for (ms = 0; ms < kMsCount; ms++)
+	{
+		participatingMedia.transmittanceToLight[ms] = exp(-extinctionAccumulation[ms] * 1000.0); // to meter.
+	}
 
-    float beersLambert = exp(-intensityMeter);
+    return participatingMedia;
+}
 
-	return beersLambert; // * mix(1.0, powder, smoothstep(0.5, -0.5, cosTheta));
+const uint kGroundContributionSampleCount = 2;
 
-    // float upperMask = saturate(1.0 - intensityMeter);
+vec3 getVolumetricGroundContribution(
+    in AtmosphereParameters atmosphere, 
+    vec3 posKm, 
+    vec3 sunDirection, 
+    vec3 sunIlluminance, 
+    vec3 atmosphereTransmittanceToLight,
+    float posNormalizeHeight)
+{
+    const vec3 groundScatterDirection = vec3(0.0, -1.0, 0.0); // Y down.
+    const vec3 planetSurfaceNormal    = vec3(0.0,  1.0, 0.0); // Ambient contribution from the clouds is only done on a plane above the planet
+
+    const vec3 groundBrdfNdotL = saturate(dot(sunDirection, planetSurfaceNormal)) * (atmosphere.groundAlbedo / kPI); // Lambert BRDF diffuse shading
+	const float uniformPhase = getUniformPhase();
+	const float groundHemisphereLuminanceIsotropic = (2.0f * kPI) * uniformPhase; // Assumes the ground is uniform luminance to the cloud and solid angle is bottom hemisphere 2PI
+	const vec3 groundToCloudTransfertIsoScatter = groundBrdfNdotL * groundHemisphereLuminanceIsotropic;
+
+	float cloudSampleHeightToBottom = posNormalizeHeight * atmosphere.cloudAreaThickness; // Distance from altitude to bottom of clouds
+	
+    
+	vec3 opticalDepth = vec3(0.0); // km.
+	
+	const float contributionStepLength = min(4.0, cloudSampleHeightToBottom); // km
+	
+    // Ground Contribution tracing loop, same idea as volumetric shadow
+	const uint sampleCount = kGroundContributionSampleCount;
+	const float sampleSegmentT = 0.5f;
+	for (uint s = 0; s < sampleCount; s ++)
+	{
+		// More expensive but artefact free
+		float t0 = float(s) / float(sampleCount);
+		float t1 = float(s + 1.0) / float(sampleCount);
+
+		// Non linear distribution of sample within the range.
+		t0 = t0 * t0;
+		t1 = t1 * t1;
+
+		float delta = t1 - t0; // 5 samples: 0.04, 0.12, 0.2, 0.28, 0.36		
+		float t = t0 + (t1 - t0) * sampleSegmentT; // 5 samples: 0.02, 0.1, 0.26, 0.5, 0.82
+
+		float contributionSampleT = contributionStepLength * t; // km
+		vec3 samplePosKm = posKm + groundScatterDirection * contributionSampleT; // Km
+
+        float sampleHeightKm = length(samplePosKm);
+        float sampleDt = sampleHeightKm - atmosphere.cloudAreaStartHeight;
+
+        float normalizeHeight = sampleDt / atmosphere.cloudAreaThickness;
+
+        vec3 samplePosMeter = samplePosKm * 1000.0f;
+        float stepCloudDensity = cloudMap(samplePosMeter, normalizeHeight);
+
+		opticalDepth += stepCloudDensity * delta;
+	}
+	
+	const vec3 scatteredLuminance = atmosphereTransmittanceToLight * sunIlluminance * groundToCloudTransfertIsoScatter;
+	return scatteredLuminance * exp(-opticalDepth * contributionStepLength * 1000.0); // to meter.
 }
 
 vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ, ivec2 workPos, vec3 worldDir)
@@ -381,9 +468,10 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ, ivec2 workP
             }
 
             // beer's lambert.
-        #if 0
+        #if 1
             float stepTransmittance = exp(-opticalDepth); 
         #else
+            // Siggraph 2017's new step transmittance formula.
             float stepTransmittance = max(exp(-opticalDepth), exp(-opticalDepth * 0.25) * 0.7); 
         #endif
 
@@ -409,27 +497,65 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ, ivec2 workP
             vec3 ambientLight = mix(cloudBottomSkyLight, cloudTopSkyLight, normalizeHeight);
         #endif
 
-            vec3 lightTerm;
-            {
-                // Amount of sunlight that reaches the sample point through the cloud 
-                // is the combination of ambient light and attenuated direct light.
-                vec3 sunLit = frameData.earthAtmosphere.cloudShadingSunLightScale * sunColor; 
+        #if 0
+            ambientLight += getVolumetricGroundContribution(
+                atmosphere, 
+                samplePos, 
+                sunDirection, 
+                sunColor, 
+                atmosphereTransmittance,
+                normalizeHeight
+            );
+        #endif
 
-                lightTerm = ambientLight + sunLit;
-            }
+            // Amount of sunlight that reaches the sample point through the cloud 
+            // is the combination of ambient light and attenuated direct light.
+            vec3 sunlightTerm = frameData.earthAtmosphere.cloudShadingSunLightScale * sunColor; 
 
-            float visibilityTerm = volumetricShadow(samplePos, cosTheta, sunDirection, atmosphere);
+            ParticipatingMedia participatingMedia = volumetricShadow(samplePos, cosTheta, sunDirection, atmosphere);
 
             float sigmaS = stepCloudDensity;
             float sigmaE = sigmaS + 1e-4f;
+
+            vec3 scatteringCoefficients[kMsCount];
+            float extinctionCoefficients[kMsCount];
+
+            vec3 albedo = vec3(powderEffectTerm);
+
+            scatteringCoefficients[0] = sigmaS * albedo;
+            extinctionCoefficients[0] = sigmaE;
+
+            float MsExtinctionFactor = frameData.earthAtmosphere.cloudMultiScatterExtinction;
+            float MsScatterFactor    = frameData.earthAtmosphere.cloudMultiScatterScatter;
+            int ms;
+            for (ms = 1; ms < kMsCount; ms++)
+            {
+                extinctionCoefficients[ms] = extinctionCoefficients[ms - 1] * MsExtinctionFactor;
+                scatteringCoefficients[ms] = scatteringCoefficients[ms - 1] * MsScatterFactor;
+
+                MsExtinctionFactor *= MsExtinctionFactor;
+                MsScatterFactor *= MsScatterFactor;
+            }
+
+
+            for (ms = kMsCount - 1; ms >= 0; ms--) // Should terminate at 0
+            {
+                float sunVisibilityTerm = participatingMedia.transmittanceToLight[ms];
+
+                vec3 sunSkyLuminance = sunVisibilityTerm * sunlightTerm * phase;
+                sunSkyLuminance += (ms == 0 ? ambientLight : vec3(0.0, 0.0, 0.0));
+
+                vec3 sactterLitStep = sunSkyLuminance * scatteringCoefficients[ms];
+
+                // See slide 28 at http://www.frostbite.com/2015/08/physically-based-unified-volumetric-rendering-in-frostbite/
+                scatteredLight += atmosphereTransmittance * transmittance * (sactterLitStep - sactterLitStep * stepTransmittance) / max(1e-4f, extinctionCoefficients[ms]);
             
-            vec3 sactterLitStep = (ambientLight + visibilityTerm * lightTerm * phase * powderEffectTerm) * sigmaS;
-
-            // See slide 28 at http://www.frostbite.com/2015/08/physically-based-unified-volumetric-rendering-in-frostbite/
-            scatteredLight += atmosphereTransmittance * transmittance * (sactterLitStep - sactterLitStep * stepTransmittance) / sigmaE;
-
-            // Beer's law.
-            transmittance *= stepTransmittance;
+                if(ms == 0)
+                {
+                    // Beer's law.
+                    transmittance *= stepTransmittance;
+                }
+            }
         }
 
         if(transmittance <= 0.001)

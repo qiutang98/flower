@@ -165,24 +165,17 @@ void main()
     colorSrgb.y = uchimuraTonemapper(colorSrgb.y, P, a, m, l, c, b);
     colorSrgb.z = uchimuraTonemapper(colorSrgb.z, P, a, m, l, c, b);
 
-
+    // apply saturation in srgb space.
+    colorSrgb = applySaturationSRGB(colorSrgb, saturation);
 
     vec3 mappingColor;
     if(bSrgb) // Gamma encode srgb
     {
         // OETF = gamma(1.0/2.2)
         mappingColor.xyz = encodeSRGB(colorSrgb.xyz);
-
-        // Gamma space color suit.
-
-        // apply saturation in gamma space.
-        mappingColor = applySaturationSRGB(mappingColor, saturation);
     }   
     else // PQ encode BT2020.
     {
-        // Gamma space color suit.
-        colorSrgb = applySaturationSRGB(colorSrgb, saturation);
-
         // Scale factor for converting pixel values to nits. 
         // This value is required for PQ (ST2084) conversions, because PQ linear values are in nits. 
         // The purpose is to make good use of PQ lut entries. A scale factor of 100 conveniently places 

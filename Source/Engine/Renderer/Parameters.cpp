@@ -161,6 +161,9 @@ namespace Flower
 
 		inAtmosphere.cloudDirection = glm::normalize(glm::vec3{ 0.8, 0.2, 0.4 });
 		inAtmosphere.cloudSpeed = 0.1f;
+
+		inAtmosphere.cloudMultiScatterExtinction = 0.5f;
+		inAtmosphere.cloudMultiScatterScatter = 0.5f;
 	}
 
 }

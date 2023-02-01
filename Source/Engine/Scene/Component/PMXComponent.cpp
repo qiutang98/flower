@@ -127,6 +127,11 @@ namespace Flower
 
 		// Load all material's texture.
 
+		auto isFileExist = [](const std::string& path)
+		{
+			return std::filesystem::exists(path) && !std::filesystem::is_directory(path);
+		};
+
 		for (size_t i = 0; i < matCount; i++)
 		{
 			saba::MMDMaterial matMMD = materials[i];
@@ -136,7 +141,7 @@ namespace Flower
 			CHECK(workingMat.material.m_enName == matMMD.m_enName);
 
 			// texture.
-			if (!matMMD.m_texture.empty() && std::filesystem::exists(matMMD.m_texture) 
+			if (!matMMD.m_texture.empty() && isFileExist(matMMD.m_texture)
 				&& !texLoaded.contains(matMMD.m_texture) && !TextureManager::get()->isAssetExist(matMMD.m_texture))
 			{
 				auto task = RawAssetTextureLoadTask::build(
@@ -149,7 +154,7 @@ namespace Flower
 			}
 
 			// Sp texture.
-			if (!matMMD.m_spTexture.empty() && std::filesystem::exists(matMMD.m_spTexture)
+			if (!matMMD.m_spTexture.empty() && isFileExist(matMMD.m_spTexture)
 				&& !texLoaded.contains(matMMD.m_spTexture) && !TextureManager::get()->isAssetExist(matMMD.m_spTexture))
 			{
 				auto task = RawAssetTextureLoadTask::build(
@@ -162,7 +167,7 @@ namespace Flower
 			}
 
 			// toon texture.
-			if (!matMMD.m_toonTexture.empty() && std::filesystem::exists(matMMD.m_toonTexture)
+			if (!matMMD.m_toonTexture.empty() && isFileExist(matMMD.m_toonTexture)
 				&& !texLoaded.contains(matMMD.m_toonTexture) && !TextureManager::get()->isAssetExist(matMMD.m_toonTexture))
 			{
 				auto task = RawAssetTextureLoadTask::build(
@@ -188,7 +193,7 @@ namespace Flower
 			const uint32_t fallbackWhite = TextureManager::get()->getImage(EngineTextures::GWhiteTextureUUID).get()->getBindlessIndex();
 
 			// texture.
-			if (!matMMD.m_texture.empty() && std::filesystem::exists(matMMD.m_texture))
+			if (!matMMD.m_texture.empty() && isFileExist(matMMD.m_texture))
 			{
 				workingMat.mmdTex = TextureManager::get()->getImage(matMMD.m_texture).get()->getBindlessIndex();
 			}
@@ -199,7 +204,7 @@ namespace Flower
 			}
 
 			// Sp texture.
-			if (!matMMD.m_spTexture.empty() && std::filesystem::exists(matMMD.m_spTexture))
+			if (!matMMD.m_spTexture.empty() && isFileExist(matMMD.m_spTexture))
 			{
 				workingMat.mmdSphereTex = TextureManager::get()->getImage(matMMD.m_spTexture).get()->getBindlessIndex();
 			}
@@ -210,7 +215,7 @@ namespace Flower
 			}
 
 			// toon texture.
-			if (!matMMD.m_toonTexture.empty() && std::filesystem::exists(matMMD.m_toonTexture))
+			if (!matMMD.m_toonTexture.empty() && isFileExist(matMMD.m_toonTexture))
 			{
 				workingMat.mmdToonTex = TextureManager::get()->getImage(matMMD.m_toonTexture).get()->getBindlessIndex();
 			}

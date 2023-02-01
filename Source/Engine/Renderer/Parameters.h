@@ -64,6 +64,11 @@ namespace Flower
 		glm::vec3 cloudDirection = { 1.0, 0.0, 0.0};
 		float cloudSpeed = 0.1f;
 
+		float cloudMultiScatterExtinction = 0.5f;
+		float cloudMultiScatterScatter = 0.5f;
+		float padaa;
+		float padbb;
+
 		void resetAtmosphere();
 		void resetCloud();
 
