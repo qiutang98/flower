@@ -65,9 +65,17 @@ namespace Flower
 		float cloudSpeed = 0.1f;
 
 		float cloudMultiScatterExtinction = 0.5f;
-		float cloudMultiScatterScatter = 0.3f;
+		float cloudMultiScatterScatter = 0.75f;
 		float cloudBasicNoiseScale = 0.15f;
 		float cloudDetailNoiseScale = 0.30f;
+
+		glm::vec3  cloudAlbedo = {1.0f , 1.0f, 1.0f};
+		float cloudPhaseForward = 0.5f;
+
+		float cloudPhaseBackward = -0.5f;
+		float cloudPhaseMixFactor = 0.2f;
+		float cloudPowderScale = 20.0f;
+		float cloudPowderPow = 0.5f;
 
 		void resetAtmosphere();
 		void resetCloud();

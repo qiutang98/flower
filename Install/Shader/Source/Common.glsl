@@ -207,6 +207,15 @@ struct EarthAtmosphere // Color space 2020
     float cloudMultiScatterScatter;
     float cloudBasicNoiseScale;
     float cloudDetailNoiseScale;
+
+    vec3  cloudAlbedo;
+    float cloudPhaseForward;
+
+    float cloudPhaseBackward;
+    float cloudPhaseMixFactor;
+    float cloudPowderScale;
+    float cloudPowderPow;
+
 };
 
 struct DirectionalLightInfo

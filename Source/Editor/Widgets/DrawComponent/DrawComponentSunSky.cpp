@@ -122,6 +122,14 @@ void ComponentDrawer::drawSunSky(std::shared_ptr<SceneNode> node)
 			ImGui::DragFloat("Multi-Scatter", &earthAtmosphere.cloudMultiScatterScatter, 0.1f, 0.0f, 1.0f);
 			ImGui::DragFloat("Multi-Extinction", &earthAtmosphere.cloudMultiScatterExtinction, 0.1f, 0.0f, 1.0f);
 
+			ImGui::DragFloat("cloudPhaseForward", &earthAtmosphere.cloudPhaseForward, 0.01f, 0.01f, 0.99f);
+			ImGui::DragFloat("cloudPhaseBackward", &earthAtmosphere.cloudPhaseBackward, 0.01f, -0.99f, -0.01f);
+			ImGui::DragFloat("cloudPhaseMixFactor", &earthAtmosphere.cloudPhaseMixFactor, 0.01f, 0.01f, 0.99f);
+			ImGui::DragFloat("cloudPowderScale", &earthAtmosphere.cloudPowderScale, 0.1f, 0.01f, 100.0f);
+			ImGui::DragFloat("cloudPowderPow", &earthAtmosphere.cloudPowderPow, 0.1f, 0.01f, 10.0f);
+
+			ImGui::ColorPicker3("CloudAlbedo", &earthAtmosphere.cloudAlbedo.x, ImGuiColorEditFlags_Float);
+
 			ImGui::Spacing();
 			ImGui::PopItemWidth();
 		}

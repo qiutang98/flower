@@ -149,23 +149,27 @@ float cloudMap(vec3 posMeter, float normalizeHeight)  // Meter
 // Cloud shape end.
 ////////////////////////////////////////////////////////////////////////////////////////
 
-float multiPhase(float VoL)
+struct ParticipatingMediaPhase
 {
-	float forwardG  =  0.8;
-	float backwardG = -0.2;
+	float phase[kMsCount];
+};
 
-	float phases = 0.0;
+ParticipatingMediaPhase getParticipatingMediaPhase(float basePhase, float baseMsPhaseFactor)
+{
+	ParticipatingMediaPhase participatingMediaPhase;
+	participatingMediaPhase.phase[0] = basePhase;
 
-	float c = 1.0;
-    for (int i = 0; i < 4; i++)
-    {
-        phases += mix(hgPhase(backwardG * c, VoL), hgPhase(forwardG * c, VoL), 0.5) * c;
-        c *= 0.5;
-    }
+	const float uniformPhase = getUniformPhase();
+	float MsPhaseFactor = baseMsPhaseFactor;
+	
+	for (int ms = 1; ms < kMsCount; ms++)
+	{
+		participatingMediaPhase.phase[ms] = mix(uniformPhase, participatingMediaPhase.phase[0], MsPhaseFactor);
+		MsPhaseFactor *= MsPhaseFactor;
+	}
 
-	return phases;
+	return participatingMediaPhase;
 }
-
 
 float powder(float opticalDepth)
 {
@@ -416,7 +420,9 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ, ivec2 workP
 
     // Combine backward and forward scattering to have details in all directions.
     const float cosTheta = -VoL;
-    float phase = multiPhase(cosTheta);
+    float phase = dualLobPhase(frameData.earthAtmosphere.cloudPhaseForward, frameData.earthAtmosphere.cloudPhaseBackward, frameData.earthAtmosphere.cloudPhaseMixFactor, cosTheta);
+
+    ParticipatingMediaPhase participatingMediaPhase = getParticipatingMediaPhase(phase, frameData.earthAtmosphere.cloudPhaseMixFactor);
 
     float transmittance  = 1.0;
     vec3 scatteredLight = vec3(0.0, 0.0, 0.0);
@@ -487,7 +493,7 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ, ivec2 workP
                 powderEffectTerm = depthProbability * verticalProbability; //powder(opticalDepth * 2.0);
             #else
                 // Unreal engine 5's implement powder formula.
-                powderEffectTerm = pow(saturate(opticalDepth * 20.0), 0.5);
+                powderEffectTerm = pow(saturate(opticalDepth * frameData.earthAtmosphere.cloudPowderScale), frameData.earthAtmosphere.cloudPowderPow);
             #endif
             }
 
@@ -520,7 +526,7 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ, ivec2 workP
             vec3 scatteringCoefficients[kMsCount];
             float extinctionCoefficients[kMsCount];
 
-            vec3 albedo = vec3(powderEffectTerm);
+            vec3 albedo = frameData.earthAtmosphere.cloudAlbedo * vec3(powderEffectTerm);
 
             scatteringCoefficients[0] = sigmaS * albedo;
             extinctionCoefficients[0] = sigmaE;
@@ -542,7 +548,7 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ, ivec2 workP
             {
                 float sunVisibilityTerm = participatingMedia.transmittanceToLight[ms];
 
-                vec3 sunSkyLuminance = sunVisibilityTerm * sunlightTerm * phase;
+                vec3 sunSkyLuminance = sunVisibilityTerm * sunlightTerm * participatingMediaPhase.phase[ms];
                 sunSkyLuminance += (ms == 0 ? ambientLight : vec3(0.0, 0.0, 0.0));
 
                 vec3 sactterLitStep = sunSkyLuminance * scatteringCoefficients[ms];
