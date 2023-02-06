@@ -50,8 +50,11 @@ void main()
     vec3 viewSpaceDir = viewPosH.xyz / viewPosH.w;
     vec3 worldDir = normalize((viewData.camInvertView * vec4(viewSpaceDir, 0.0)).xyz);
 
+
+    AtmosphereParameters atmosphere = getAtmosphereParameters(frameData);
+
     float depth = 0.0; // reverse z.
-    vec4 cloudColor = cloudColorCompute(uv, blueNoise, depth, workPos, worldDir);
+    vec4 cloudColor = cloudColorCompute(atmosphere, uv, blueNoise, depth, workPos, worldDir);
 
 	imageStore(imageCloudRenderTexture, workPos, cloudColor);
     imageStore(imageCloudDepthTexture, workPos, vec4(depth));

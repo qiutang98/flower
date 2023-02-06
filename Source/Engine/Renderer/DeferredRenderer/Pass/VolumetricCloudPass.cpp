@@ -54,6 +54,8 @@ namespace Flower
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, GCommonShaderStage, 24) // inCloudBottom
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, GCommonShaderStage, 25) // inCloudTop
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, GCommonShaderStage, 26) // inSkyView
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, GCommonShaderStage, 27) // inSDSMShadowDepth
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, GCommonShaderStage, 28) // SSBOCascadeInfoBuffer
                 .buildNoInfoPush(setLayout);
 
             std::vector<VkDescriptorSetLayout> setLayouts =
@@ -352,6 +354,16 @@ namespace Flower
         VkDescriptorImageInfo hisRecInfo = RHIDescriptorImageInfoSample(m_cloudReconstruction->getImage().getView(buildBasicImageSubresource()));
         VkDescriptorImageInfo hisRecDepthInfo = RHIDescriptorImageInfoSample(m_cloudReconstructionDepth->getImage().getView(buildBasicImageSubresource()));
 
+
+        auto& sdsmShadowDepth = 
+            (m_cacheFrameData.bSdsmDraw > 0 && inTextures->isSDSMDepthExist()) ? 
+            inTextures->getSDSMDepth()->getImage() : 
+            inTextures->getDepth()->getImage();
+        auto cascadeInfoBuffer = scene->getCascadeInfoPtr();
+
+        VkDescriptorImageInfo sdsmDepthInfo = RHIDescriptorImageInfoSample(sdsmShadowDepth.getView(RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT)));
+        VkDescriptorBufferInfo cascadeBufferInfo = VkDescriptorBufferInfo{ .buffer = cascadeInfoBuffer->buffer.getBuffer()->getVkBuffer(), .offset = 0, .range = cascadeInfoBuffer->buffer.getBuffer()->getSize() };
+
         std::vector<VkWriteDescriptorSet> writes
         {
             RHIPushWriteDescriptorSetImage(0,  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &hdrSceneColorImageInfo),
@@ -381,6 +393,8 @@ namespace Flower
             RHIPushWriteDescriptorSetImage(24,  VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &skyViewLutInfoBottom),
             RHIPushWriteDescriptorSetImage(25,  VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &skyViewLutInfoTop),
             RHIPushWriteDescriptorSetImage(26,  VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &skyViewLutInfo),
+            RHIPushWriteDescriptorSetImage(27, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &sdsmDepthInfo),
+            RHIPushWriteDescriptorSetBuffer(28, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &cascadeBufferInfo),
         };
 
         std::vector<VkDescriptorSet> compPassSets =

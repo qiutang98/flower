@@ -53,6 +53,9 @@ layout (set = 0, binding = 24) uniform texture2D inCloudSkyViewLutBottom;
 layout (set = 0, binding = 25) uniform texture2D inCloudSkyViewLutTop;
 layout (set = 0, binding = 26) uniform texture2D inSkyViewLut;
 
+layout (set = 0, binding = 27) uniform texture2D inSDSMShadowDepth;
+layout (set = 0, binding = 28) buffer SSBOCascadeInfoBuffer{ CascadeInfo cascadeInfos[]; };
+
 // Other common set.
 layout (set = 1, binding = 0) uniform UniformView  { ViewData  viewData;  };
 layout (set = 2, binding = 0) uniform UniformFrame { FrameData frameData; };
@@ -77,12 +80,18 @@ layout (set = 2, binding = 0) uniform UniformFrame { FrameData frameData; };
 #define kSampleCountMin 2
 #define kSampleCountMax 96
 
-// Max sample count per distance. 15 tap/km
-#define kCloudDistanceToSampleMaxCount (1.0 / 15.0)
+// Max sample count per distance. 16 tap/km
+#define kCloudDistanceToSampleMaxCount (1.0 / 16.0)
 
-#define kShadowLightStepNum 6
+// 8/10/12/16
+#define kShadowLightStepNum 16
 #define kShadowLightStepBasicLen 0.167
-#define kShadowLightStepMul 1.1
+#define kShadowLightStepMul 1.05
+
+#define ENABLE_GROUND_CONTRIBUTION 0
+#define kGroundContributionSampleCount 2
+
+#define kVolumetricLightSteps 6
 
 #define kMsCount 2
 
@@ -262,7 +271,7 @@ ParticipatingMedia volumetricShadow(vec3 posKm, float cosTheta, vec3 sunDirectio
     return participatingMedia;
 }
 
-const uint kGroundContributionSampleCount = 2;
+
 
 vec3 getVolumetricGroundContribution(
     in AtmosphereParameters atmosphere, 
@@ -321,10 +330,8 @@ vec3 getVolumetricGroundContribution(
 	return scatteredLuminance * exp(-opticalDepth * contributionStepLength * 1000.0); // to meter.
 }
 
-vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ, ivec2 workPos, vec3 worldDir)
+vec4 cloudColorCompute(in const AtmosphereParameters atmosphere, vec2 uv, float blueNoise, inout float cloudZ, ivec2 workPos, vec3 worldDir)
 {
-    AtmosphereParameters atmosphere = getAtmosphereParameters(frameData);
-
     // Get camera in atmosphere unit position, it will treat as ray start position.
     vec3 worldPos = convertToAtmosphereUnit(viewData.camWorldPos.xyz, viewData) + vec3(0.0, atmosphere.bottomRadius, 0.0);
 
@@ -431,8 +438,6 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ, ivec2 workP
     vec3 rayHitPos = vec3(0.0);
     float rayHitPosWeight = 0.0;
 
-
-
     // Skylight lookup between top and bottom sky. mix by height.
     // 
     vec3 cloudTopSkyLight     = lookupSkylight(worldDir, vec3(0.0, atmosphere.cloudAreaStartHeight + atmosphere.cloudAreaThickness, 0.0), atmosphere.cloudAreaStartHeight + atmosphere.cloudAreaThickness, vec3(0.0, 1.0, 0.0), workPos, atmosphere, inCloudSkyViewLutTop);
@@ -503,7 +508,7 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ, ivec2 workP
             vec3 ambientLight = mix(cloudBottomSkyLight, cloudTopSkyLight, normalizeHeight);
         #endif
 
-        #if 0
+        #if ENABLE_GROUND_CONTRIBUTION
             ambientLight += getVolumetricGroundContribution(
                 atmosphere, 
                 samplePos, 
@@ -538,11 +543,10 @@ vec4 cloudColorCompute(vec2 uv, float blueNoise, inout float cloudZ, ivec2 workP
             {
                 extinctionCoefficients[ms] = extinctionCoefficients[ms - 1] * MsExtinctionFactor;
                 scatteringCoefficients[ms] = scatteringCoefficients[ms - 1] * MsScatterFactor;
-
+                
                 MsExtinctionFactor *= MsExtinctionFactor;
-                MsScatterFactor *= MsScatterFactor;
+                MsScatterFactor    *= MsScatterFactor;
             }
-
 
             for (ms = kMsCount - 1; ms >= 0; ms--) // Should terminate at 0
             {

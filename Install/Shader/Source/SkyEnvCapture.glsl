@@ -33,7 +33,8 @@ void main()
     float depth = 0.0;
     vec3 worldDir = getSamplingVector(cubeCoord.z, uv);
     
-    vec4 cloudColor = cloudColorCompute(uv, 0.0f, depth, cubeCoord.xy, worldDir);
+    AtmosphereParameters atmosphere = getAtmosphereParameters(frameData);
+    vec4 cloudColor = cloudColorCompute(atmosphere, uv, 0.0f, depth, cubeCoord.xy, worldDir);
 
     vec4 srcColor = imageLoad(imageCubeEnv, cubeCoord);
     cloudColor = vec4(mix(srcColor.rgb, cloudColor.rgb, 1.0 - cloudColor.a), srcColor.a);

@@ -13,6 +13,10 @@
 #include "RayCommon.glsl"
 #include "PoissonDisk.glsl"
 
+// Current don't use depth gather. Fetch is enough.
+#define SHADOW_DEPTH_GATHER 0
+#include "ShadowCommon.glsl"
+
 layout (set = 1, binding = 0) uniform UniformView { ViewData viewData; };
 layout (set = 2, binding = 0) uniform UniformFrame { FrameData frameData; };
 
@@ -22,9 +26,6 @@ layout (set = 2, binding = 0) uniform UniformFrame { FrameData frameData; };
 #define BLUE_NOISE_TEXTURE_SET 4
 #define BLUE_NOISE_BUFFER_SET 5
 #include "BlueNoiseCommon.glsl"
-
-// Current don't use depth gather. Fetch is enough.
-#define SHADOW_DEPTH_GATHER 0
 
 // We use blue noise offset sample position.
 #define BLUE_NOISE_OFFSET   1
@@ -37,53 +38,6 @@ layout (set = 2, binding = 0) uniform UniformFrame { FrameData frameData; };
     const uint kShadowSampleCount = 12;
     #define poissonDisk kPoissonDisk_12
 #endif
-
-// Surface normal based bias, see https://learn.microsoft.com/en-us/windows/win32/dxtecharts/cascaded-shadow-maps for more details.
-vec3 biasNormalOffset(vec3 N, float NoL, float texelSize)
-{
-    return N * clamp(1.0f - NoL, 0.0f, 1.0f) * texelSize * 30.0f;
-}
-
-// Auto bias by cacsade and NoL, some magic number here.
-float autoBias(float NoL, float biasMul)
-{
-    return 6e-4f + (1.0f - NoL) * biasMul * 1e-4f;
-}
-
-// Depth Aware Contact harden pcf. See GDC2021: "Shadows of Cold War" for tech detail.
-// Use cache occluder dist to fit one curve similar to tonemapper, to get some effect like pcss.
-// can reduce tiny acne natively.
-float contactHardenPCFKernal(
-    in const DirectionalLightInfo light, 
-    const float occluders, 
-    const float occluderDistSum, 
-    const float compareDepth)
-{
-    // Normalize occluder dist.
-    float occluderAvgDist = occluderDistSum / occluders;
-
-#if SHADOW_DEPTH_GATHER
-    float w = 1.0f / (4 * kShadowSampleCount); // We gather 4 pixels.
-#else
-    float w = 1.0f / (1 * kShadowSampleCount); 
-#endif
-    
-    float pcfWeight = clamp(occluderAvgDist / compareDepth, 0.0, 1.0);
-    
-    // Normalize occluders.
-    float percentageOccluded = clamp(occluders * w, 0.0, 1.0);
-
-    // S curve fit.
-    percentageOccluded = 2.0f * percentageOccluded - 1.0f;
-    float occludedSign = sign(percentageOccluded);
-    percentageOccluded = 1.0f - (occludedSign * percentageOccluded);
-    percentageOccluded = mix(percentageOccluded * percentageOccluded * percentageOccluded, percentageOccluded, pcfWeight);
-    percentageOccluded = 1.0f - percentageOccluded;
-    percentageOccluded *= occludedSign;
-    percentageOccluded = 0.5f * percentageOccluded + 0.5f;
-
-    return 1.0f - percentageOccluded;
-}
 
 float shadowPcf(
     texture2D shadowDpeth,
@@ -164,55 +118,9 @@ float shadowPcf(
             
     }
     
-    return contactHardenPCFKernal(light, occluders, occluderDistSum, compareDepth);
+    return contactHardenPCFKernal(light, occluders, occluderDistSum, compareDepth, kShadowSampleCount);
 }
 
-float screenSpaceContactShadow(
-    float noise01, 
-    uint stepNum, 
-    vec3 wsRayStart, 
-    vec3 wsRayDirection, 
-    float wsRayLength) 
-{
-    // cast a ray in the direction of the light
-    float occlusion = 0.0;
-    
-    ScreenSpaceRay rayData;
-    initScreenSpaceRay(rayData, wsRayStart, wsRayDirection, wsRayLength, viewData);
-
-    // step
-    const uint kStepCount = stepNum;
-    const float dt = 1.0 / float(kStepCount);
-
-    // tolerance
-    const float tolerance = abs(rayData.ssViewRayEnd.z - rayData.ssRayStart.z) * dt;
-
-    // dither the ray with interleaved gradient noise
-    const float dither = noise01 - 0.5;
-
-    // normalized position on the ray (0 to 1)
-    float t = dt * dither + dt;
-
-    vec3 ray;
-    for (uint i = 0u ; i < kStepCount ; i++, t += dt) 
-    {
-        ray = rayData.uvRayStart + rayData.uvRay * t;
-        float z = texture(sampler2D(inDepth, pointClampEdgeSampler), ray.xy).r;
-        float dz = z - ray.z;
-        if (abs(tolerance - dz) < tolerance) 
-        {
-            occlusion = 1.0;
-            break;
-        }
-    }
-
-    // we fade out the contribution of contact shadows towards the edge of the screen
-    // because we don't have depth data there
-    vec2 fade = max(12.0 * abs(ray.xy - 0.5) - 5.0, 0.0);
-    occlusion *= saturate(1.0 - dot(fade, fade));
-
-    return occlusion;
-}
 
 
 layout(local_size_x = 8, local_size_y = 8) in;
@@ -266,6 +174,7 @@ void main()
         activeCascadeId ++;
     }
 
+    // Out of shadow area return lit.
     if(activeCascadeId == light.cascadeCount)
     {
         imageStore(imageShadowMask, workPos, vec4(1.0f));
@@ -334,6 +243,9 @@ void main()
     if(bShouldRayTraceShadow)
     {
         float rayTraceShadow = 1.0f - screenSpaceContactShadow(
+            inDepth,
+            pointClampEdgeSampler,
+            viewData,
             interleavedGradientNoise(vec2(workPos), frameData.frameIndex.x % frameData.jitterPeriod)
             , 8
             , worldPos
