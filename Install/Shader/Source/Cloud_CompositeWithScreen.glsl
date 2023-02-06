@@ -72,6 +72,7 @@ void main()
     }
 
     // God ray for light.
+    #if 0
     {
         AtmosphereParameters atmosphere = getAtmosphereParameters(frameData);
 
@@ -184,6 +185,7 @@ void main()
 
         // result = scatteredLight;
     }
+    #endif
 
 
     imageStore(imageHdrSceneColor, workPos, vec4(result.rgb, 1.0));
