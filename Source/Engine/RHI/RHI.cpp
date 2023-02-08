@@ -17,7 +17,7 @@ namespace Flower
 		"r.RHI.OpenRayTrace",
 		"Enable vulkan raytrace.0 is off,1 is on.",
 		"RHI",
-		1, // NOTE: Current my desktop computer graphics still dont support RTX, temporal disable.
+		0, // NOTE: Current my desktop computer graphics still dont support RTX, temporal disable.
 		   //       
 		CVarFlags::ReadOnly | CVarFlags::InitOnce
 	);
