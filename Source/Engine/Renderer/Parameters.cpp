@@ -176,6 +176,11 @@ namespace Flower
 		inAtmosphere.cloudPowderScale = 20.0f;
 		inAtmosphere.cloudPowderPow = 0.5f;
 
+		inAtmosphere.cloudLightStepMul = 1.05f;
+		inAtmosphere.cloudLightBasicStep = 0.167f;
+		inAtmosphere.cloudLightStepNum = 16;
+		inAtmosphere.cloudEnableGroundContribution = 0;
+
 	}
 
 }

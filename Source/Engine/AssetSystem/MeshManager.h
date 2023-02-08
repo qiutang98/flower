@@ -95,7 +95,7 @@ namespace Flower
 		VkIndexType m_indexType = VK_INDEX_TYPE_UINT32;
 
 		// Every mesh asset hold one bottom level accelerate structure.
-		std::unique_ptr<AccelerateStructure> m_bottomLevelAccelerateStructure = nullptr;
+		std::unique_ptr<AccelerateStructure> m_blas = nullptr;
 
 		std::string m_name;
 
@@ -152,7 +152,6 @@ namespace Flower
 		}
 
 		// Return BLAS cache, if it unbuild, will insert one build task to GPU, which need flush GPU.
-		// TODO: Add async build in mesh prepare task.
 		AccelerateStructure* getOrBuilddBLAS();
 
 		const auto& getIndicesCount() const

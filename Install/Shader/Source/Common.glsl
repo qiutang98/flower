@@ -216,6 +216,11 @@ struct EarthAtmosphere // Color space 2020
     float cloudPowderScale;
     float cloudPowderPow;
 
+    float cloudLightStepMul;
+    float cloudLightBasicStep;
+    int  cloudLightStepNum;
+    int cloudEnableGroundContribution;
+
 };
 
 struct DirectionalLightInfo

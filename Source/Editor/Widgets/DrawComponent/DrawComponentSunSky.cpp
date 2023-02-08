@@ -130,6 +130,12 @@ void ComponentDrawer::drawSunSky(std::shared_ptr<SceneNode> node)
 
 			ImGui::ColorPicker3("CloudAlbedo", &earthAtmosphere.cloudAlbedo.x, ImGuiColorEditFlags_Float);
 
+			ImGui::DragFloat("cloudLightStepMul", &earthAtmosphere.cloudLightStepMul, 0.01f, 1.01f, 1.5f);
+			ImGui::DragFloat("cloudLightBasicStep", &earthAtmosphere.cloudLightBasicStep, 0.01f, 0.10f, 0.5f);
+
+			ImGui::DragInt("cloudLightStepNum", &earthAtmosphere.cloudLightStepNum, 1, 6, 24);
+			ImGui::DragInt("cloudEnableGroundContribution", &earthAtmosphere.cloudEnableGroundContribution, 1, 0, 1);
+
 			ImGui::Spacing();
 			ImGui::PopItemWidth();
 		}

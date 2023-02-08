@@ -77,6 +77,11 @@ namespace Flower
 		float cloudPowderScale = 20.0f;
 		float cloudPowderPow = 0.5f;
 
+		float cloudLightStepMul    = 1.05f;
+		float cloudLightBasicStep  = 0.167f;
+		int32_t  cloudLightStepNum = 16;
+		int32_t cloudEnableGroundContribution = 0;
+
 		void resetAtmosphere();
 		void resetCloud();
 

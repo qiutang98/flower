@@ -76,7 +76,7 @@ void main()
     int threadSampleCount  = samplesCount / 64;
     int currentThreadStart = int(gl_LocalInvocationIndex) * threadSampleCount;
     int currentThreadEnd   = currentThreadStart + threadSampleCount;
-    for(int i = currentThreadStart; i < threadSampleCount; i++)
+    for(int i = currentThreadStart; i < currentThreadEnd; i++)
     {
         vec2 xi = hammersley2d(i, samplesCount); 
         vec3 H = importanceSampleGGX(xi, r, N);

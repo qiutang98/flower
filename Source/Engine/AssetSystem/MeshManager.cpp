@@ -391,12 +391,6 @@ namespace Flower
 			indexSize
 		);
 
-		// Build BLAS if support RTX.
-		if (RHI::bSupportRayTrace)
-		{
-			m_bottomLevelAccelerateStructure = std::make_unique<AccelerateStructure>(VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR);
-		}
-
 		m_indexType = indexType;
 		m_singleIndexSize = sizeof(uint32_t);
 		m_indexCount = uint32_t(indexSize) / indexTypeToSize(indexType);
@@ -458,10 +452,85 @@ namespace Flower
 
 	AccelerateStructure* GPUMeshAsset::getOrBuilddBLAS()
 	{
-		
+		if (m_blas == nullptr)
+		{
+			m_blas = std::make_unique<AccelerateStructure>();
+
+			VkDeviceOrHostAddressConstKHR vertexBufferDeviceAddress{};
+			VkDeviceOrHostAddressConstKHR indexBufferDeviceAddress{};
+
+			vertexBufferDeviceAddress.deviceAddress = m_vertexBuffer->getDeviceAddress();
+			indexBufferDeviceAddress.deviceAddress = m_indexBuffer->getDeviceAddress();
+
+			uint32_t numTriangles = static_cast<uint32_t>(m_indexCount) / 3;
+			uint32_t maxVertex = m_vertexCount;
+			uint32_t vertexStride = m_singleVertexSize;
+
+			// Build geometry.
+			VkAccelerationStructureGeometryKHR asGeometry{ };
+			asGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+			asGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+			asGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+			asGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+			asGeometry.geometry.triangles.vertexData = vertexBufferDeviceAddress;
+			asGeometry.geometry.triangles.indexData = indexBufferDeviceAddress;
+			asGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
+			asGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
+			asGeometry.geometry.triangles.maxVertex = maxVertex;
+			asGeometry.geometry.triangles.vertexStride = vertexStride;
+
+			// Get size info.
+			VkAccelerationStructureBuildGeometryInfoKHR asBuildGeometryInfo{};
+			asBuildGeometryInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+			asBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+			asBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+			asBuildGeometryInfo.geometryCount = 1;
+			asBuildGeometryInfo.pGeometries = &asGeometry;
+
+			VkAccelerationStructureBuildSizesInfoKHR asBuildSizesInfo{};
+			asBuildSizesInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+			RHI::GetAccelerationStructureBuildSizes(
+				RHI::Device,
+				VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+				&asBuildGeometryInfo,
+				&numTriangles,
+				&asBuildSizesInfo);
+
+			m_blas->create(getRuntimeUniqueMeshAssetName(m_name).c_str(), VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR, asBuildSizesInfo);
+
+			VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo{};
+			accelerationBuildGeometryInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+			accelerationBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+			accelerationBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+			accelerationBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+			accelerationBuildGeometryInfo.dstAccelerationStructure = m_blas->getHandle();
+			accelerationBuildGeometryInfo.geometryCount = 1;
+			accelerationBuildGeometryInfo.pGeometries = &asGeometry;
+			accelerationBuildGeometryInfo.scratchData.deviceAddress = m_blas->getScratchBuffer().getDeviceAddress();
+
+			VkAccelerationStructureBuildRangeInfoKHR asBuildRangeInfo{};
+			asBuildRangeInfo.primitiveCount = numTriangles;
+			asBuildRangeInfo.primitiveOffset = 0;
+			asBuildRangeInfo.firstVertex = 0;
+			asBuildRangeInfo.transformOffset = 0;
+			std::vector<VkAccelerationStructureBuildRangeInfoKHR*> accelerationBuildStructureRangeInfos = { &asBuildRangeInfo };
 
 
-		return m_bottomLevelAccelerateStructure.get();
+			// Build the acceleration structure on the device via a one-time command buffer submission
+			// Some implementations may support acceleration structure building on the host (VkPhysicalDeviceAccelerationStructureFeaturesKHR->accelerationStructureHostCommands), but we prefer device builds
+			RHI::executeImmediatelyMajorGraphics([&](VkCommandBuffer cmd) 
+			{
+				RHI::CmdBuildAccelerationStructures(
+					cmd,
+					1,
+					&accelerationBuildGeometryInfo,
+					accelerationBuildStructureRangeInfos.data());
+			});
+
+			m_blas->cleanScratchBuffer();
+		}
+
+		return m_blas.get();
 	}
 
 	void MeshContext::init()

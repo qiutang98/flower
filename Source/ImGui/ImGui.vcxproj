@@ -47,13 +47,13 @@
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)Build\$(ProjectName)-$(Configuration)-Binary\</OutDir>
     <IntDir>$(SolutionDir)Build\$(ProjectName)-$(Configuration)-Intermediate\</IntDir>
-    <IncludePath>$(SolutionDir)External/;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)External/;$(VULKAN_SDK)/Include/;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)Build\$(ProjectName)-$(Configuration)-Binary\</OutDir>
     <IntDir>$(SolutionDir)Build\$(ProjectName)-$(Configuration)-Intermediate\</IntDir>
-    <IncludePath>$(SolutionDir)External/;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)External/;$(VULKAN_SDK)/Include/;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>

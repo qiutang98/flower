@@ -83,11 +83,6 @@ layout (set = 2, binding = 0) uniform UniformFrame { FrameData frameData; };
 // Max sample count per distance. 16 tap/km
 #define kCloudDistanceToSampleMaxCount (1.0 / 16.0)
 
-// 8/10/12/16
-#define kShadowLightStepNum 16
-#define kShadowLightStepBasicLen 0.167
-#define kShadowLightStepMul 1.05
-
 #define ENABLE_GROUND_CONTRIBUTION 0
 #define kGroundContributionSampleCount 2
 
@@ -224,25 +219,19 @@ ParticipatingMedia volumetricShadow(vec3 posKm, float cosTheta, vec3 sunDirectio
         extinctionCoefficients[ms] = 0.0f;
 	}
 
-    const float kStepLMul = kShadowLightStepMul;
-    const int kStepLight = kShadowLightStepNum;
-    float stepL = kShadowLightStepBasicLen; // km
+    const float kStepLMul = frameData.earthAtmosphere.cloudLightStepMul;
+    const uint kStepLight = frameData.earthAtmosphere.cloudLightStepNum;
+    float stepL = frameData.earthAtmosphere.cloudLightBasicStep; // km
     
     float d = stepL * 0.5;
 
 	// Collect total density along light ray.
-	for(int j = 0; j < kStepLight; j++)
+	for(uint j = 0; j < kStepLight; j++)
     {
         vec3 samplePosKm = posKm + sunDirection * d; // km
 
         float sampleHeightKm = length(samplePosKm);
         float sampleDt = sampleHeightKm - atmosphere.cloudAreaStartHeight;
-
-        // Start pos always inside cloud area, if out of bounds, it will never inside bounds again.
-        if(sampleDt > atmosphere.cloudAreaThickness || sampleDt < 0)
-        {
-            break;
-        }
 
         float normalizeHeight = sampleDt / atmosphere.cloudAreaThickness;
         vec3 samplePosMeter = samplePosKm * 1000.0f;
@@ -508,7 +497,8 @@ vec4 cloudColorCompute(in const AtmosphereParameters atmosphere, vec2 uv, float 
             vec3 ambientLight = mix(cloudBottomSkyLight, cloudTopSkyLight, normalizeHeight);
         #endif
 
-        #if ENABLE_GROUND_CONTRIBUTION
+        if(frameData.earthAtmosphere.cloudEnableGroundContribution != 0)
+        {
             ambientLight += getVolumetricGroundContribution(
                 atmosphere, 
                 samplePos, 
@@ -517,7 +507,7 @@ vec4 cloudColorCompute(in const AtmosphereParameters atmosphere, vec2 uv, float 
                 atmosphereTransmittance,
                 normalizeHeight
             );
-        #endif
+        }
 
             // Amount of sunlight that reaches the sample point through the cloud 
             // is the combination of ambient light and attenuated direct light.

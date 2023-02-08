@@ -17,7 +17,7 @@ namespace Flower
 		"r.RHI.OpenRayTrace",
 		"Enable vulkan raytrace.0 is off,1 is on.",
 		"RHI",
-		0, // NOTE: Current my desktop computer graphics still dont support RTX, temporal disable.
+		1, // NOTE: Current my desktop computer graphics still dont support RTX, temporal disable.
 		   //       
 		CVarFlags::ReadOnly | CVarFlags::InitOnce
 	);
@@ -49,14 +49,20 @@ namespace Flower
 		GVkCmdEndDebugUtilsLabel = (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetDeviceProcAddr(device, "vkCmdEndDebugUtilsLabelEXT");
 	}
 
+	// Push descriptors.
 	PFN_vkCmdPushDescriptorSetKHR RHI::PushDescriptorSetKHR = nullptr;
 	PFN_vkCmdPushDescriptorSetWithTemplateKHR RHI::PushDescriptorSetWithTemplateKHR = nullptr;
 
+	// RTX
 	PFN_vkCreateAccelerationStructureKHR RHI::CreateAccelerationStructure = nullptr;
 	PFN_vkDestroyAccelerationStructureKHR RHI::DestroyAccelerationStructure = nullptr;
 	PFN_vkCmdBuildAccelerationStructuresKHR RHI::CmdBuildAccelerationStructures = nullptr;
 	PFN_vkGetAccelerationStructureDeviceAddressKHR RHI::GetAccelerationStructureDeviceAddress = nullptr;
 	PFN_vkGetAccelerationStructureBuildSizesKHR RHI::GetAccelerationStructureBuildSizes = nullptr;
+	PFN_vkBuildAccelerationStructuresKHR RHI::BuildAccelerationStructures = nullptr;
+	PFN_vkCmdTraceRaysKHR RHI::CmdTraceRaysKHR = nullptr;
+	PFN_vkGetRayTracingShaderGroupHandlesKHR RHI::GetRayTracingShaderGroupHandlesKHR = nullptr;
+	PFN_vkCreateRayTracingPipelinesKHR RHI::CreateRayTracingPipelinesKHR = nullptr;
 
 	// Functions for regular HDR ex: HDR10
 	RHI::DisplayMode RHI::eDisplayMode = RHI::DisplayMode::DISPLAYMODE_SDR;
@@ -94,11 +100,37 @@ namespace Flower
 
 		RHI::PushDescriptorSetWithTemplateKHR = (PFN_vkCmdPushDescriptorSetWithTemplateKHR)vkGetDeviceProcAddr(device, "vkCmdPushDescriptorSetWithTemplateKHR");
 
-		RHI::CreateAccelerationStructure = (PFN_vkCreateAccelerationStructureKHR)vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR");
-		RHI::DestroyAccelerationStructure = (PFN_vkDestroyAccelerationStructureKHR)vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR");
-		RHI::CmdBuildAccelerationStructures = (PFN_vkCmdBuildAccelerationStructuresKHR)vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR");
-		RHI::GetAccelerationStructureDeviceAddress = (PFN_vkGetAccelerationStructureDeviceAddressKHR)vkGetDeviceProcAddr(device, "vkGetAccelerationStructureDeviceAddressKHR");
-		RHI::GetAccelerationStructureBuildSizes = (PFN_vkGetAccelerationStructureBuildSizesKHR)vkGetDeviceProcAddr(device, "vkGetAccelerationStructureBuildSizesKHR");
+
+		if (RHI::bSupportRayTrace)
+		{
+			RHI::CreateAccelerationStructure = (PFN_vkCreateAccelerationStructureKHR)
+				vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR");
+
+			RHI::DestroyAccelerationStructure = (PFN_vkDestroyAccelerationStructureKHR)
+				vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR");
+
+			RHI::CmdBuildAccelerationStructures = (PFN_vkCmdBuildAccelerationStructuresKHR)
+				vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR");
+
+			RHI::GetAccelerationStructureDeviceAddress = (PFN_vkGetAccelerationStructureDeviceAddressKHR)
+				vkGetDeviceProcAddr(device, "vkGetAccelerationStructureDeviceAddressKHR");
+
+			RHI::GetAccelerationStructureBuildSizes = (PFN_vkGetAccelerationStructureBuildSizesKHR)
+				vkGetDeviceProcAddr(device, "vkGetAccelerationStructureBuildSizesKHR");
+
+			RHI::BuildAccelerationStructures = (PFN_vkBuildAccelerationStructuresKHR)
+				vkGetDeviceProcAddr(device, "vkBuildAccelerationStructuresKHR");
+
+			RHI::CmdTraceRaysKHR = (PFN_vkCmdTraceRaysKHR)
+				vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR");
+
+			RHI::GetRayTracingShaderGroupHandlesKHR = (PFN_vkGetRayTracingShaderGroupHandlesKHR)
+				vkGetDeviceProcAddr(device, "vkGetRayTracingShaderGroupHandlesKHR");
+
+			RHI::CreateRayTracingPipelinesKHR = (PFN_vkCreateRayTracingPipelinesKHR)
+				vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR");
+		}
+
 	}
 
 	void hdrInit()
@@ -970,12 +1002,14 @@ namespace Flower
 			deviceExtensionNames.push_back(VK_KHR_8BIT_STORAGE_EXTENSION_NAME);
 			deviceExtensionNames.push_back(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
 			deviceExtensionNames.push_back(VK_EXT_HDR_METADATA_EXTENSION_NAME); // push once here, query later. bad design. :(
-#if 0
-			deviceExtensionNames.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME); // RTX.
-			deviceExtensionNames.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
-			deviceExtensionNames.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
-			deviceExtensionNames.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
-#endif		
+
+			if (cVarVulkanOpenRayTrace.get() != 0)
+			{
+				deviceExtensionNames.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME); // RTX.
+				deviceExtensionNames.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+				deviceExtensionNames.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
+				deviceExtensionNames.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+			}
 
 
 			// Current only nvidia support Meshshader, so we don't use it, we simulate by compute shader.
@@ -1001,7 +1035,7 @@ namespace Flower
 			enable11GpuFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
 			enable11GpuFeatures.pNext = &enable12GpuFeatures;
 			enable11GpuFeatures.shaderDrawParameters = VK_TRUE;
-
+			
 			// Enable gpu features 1.2 here.
 			enable12GpuFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
 			enable12GpuFeatures.pNext = &enable13GpuFeatures;
@@ -1023,10 +1057,20 @@ namespace Flower
 
 			// Enable gpu features 1.3 here.
 			enable13GpuFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-			enable13GpuFeatures.pNext = nullptr;
 			enable13GpuFeatures.dynamicRendering = VK_TRUE;
 			enable13GpuFeatures.synchronization2 = VK_TRUE;
 			enable13GpuFeatures.maintenance4 = VK_TRUE;
+
+			VkPhysicalDeviceAccelerationStructureFeaturesKHR enableASFeatures{};
+			enableASFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+			enableASFeatures.accelerationStructure = VK_TRUE;
+			enable13GpuFeatures.pNext = &enableASFeatures;
+
+			VkPhysicalDeviceRayTracingPipelineFeaturesKHR enableRTPipelineFeatures{};
+			enableRTPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+			enableRTPipelineFeatures.rayTracingPipeline = VK_TRUE;
+			enableASFeatures.pNext = &enableRTPipelineFeatures;
+
 			initDevice(enable10GpuFeatures, deviceExtensionNames, &enable11GpuFeatures);
 		}
 
@@ -1087,13 +1131,20 @@ namespace Flower
 		if(RHI::bSupportRayTrace)
 		{
 			// Get the acceleration structure features, which we'll need later on in the sample
-			m_accelerationStructure.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+			VkPhysicalDeviceAccelerationStructureFeaturesKHR asFeatures{};
+			asFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+
+			VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtPipelineFeatures{};
+			rtPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+			asFeatures.pNext = &rtPipelineFeatures;
 
 			VkPhysicalDeviceFeatures2 deviceFeatures{};
 			deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-			deviceFeatures.pNext = &m_accelerationStructure;
+			deviceFeatures.pNext = &asFeatures;
 
 			vkGetPhysicalDeviceFeatures2(RHI::GPU, &deviceFeatures);
+
+			RHI::bSupportRayTrace = asFeatures.accelerationStructure && rtPipelineFeatures.rayTracingPipeline;
 		}
 
 		// Find some proce address.

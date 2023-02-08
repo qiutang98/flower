@@ -315,17 +315,12 @@ namespace Flower
 	{
 		RHICheck(vkCreateImage(RHI::Device, &m_createInfo, nullptr, &m_image));
 
-		m_layouts.resize(m_createInfo.arrayLayers);
-		m_ownerQueueFamilys.resize(m_createInfo.arrayLayers);
-		for (size_t i = 0; i < m_createInfo.arrayLayers; i++)
+		m_layouts.resize(m_createInfo.arrayLayers * m_createInfo.mipLevels);
+		m_ownerQueueFamilys.resize(m_layouts.size());
+		for (size_t i = 0; i < m_layouts.size(); i++)
 		{
-			m_layouts[i].resize(m_createInfo.mipLevels);
-			m_ownerQueueFamilys[i].resize(m_createInfo.mipLevels);
-			for (size_t j = 0; j < m_createInfo.mipLevels; j++)
-			{
-				m_layouts[i][j] = VK_IMAGE_LAYOUT_UNDEFINED;
-				m_ownerQueueFamilys[i][j] = VK_QUEUE_FAMILY_IGNORED;
-			}
+			m_layouts[i] = VK_IMAGE_LAYOUT_UNDEFINED;
+			m_ownerQueueFamilys[i] = VK_QUEUE_FAMILY_IGNORED;
 		}
 
 		VkMemoryRequirements memRequirements;
@@ -486,8 +481,10 @@ namespace Flower
 			uint32_t maxMip = glm::min(range.baseMipLevel + range.levelCount, m_createInfo.mipLevels);
 			for (uint32_t mipIndex = range.baseMipLevel; mipIndex < maxMip; mipIndex++)
 			{
-				VkImageLayout oldLayout = m_layouts.at(layerIndex).at(mipIndex);
-				uint32_t oldFamily = m_ownerQueueFamilys.at(layerIndex).at(mipIndex);
+				size_t flatId = getSubresourceIndex(layerIndex, mipIndex);
+
+				VkImageLayout oldLayout = m_layouts.at(flatId);
+				uint32_t oldFamily = m_ownerQueueFamilys.at(flatId);
 
 				if ((newLayout == oldLayout) && (oldFamily == newQueueFamily))
 				{
@@ -495,8 +492,8 @@ namespace Flower
 				}
 
 
-				m_layouts[layerIndex][mipIndex] = newLayout;
-				m_ownerQueueFamilys[layerIndex][mipIndex] = newQueueFamily;
+				m_layouts[flatId] = newLayout;
+				m_ownerQueueFamilys[flatId] = newQueueFamily;
 
 				VkImageMemoryBarrier barrier{};
 				barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;

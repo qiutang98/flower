@@ -53,7 +53,7 @@ namespace Flower
 			GPUMeshAsset* asset = m_cacheGPUMeshAsset->getReadyAsset();
 
 			// Now static mesh replace or load ready just now, we try to build it's BLAS if unbuild.
-			if (RHI::bSupportRayTrace)
+			if (RHI::bSupportRayTrace && m_bMeshReady)
 			{
 				asset->getOrBuilddBLAS();
 			}

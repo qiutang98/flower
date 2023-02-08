@@ -26,7 +26,8 @@ layout(push_constant) uniform PushConstants
 
 shared vec4 sharedColorWeight[64];
 
-// 
+
+// ~ 0.01 ms cost. 
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 64) in;
 void main()
 {

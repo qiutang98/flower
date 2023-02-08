@@ -42,7 +42,6 @@ namespace Flower
 		VkFormat m_cacheSupportDepthStencilFormat;
 		VkFormat m_cacheSupportDepthOnlyFormat;
 
-		VkPhysicalDeviceAccelerationStructureFeaturesKHR m_accelerationStructure;
 		VkPhysicalDeviceDescriptorIndexingPropertiesEXT m_descriptorIndexingProperties{};
 
 		Swapchain m_swapchain;
@@ -232,17 +231,20 @@ namespace Flower
 		extern void minusGpuResourceMemoryUsed(size_t in);
 		extern size_t getGpuResourceMemoryUsed();
 
+		// Some push descriptor set functions.
 		extern PFN_vkCmdPushDescriptorSetKHR PushDescriptorSetKHR;
 		extern PFN_vkCmdPushDescriptorSetWithTemplateKHR PushDescriptorSetWithTemplateKHR;
 
+		// Some rtx accelerate functions.
 		extern PFN_vkCreateAccelerationStructureKHR CreateAccelerationStructure;
 		extern PFN_vkDestroyAccelerationStructureKHR DestroyAccelerationStructure;
 		extern PFN_vkCmdBuildAccelerationStructuresKHR CmdBuildAccelerationStructures;
 		extern PFN_vkGetAccelerationStructureDeviceAddressKHR GetAccelerationStructureDeviceAddress;
 		extern PFN_vkGetAccelerationStructureBuildSizesKHR GetAccelerationStructureBuildSizes;
-
-		
-
+		extern PFN_vkBuildAccelerationStructuresKHR BuildAccelerationStructures;
+		extern PFN_vkCmdTraceRaysKHR CmdTraceRaysKHR;
+		extern PFN_vkGetRayTracingShaderGroupHandlesKHR GetRayTracingShaderGroupHandlesKHR;
+		extern PFN_vkCreateRayTracingPipelinesKHR CreateRayTracingPipelinesKHR;
 
 		// Functions for regular HDR ex: HDR10
 		extern PFN_vkGetPhysicalDeviceSurfaceCapabilities2KHR GetPhysicalDeviceSurfaceCapabilities2KHR;

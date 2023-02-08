@@ -59,7 +59,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(SolutionDir)Source/$(ProjectName)/;$(SolutionDir)External/;$(SolutionDir)Source/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Source/$(ProjectName)/;$(SolutionDir)External/;$(SolutionDir)Source/;$(VULKAN_SDK)/Include/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
@@ -72,7 +72,7 @@
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;liblz4_static.lib;irrKlang.lib;assimp-vc142-mt.lib;ffx_fsr2_api_vk_x64d.lib;ffx_fsr2_api_x64d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
     <Lib>
-      <AdditionalLibraryDirectories>$(SolutionDir)External\assimp\lib\;$(SolutionDir)External\glfw\lib\;$(SolutionDir)External\lz4\;$(SolutionDir)External\fsr2\lib\;$(SolutionDir)External\irrKlang\;$(SolutionDir)External\vulkan\lib\;%(AdditionalDependencies)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)External\assimp\lib\;$(SolutionDir)External\glfw\lib\;$(SolutionDir)External\lz4\;$(SolutionDir)External\fsr2\lib\;$(SolutionDir)External\irrKlang\;$(VULKAN_SDK)\Lib\;%(AdditionalDependencies)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -84,7 +84,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)Source/$(ProjectName)/;$(SolutionDir)External/;$(SolutionDir)Source/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Source/$(ProjectName)/;$(SolutionDir)External/;$(SolutionDir)Source/;$(VULKAN_SDK)/Include/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
     </ClCompile>
@@ -98,7 +98,7 @@
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;liblz4_static.lib;irrKlang.lib;assimp-vc142-mt.lib;ffx_fsr2_api_vk_x64.lib;ffx_fsr2_api_x64.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
     <Lib>
-      <AdditionalLibraryDirectories>$(SolutionDir)External\assimp\lib\;$(SolutionDir)External\glfw\lib\;$(SolutionDir)External\lz4\;$(SolutionDir)External\fsr2\lib\;$(SolutionDir)External\irrKlang\;$(SolutionDir)External\vulkan\lib\;%(AdditionalDependencies)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)External\assimp\lib\;$(SolutionDir)External\glfw\lib\;$(SolutionDir)External\lz4\;$(SolutionDir)External\fsr2\lib\;$(SolutionDir)External\irrKlang\;$(VULKAN_SDK)\Lib\;%(AdditionalDependencies)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>

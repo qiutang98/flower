@@ -93,8 +93,8 @@ namespace Flower
 		VmaAllocation m_allocation = nullptr;
 		VkImageCreateInfo m_createInfo = {};
 
-		std::vector<std::vector<uint32_t>> m_ownerQueueFamilys;
-		std::vector<std::vector<VkImageLayout>> m_layouts;
+		std::vector<uint32_t> m_ownerQueueFamilys;
+		std::vector<VkImageLayout> m_layouts;
 
 		std::unordered_map<size_t, VkImageView> m_cacheImageViews { };
 	public:
@@ -107,6 +107,13 @@ namespace Flower
 	protected:
 		bool isHeap() const { return m_bHeap; }
 		bool innerCreate(VkMemoryPropertyFlags preperty);
+
+		inline size_t getSubresourceIndex(uint32_t layerIndex, uint32_t mipLevel) const
+		{
+			CHECK((layerIndex < m_createInfo.arrayLayers) && (mipLevel < m_createInfo.mipLevels));
+
+			return layerIndex * m_createInfo.mipLevels + mipLevel;
+		}
 
 	public:
 		virtual ~VulkanImage();
@@ -148,6 +155,8 @@ namespace Flower
 			VkImageSubresourceRange range
 		);
 
-		VkImageLayout getCurrentLayout(uint32_t layerIndex, uint32_t mipLevel) const { return m_layouts.at(layerIndex).at(mipLevel); }
+		
+
+		VkImageLayout getCurrentLayout(uint32_t layerIndex, uint32_t mipLevel) const { return m_layouts.at(getSubresourceIndex(layerIndex, mipLevel)); }
 	};
 }

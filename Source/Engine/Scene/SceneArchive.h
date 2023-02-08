@@ -128,6 +128,14 @@ SCENE_ARCHIVE_IMPL_INHERIT(SunSkyComponent, LightComponent)
 		archive(m_earthAtmosphere.cloudFogFade);
 		archive(m_earthAtmosphere.cloudMaxTraceingDistance);
 		archive(m_earthAtmosphere.cloudTracingStartMaxDistance);
+
+		if (version > 9)
+		{
+			archive(m_earthAtmosphere.cloudLightStepMul);
+			archive(m_earthAtmosphere.cloudLightBasicStep);
+			archive(m_earthAtmosphere.cloudLightStepNum);
+			archive(m_earthAtmosphere.cloudEnableGroundContribution);
+		}
 	}
 }
 SCENE_ARCHIVE_IMPL_INHERIT_END
