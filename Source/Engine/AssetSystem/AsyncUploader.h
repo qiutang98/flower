@@ -20,6 +20,7 @@ namespace Flower
 		// Upload main body function.
 		virtual void uploadFunction(
 			uint32_t stageBufferOffset, 
+			void* bufferStart,
 			RHICommandBufferBase& commandBuffer, 
 			VulkanBuffer& stageBuffer) = 0;
 	};

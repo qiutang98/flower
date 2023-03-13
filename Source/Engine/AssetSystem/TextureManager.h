@@ -282,6 +282,7 @@ namespace Flower
 
 		virtual void uploadFunction(
 			uint32_t stageBufferOffset,
+			void* mapped,
 			RHICommandBufferBase& commandBuffer,
 			VulkanBuffer& stageBuffer) override;
 
@@ -319,6 +320,7 @@ namespace Flower
 
 		virtual void uploadFunction(
 			uint32_t stageBufferOffset,
+			void* mapped,
 			RHICommandBufferBase& commandBuffer,
 			VulkanBuffer& stageBuffer) override;
 
@@ -342,6 +344,7 @@ namespace Flower
 
 		virtual void uploadFunction(
 			uint32_t stageBufferOffset,
+			void* mapped,
 			RHICommandBufferBase& commandBuffer,
 			VulkanBuffer& stageBuffer) override;
 

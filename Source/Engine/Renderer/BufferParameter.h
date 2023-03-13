@@ -107,6 +107,8 @@ namespace Flower
 
 			void tick();
 
+			bool canClear() const { return m_busyPool.empty() && m_freePool.empty() && m_unsortFreePool.empty(); }
+
 			bool isMultiFrame() const
 			{
 				return m_bMultiFrame;

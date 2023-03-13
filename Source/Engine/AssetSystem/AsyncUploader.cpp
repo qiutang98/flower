@@ -146,9 +146,9 @@ namespace Flower
 		startRecord();
 
 		RHICommandBufferBase commandBase{ .cmd = m_commandBuffer, .pool = m_pool, .queueFamily = m_queueFamily };
-
-		m_processingTask->uploadFunction(0, commandBase, *m_stageBuffer);
-
+		m_stageBuffer->map();
+		m_processingTask->uploadFunction(0, m_stageBuffer->mapped, commandBase, *m_stageBuffer);
+		m_stageBuffer->unmap();
 		endRecordAndSubmit();
 	}
 
@@ -256,16 +256,20 @@ namespace Flower
 
 		// Do copy action here.
 		startRecord();
-
+		m_stageBuffer->map();
+		void* mapped = m_stageBuffer->mapped;
 		RHICommandBufferBase commandBase{ .cmd = m_commandBuffer, .pool = m_pool, .queueFamily = m_queueFamily };
 
 		uint32_t offsetPos = 0;
 		for (auto& uploadingTask : m_processingTasks)
 		{
-			uploadingTask->uploadFunction(offsetPos, commandBase, *m_stageBuffer);
+			uploadingTask->uploadFunction(offsetPos, mapped, commandBase, *m_stageBuffer);
 			offsetPos += uploadingTask->uploadSize();
+
+			mapped = (void*)((char*)mapped + uploadingTask->uploadSize());
 		}
 
+		m_stageBuffer->unmap();
 		endRecordAndSubmit();
 	}
 

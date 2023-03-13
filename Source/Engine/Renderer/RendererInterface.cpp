@@ -11,7 +11,7 @@ namespace Flower
 		"r.DynamicUniformBufferRingSize",
 		"Dynamic uniform buffer ring size. (MB)",
 		"Renderer",
-		64,
+		128,
 		CVarFlags::ReadOnly | CVarFlags::InitOnce
 	);
 
@@ -34,7 +34,7 @@ namespace Flower
 		m_passCollector = std::make_unique<PassCollector>();
 		m_gpuTimer.init(uint32_t(RHI::GMaxSwapchainCount));
 
-		m_dynamicUniformBufferRing = std::make_unique<DynamicUniformBuffer>(RHI::GMaxSwapchainCount, cVarDynamicUniformBufferRingSize.get() * 1024 * 1024); // 64 MB.
+		m_dynamicUniformBufferRing = std::make_unique<DynamicUniformBuffer>(RHI::GMaxSwapchainCount, cVarDynamicUniformBufferRingSize.get() * 1024, 1024 * 64); // 64 MB.
 		initImpl();
 	}
 

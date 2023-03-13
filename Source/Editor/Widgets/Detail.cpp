@@ -70,9 +70,9 @@ void WidgetDetail::onVisibleTick(const RuntimeModuleTickData& tickData)
 	const auto cacheScale = transform->getTranslation();
 
 	glm::vec3 rotation = glm::degrees(glm::eulerAngles(transform->getRotation()));
-	UIHelper::drawVector3("  P", transform->getTranslation(), glm::vec3(0.0f), sizeLable);
-	UIHelper::drawVector3("  R", rotation, glm::vec3(0.0f), sizeLable);
-	UIHelper::drawVector3("  S", transform->getScale(), glm::vec3(1.0f), sizeLable);
+	UIHelper::drawVector3(" P ", transform->getTranslation(), glm::vec3(0.0f), sizeLable);
+	UIHelper::drawVector3(" R ", rotation, glm::vec3(0.0f), sizeLable);
+	UIHelper::drawVector3(" S ", transform->getScale(), glm::vec3(1.0f), sizeLable);
 	glm::quat rotationQ = glm::quat(glm::radians(rotation));
 	if (rotationQ != transform->getRotation())
 	{

@@ -559,17 +559,16 @@ namespace Flower
 
 	void StaticMeshRawDataLoadTask::uploadFunction(
 		uint32_t stageBufferOffset,
+		void* mapped,
 		RHICommandBufferBase& commandBuffer,
 		VulkanBuffer& stageBuffer)
 	{
 		CHECK(uploadSize() == uint32_t(cacheIndexData.size() + cacheVertexData.size()));
-		uint32_t indexOffsetInSrcBuffer = stageBufferOffset;
+		uint32_t indexOffsetInSrcBuffer = 0;
 		uint32_t vertexOffsetInSrcBuffer = indexOffsetInSrcBuffer + uint32_t(cacheIndexData.size());
 
-		stageBuffer.map();
-		memcpy((void*)((char*)stageBuffer.mapped + indexOffsetInSrcBuffer), cacheIndexData.data(), cacheIndexData.size());
-		memcpy((void*)((char*)stageBuffer.mapped + vertexOffsetInSrcBuffer), cacheVertexData.data(), cacheVertexData.size());
-		stageBuffer.unmap();
+		memcpy((void*)((char*)mapped + indexOffsetInSrcBuffer), cacheIndexData.data(), cacheIndexData.size());
+		memcpy((void*)((char*)mapped + vertexOffsetInSrcBuffer), cacheVertexData.data(), cacheVertexData.size());
 
 		meshAssetGPU->prepareToUpload();
 
@@ -655,6 +654,7 @@ namespace Flower
 
 	void StaticMeshLoadTask::uploadFunction(
 		uint32_t stageBufferOffset,
+		void* mapped,
 		RHICommandBufferBase& commandBuffer,
 		VulkanBuffer& stageBuffer)
 	{
@@ -666,13 +666,11 @@ namespace Flower
 		const auto indicesSize = meshBin->getIndices().size() * sizeof(meshBin->getIndices()[0]);
 
 		CHECK(uploadSize() == uint32_t(indicesSize + verticesSize));
-		uint32_t indexOffsetInSrcBuffer = stageBufferOffset;
+		uint32_t indexOffsetInSrcBuffer = 0;
 		uint32_t vertexOffsetInSrcBuffer = indexOffsetInSrcBuffer + uint32_t(indicesSize);
 
-		stageBuffer.map();
 		memcpy((void*)((char*)stageBuffer.mapped + indexOffsetInSrcBuffer), meshBin->getIndices().data(), indicesSize);
 		memcpy((void*)((char*)stageBuffer.mapped + vertexOffsetInSrcBuffer), meshBin->getVertices().data(), verticesSize);
-		stageBuffer.unmap();
 
 		meshAssetGPU->prepareToUpload();
 

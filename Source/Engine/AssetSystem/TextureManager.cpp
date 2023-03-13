@@ -520,13 +520,10 @@ namespace Flower
 		return m_lruCache->tryGet(imageUUID);
 	}
 
-	void RawAssetTextureLoadTask::uploadFunction(uint32_t stageBufferOffset, RHICommandBufferBase& commandBuffer, VulkanBuffer& stageBuffer)
+	void RawAssetTextureLoadTask::uploadFunction(uint32_t stageBufferOffset, void* mapped, RHICommandBufferBase& commandBuffer, VulkanBuffer& stageBuffer)
 	{
 		CHECK(cacheRawData.size() <= uploadSize());
-
-		stageBuffer.map();
-		memcpy((void*)((char*)stageBuffer.mapped + stageBufferOffset),  cacheRawData.data(), cacheRawData.size());
-		stageBuffer.unmap();
+		memcpy(mapped,  cacheRawData.data(), cacheRawData.size());
 
 		imageAssetGPU->prepareToUpload(commandBuffer, buildBasicImageSubresource());
 
@@ -618,12 +615,11 @@ namespace Flower
 
 	void SnapshotAssetTextureLoadTask::uploadFunction(
 		uint32_t stageBufferOffset,
+		void* mapped,
 		RHICommandBufferBase& commandBuffer,
 		VulkanBuffer& stageBuffer)
 	{
-		stageBuffer.map();
-		memcpy((void*)((char*)stageBuffer.mapped + stageBufferOffset), cacheHeader->getSnapShotData().data(), uploadSize());
-		stageBuffer.unmap();
+		memcpy(mapped, cacheHeader->getSnapShotData().data(), uploadSize());
 
 		imageAssetGPU->prepareToUpload(commandBuffer, buildBasicImageSubresource());
 
@@ -670,6 +666,7 @@ namespace Flower
 
 	void ImageAssetTextureLoadTask::uploadFunction(
 		uint32_t stageBufferOffset,
+		void* mapped,
 		RHICommandBufferBase& commandBuffer,
 		VulkanBuffer& stageBuffer)
 	{
@@ -681,8 +678,7 @@ namespace Flower
 
 		imageAssetGPU->prepareToUpload(commandBuffer, rangeAllMips);
 
-		stageBuffer.map();
-		uint32_t bufferOffset = stageBufferOffset;
+		uint32_t bufferOffset = 0;
 		uint32_t bufferSize = 0;
 
 		VkBufferImageCopy region{};
@@ -706,9 +702,9 @@ namespace Flower
 			uint32_t mipWidth = cacheHeader->getWidth();
 			uint32_t mipHeight = cacheHeader->getHeight();
 
-			memcpy((void*)((char*)stageBuffer.mapped + bufferOffset), srcpDatas.data(), currentMipSize);
+			memcpy((void*)((char*)mapped + bufferOffset), srcpDatas.data(), currentMipSize);
 
-			region.bufferOffset = bufferOffset;
+			region.bufferOffset = stageBufferOffset + bufferOffset;
 			region.imageSubresource.mipLevel = 0;
 			region.imageExtent = { mipWidth, mipHeight, 1 };
 
@@ -728,9 +724,9 @@ namespace Flower
 				uint32_t mipWidth = std::max<uint32_t>(cacheHeader->getWidth() >> level, 1);
 				uint32_t mipHeight = std::max<uint32_t>(cacheHeader->getHeight() >> level, 1);
 
-				memcpy((void*)((char*)stageBuffer.mapped + bufferOffset), currentMip.data(), currentMipSize);
+				memcpy((void*)((char*)mapped + bufferOffset), currentMip.data(), currentMipSize);
 
-				region.bufferOffset = bufferOffset;
+				region.bufferOffset = stageBufferOffset + bufferOffset;
 				region.imageSubresource.mipLevel = level;
 				region.imageExtent = { mipWidth, mipHeight, 1 };
 
@@ -745,8 +741,6 @@ namespace Flower
 		CHECK(uploadSize() >= bufferSize);
 
 		vkCmdCopyBufferToImage(commandBuffer.cmd, stageBuffer, imageAssetGPU->getImage().getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, (uint32_t)copyRegions.size(), copyRegions.data());
-
-		stageBuffer.unmap();
 
 		imageAssetGPU->finishUpload(commandBuffer, rangeAllMips);
 	}

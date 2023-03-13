@@ -145,7 +145,11 @@ namespace Flower
 			{
 				// Store image owner.
 				storage.image = busyArray[i].image;
-				busyArray.erase(busyArray.begin() + i);
+
+				auto temp = busyArray[i];
+				busyArray[i] = busyArray.back();
+
+				busyArray.pop_back();
 				break;
 			}
 		}
@@ -180,18 +184,10 @@ namespace Flower
 				}
 				else
 				{
-					auto it = pair.second.begin();
-					while (it != pair.second.end())
+					std::erase_if(pair.second, [this](const auto& s) 
 					{
-						if (shouldRelease(it->poolInfo.m_freeCounter))
-						{
-							it = pair.second.erase(it);
-						}
-						else
-						{
-							++it;
-						}
-					}
+						return shouldRelease(s.poolInfo.m_freeCounter);
+					});
 				}
 			}
 

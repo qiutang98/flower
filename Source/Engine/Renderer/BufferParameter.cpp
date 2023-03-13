@@ -212,10 +212,31 @@ namespace Flower
 		}
 
 		bufferParamsSizeCheck(m_managersMap.size());
+
+		std::vector<size_t> shouldRemoveTerm{};
 		for (auto& pair : m_managersMap)
 		{
 			const bool bMultiFrame = pair.second.at(0)->isMultiFrame();
 			pair.second.at(bMultiFrame ? m_index : 0)->tick();
+
+			bool canClear = pair.second[0]->canClear();
+			if (bMultiFrame)
+			{
+				for (const auto& p : pair.second)
+				{
+					canClear &= p->canClear();
+				}
+			}
+			
+			if (canClear)
+			{
+				shouldRemoveTerm.push_back(pair.first);
+			}
+		}
+
+		for (const auto& key : shouldRemoveTerm)
+		{
+			m_managersMap.erase(key);
 		}
 	}
 
@@ -239,9 +260,9 @@ namespace Flower
 		size_t typeKey = CRCHash(typeHaser);
 
 		// Init if no this type.
-		if (!m_managersMap.contains(typeKey))
+		auto& arrayDatas = m_managersMap[typeKey];
+		if (arrayDatas.empty())
 		{
-			auto& arrayDatas = m_managersMap[typeKey];
 			arrayDatas.resize(bMultiFrame ? GBackBufferCount : 1);
 			for (size_t i = 0; i < arrayDatas.size(); i++)
 			{
@@ -255,6 +276,6 @@ namespace Flower
 		}
 
 		size_t pos = bMultiFrame ? m_index : 0;
-		return m_managersMap.at(typeKey).at(pos)->getParameter(name, bufferSize);
+		return arrayDatas.at(pos)->getParameter(name, bufferSize);
 	}
 }
