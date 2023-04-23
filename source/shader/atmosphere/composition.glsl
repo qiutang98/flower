@@ -29,7 +29,6 @@ vec3 flare(vec2 uv, vec2 pos, float dist, float chromaOffset, float size)
     return vec3(r, g, b);
 }
 
-
 vec3 orb(vec2 uv, vec2 pos, float dist, float size)
 {
     vec3 c = vec3(0.0);
@@ -60,10 +59,9 @@ vec3 ring(vec2 uv, vec2 pos, float dist, float chromaOffset, float blur)
 
 vec3 LensFlare()
 {
-    // if (sunVisibility <= 0.0 || isEyeInWater > 0) return vec3(0.0);
-
     vec2 coord = texcoord - 0.5;
     vec2 sunPos = sunCoord - 0.5;
+
     coord.x *= aspectRatio;
     sunPos.x *= aspectRatio;
 
@@ -74,7 +72,6 @@ vec3 LensFlare()
     float gDist = dist * 13.0 / fovFactor;
     float phase = atan2(v) + 0.131;
 
-
     float gl = 2.0 - saturate(gDist) + sin(phase * 12.0) * saturate(gDist * 2.5 - 0.2);
     gl = gl * gl;
     gDist = gDist * gDist;
@@ -82,10 +79,9 @@ vec3 LensFlare()
 
     float size = 0.5 * fovFactor;
     vec3 fl = vec3(0.0);
-    #ifdef FLARE_GHOSTING
-        fl += orb(coord, sunPos, 0.0, size * 0.02) * 0.15;
-        fl += ring(coord, sunPos,  1.0, 0.02, 1.4) * 0.02;
-    #endif
+
+    fl += orb(coord, sunPos, 0.0, size * 0.02) * 0.15;
+    fl += ring(coord, sunPos,  1.0, 0.02, 1.4) * 0.02;
     fl += ring(coord, sunPos, -1.0, 0.02, 1.4) * 0.01;
 
     fl += flare(coord, sunPos, -2.00, 0.05, size * 0.05) * 0.5;
@@ -100,8 +96,7 @@ vec3 LensFlare()
     fl += flare(coord, sunPos,  1.20, 0.03, size * 0.10) * 0.5;
 
     vec3 lf = colorSunlight * (vec3(gl * GLARE_BRIGHTNESS) + fl * FLARE_BRIGHTNESS);
-
-    return LinearToCurve(lf * (sunVisibility / mainOutputFactor));
+    return lf;
 }
 
 layout (local_size_x = 8, local_size_y = 8) in;
