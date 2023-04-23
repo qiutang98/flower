@@ -19,17 +19,15 @@ MACRO(SOURCE_GROUP_BY_FOLDER target)
     ENDIF (files)
 ENDMACRO(SOURCE_GROUP_BY_FOLDER)
 
-file(GLOB_RECURSE island_SRC CONFIGURE_DEPENDS "*.h" "*.cpp")
+file(GLOB_RECURSE flower_SRC CONFIGURE_DEPENDS "*.h" "*.cpp")
 
-find_package(Vulkan REQUIRED)
+add_executable(flower ${flower_SRC} "${CMAKE_CURRENT_SOURCE_DIR}/icon.rc")
 
-add_executable(island ${island_SRC} "${CMAKE_CURRENT_SOURCE_DIR}/icon.rc")
+SOURCE_GROUP_BY_FOLDER(flower)
 
-SOURCE_GROUP_BY_FOLDER(island)
-
-target_include_directories(island PRIVATE ${CEREAL_DIR} ${PROJECT_SOURCE_DIR}/external/assimp/include)
+target_include_directories(flower PRIVATE ${CEREAL_DIR} ${PROJECT_SOURCE_DIR}/dependency/assimp/include)
  
-target_precompile_headers(island PRIVATE
+target_precompile_headers(flower PRIVATE
     "engine/asset/asset.h"
     "engine/imgui/ui.h"
     "engine/renderer/renderer.h"
@@ -39,11 +37,12 @@ target_precompile_headers(island PRIVATE
     "editor/editor.h") 
  
 if(MSVC)
-  target_compile_options(island PUBLIC "/ZI")
-  target_link_options(island PUBLIC "/INCREMENTAL")   
+  target_compile_options(flower PUBLIC "/ZI")
+  target_link_options(flower PUBLIC "/INCREMENTAL")   
 endif()  
   
-target_link_libraries(island PUBLIC 
+target_link_libraries(flower PUBLIC 
+    Vulkan::Vulkan 
     assimp
     VulkanMemoryAllocator
     EnTT::EnTT
@@ -55,19 +54,18 @@ target_link_libraries(island PUBLIC
     nlohmann_json 
     inipp::inipp  
     glfw 
-    Vulkan::Vulkan 
     utf8cpp 
     EnTT::EnTT 
     lz4_static
     ffx_fsr2_api_x64 
     ffx_fsr2_api_vk_x64
     tinyexr
-    )
+)
 
-set_target_properties(island PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/install") 
+set_target_properties(flower PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/install") 
 
 if (MSVC)
-    target_compile_options(island PRIVATE /bigobj)
+    target_compile_options(flower PRIVATE /bigobj)
 else ()
-    target_compile_options(island PRIVATE -Wa,-mbig-obj)
+    target_compile_options(flower PRIVATE -Wa,-mbig-obj)
 endif ()

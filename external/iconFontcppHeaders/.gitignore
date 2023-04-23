@@ -1,9 +1,0 @@
-*.pyc
-
-.vscode/
-.idea/
-
-venv/
-*.yml
-*.ttf
-*.ttf.h

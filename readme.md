@@ -1,6 +1,6 @@
 # Miku Fan-Made Free MikuMikuDacne Renderer
 
-![](gallery/Snipaste_2023-02-06_10-39-57.png)
+![](readme_assets/Snipaste_2023-02-06_10-39-57.png)
 
 **The repo still under positive developing, any community contribution is greeting and welcome.**
 
@@ -14,23 +14,23 @@
 
 ​	https://www.bilibili.com/video/BV1FL4y147DN?share_source=copy_web
 
-![](gallery/202301290.png)
+![](capture/202301290.png)
 
-![](gallery/202301292.png)
+![](readme_assets/202301292.png)
 
-![](gallery/202301293.png)
+![](readme_assets/202301293.png)
 
-![](gallery/20012310.png)
+![](readme_assets/20012310.png)
 
-![](gallery/202212311.png)
+![](readme_assets/202212311.png)
 
-![](gallery/20221231.png)
+![](readme_assets/20221231.png)
 
-![](gallery/Snipaste_2022-02-07_21-56-08.png)
+![](readme_assets/Snipaste_2022-02-07_21-56-08.png)
 
-![](gallery/Snipaste_2022-12-20_00-58-17.png)
+![](readme_assets/Snipaste_2022-12-20_00-58-17.png)
 
-![](gallery/Snipaste_2022-05-18_23-56-08.png)
+![](readme_assets/Snipaste_2022-05-18_23-56-08.png)
 
 ## Current Features
 
