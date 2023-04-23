@@ -1,21 +1,27 @@
-#include "Pch.h"
-#include "Downbar.h"
+#include "downbar.h"
 
-#pragma warning (disable: 4996)
+#include "../editor.h"
 
-using namespace Flower;
-using namespace Flower::UI;
+#include <imgui/region_string.h>
 
-const std::string DOWNBAR_GCopyRightIcon = ICON_FA_COPYRIGHT;
+using namespace engine;
+using namespace engine::ui;
 
-WidgetDownbar::WidgetDownbar()
-	: Widget("Downbar")
+#pragma warning(disable: 4996)
+
+#include <imgui/imgui.h>
+#include <imgui/imgui_internal.h>
+
+DownbarWidget::DownbarWidget(Editor* editor)
+	: Widget(editor, "##Downbar")
 {
 	m_bShow = false;
 }
 
+
+
 using TimePoint = std::chrono::system_clock::time_point;
-inline std::string downbaarSerializeTimePoint(const TimePoint& time, const std::string& format)
+inline std::string downbarSerializeTimePoint(const TimePoint& time, const std::string& format)
 {
 	std::time_t tt = std::chrono::system_clock::to_time_t(time);
 	std::tm tm = *std::localtime(&tt);
@@ -24,7 +30,46 @@ inline std::string downbaarSerializeTimePoint(const TimePoint& time, const std::
 	return ss.str();
 }
 
-void WidgetDownbar::onTick(const RuntimeModuleTickData& tickData)
+
+
+bool beginDownBar(float heightScale, const char* name)
+{
+	ImGuiContext& g = *GImGui;
+
+	ImGuiViewportP* viewport = (ImGuiViewportP*)(void*)ImGui::GetWindowViewport();
+
+	g.NextWindowData.MenuBarOffsetMinVal = ImVec2(g.Style.DisplaySafeAreaPadding.x, ImMax(g.Style.DisplaySafeAreaPadding.y - g.Style.FramePadding.y, 0.0f));
+	ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_MenuBar;
+	float height = ImGui::GetFrameHeight() * heightScale;
+	bool bOpen = ImGui::BeginViewportSideBar(name, viewport, ImGuiDir_Down, height, windowFlags);
+	g.NextWindowData.MenuBarOffsetMinVal = ImVec2(0.0f, 0.0f);
+
+	if (bOpen)
+	{
+		ImGui::BeginMenuBar();
+	}	
+	else
+	{
+		ImGui::End();
+	}
+	return bOpen;
+}
+
+void endDownBar()
+{
+	ImGui::EndMenuBar();
+
+	ImGuiContext& g = *GImGui;
+	if (g.CurrentWindow == g.NavWindow && g.NavLayer == ImGuiNavLayer_Main && !g.NavAnyRequest)
+	{
+		ImGui::FocusTopMostWindowUnderOne(g.NavWindow, NULL);
+	}
+		
+	ImGui::End();
+}
+
+
+void DownbarWidget::draw(bool bNewWindow, const engine::RuntimeModuleTickData& tickData, engine::VulkanContext* context, const std::string& name, ImGuiID ID)
 {
 	bool hide = true;
 
@@ -42,12 +87,18 @@ void WidgetDownbar::onTick(const RuntimeModuleTickData& tickData)
 		ImGuiWindowFlags_NoNavFocus |
 		ImGuiWindowFlags_UnsavedDocument |
 		ImGuiWindowFlags_NoTitleBar;
+	
+	ImGui::SetNextWindowViewport(ID);
 
-	if (!ImGui::Begin(getTile().c_str(), &hide, flag))
+	if (bNewWindow)
 	{
-		ImGui::End();
-		return;
+		if (!ImGui::Begin(name.c_str(), &hide, flag))
+		{
+			ImGui::End();
+			return;
+		}
 	}
+
 
 	std::string fpsText;
 	float fps;
@@ -55,17 +106,17 @@ void WidgetDownbar::onTick(const RuntimeModuleTickData& tickData)
 		fps = glm::clamp(tickData.smoothFps, 0.0f, 999.0f);
 		std::stringstream ss;
 		ss << std::setw(4) << std::left << std::setfill(' ') << std::fixed << std::setprecision(0) << fps;
-		fpsText = "Editor Ticking  " + ss.str() + "FPS";
+		fpsText = "Studio Ticking " + ss.str() + "FPS";
 	}
 
-	if (ImGui::BeginDownBar(1.1f))
+	if (beginDownBar(0.98f, std::format("##ViewportName: {}", name).c_str()))
 	{
 		// draw engine info
 		{
 			TimePoint input = std::chrono::system_clock::now();
-			std::string name = downbaarSerializeTimePoint(input, "%Y/%m/%d %H:%M:%S");
+			std::string name = downbarSerializeTimePoint(input, "%Y/%m/%d %H:%M:%S");
 
-			static const std::string sDevName = "FlowerEngine " + DOWNBAR_GCopyRightIcon + " Developing By Qiutang";
+			static const std::string sDevName = "MikuMikuStudio-Alpha-Ver0.0.0";
 			ImGui::Text(sDevName.c_str());
 			ImGui::Text(name.c_str());
 		}
@@ -101,16 +152,24 @@ void WidgetDownbar::onTick(const RuntimeModuleTickData& tickData)
 			{
 				float x = fpsPointX;
 				float y = p.y + ImGui::GetFrameHeight() * 0.51f;
-				
+
 				ImGui::SetCursorPosX(textStartPositionX);
 				ImGui::Text("%s", fpsText.c_str());
 				ImGui::Spacing();
 				ImGui::GetWindowDrawList()->AddNgonFilled(ImVec2(ImGui::GetCursorScreenPos().x, y), sz, colfps, 12);
 			}
 		}
-		
-		ImGui::EndDownBar();
+
+		endDownBar();
 	}
 
-	ImGui::End();
+	if (bNewWindow)
+	{
+		ImGui::End();
+	}
+}
+
+void DownbarWidget::onTick(const RuntimeModuleTickData& tickData, VulkanContext* context)
+{
+	draw(true, tickData, context, getName(), ImGui::GetMainViewport()->ID);
 }

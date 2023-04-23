@@ -1,10 +1,9 @@
-#include "Pch.h"
-#include "RHI.h"
-#include "Descriptor.h"
+#include "rhi.h"
+#include <util/cityhash/city.h>
 
-namespace Flower
+namespace engine
 {
-    VkDescriptorPool createPool(const DescriptorAllocator::PoolSizes& poolSizes, int32_t count, VkDescriptorPoolCreateFlags flags)
+    VkDescriptorPool createPool(VkDevice device, const DescriptorAllocator::PoolSizes& poolSizes, int32_t count, VkDescriptorPoolCreateFlags flags)
     {
         std::vector<VkDescriptorPoolSize> sizes;
         sizes.reserve(poolSizes.sizes.size());
@@ -21,7 +20,7 @@ namespace Flower
         poolInfo.pPoolSizes = sizes.data();
 
         VkDescriptorPool descriptorPool;
-        RHICheck(vkCreateDescriptorPool(RHI::Device, &poolInfo, nullptr, &descriptorPool));
+        RHICheck(vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool));
         return descriptorPool;
     }
 
@@ -29,7 +28,7 @@ namespace Flower
     {
         for (auto p : m_usedPools)
         {
-            vkResetDescriptorPool(RHI::Device, p, 0);
+            vkResetDescriptorPool(m_context->getDevice(), p, 0);
         }
 
         m_freePools = m_usedPools;
@@ -52,7 +51,7 @@ namespace Flower
         allocInfo.pSetLayouts = &layout;
         allocInfo.descriptorPool = m_currentPool;
         allocInfo.descriptorSetCount = 1;
-        VkResult allocResult = vkAllocateDescriptorSets(RHI::Device, &allocInfo, set);
+        VkResult allocResult = vkAllocateDescriptorSets(m_context->getDevice(), &allocInfo, set);
         bool needReallocate = false;
 
         switch (allocResult)
@@ -74,7 +73,7 @@ namespace Flower
             m_currentPool = requestPool();
             m_usedPools.push_back(m_currentPool);
             allocInfo.descriptorPool = m_currentPool;
-            allocResult = vkAllocateDescriptorSets(RHI::Device, &allocInfo, set);
+            allocResult = vkAllocateDescriptorSets(m_context->getDevice(), &allocInfo, set);
             if (allocResult == VK_SUCCESS)
             {
                 return true;
@@ -85,9 +84,9 @@ namespace Flower
         return false;
     }
 
-    void DescriptorAllocator::init()
+    void DescriptorAllocator::init(const VulkanContext* context)
     {
-
+        m_context = context;
     }
 
     void DescriptorAllocator::release()
@@ -95,11 +94,11 @@ namespace Flower
         resetPools();
         for (auto p : m_freePools)
         {
-            vkDestroyDescriptorPool(RHI::Device, p, nullptr);
+            vkDestroyDescriptorPool(m_context->getDevice(), p, nullptr);
         }
         for (auto p : m_usedPools)
         {
-            vkDestroyDescriptorPool(RHI::Device, p, nullptr);
+            vkDestroyDescriptorPool(m_context->getDevice(), p, nullptr);
         }
     }
 
@@ -113,14 +112,14 @@ namespace Flower
         }
         else
         {
-            return createPool(m_descriptorSizes, 1000, 0);
+            return createPool(m_context->getDevice(), m_descriptorSizes, 1000, 0);
         }
     }
 
 
-    void DescriptorLayoutCache::init()
+    void DescriptorLayoutCache::init(const VulkanContext* context)
     {
-
+        m_context = context;
     }
 
     VkDescriptorSetLayout DescriptorLayoutCache::createDescriptorLayout(VkDescriptorSetLayoutCreateInfo* info)
@@ -148,9 +147,9 @@ namespace Flower
         if (!isSorted)
         {
             std::sort(layoutinfo.bindings.begin(), layoutinfo.bindings.end(), [](VkDescriptorSetLayoutBinding& a, VkDescriptorSetLayoutBinding& b)
-            {
-                return a.binding < b.binding;
-            });
+                {
+                    return a.binding < b.binding;
+                });
         }
 
         // perpare VkDescriptorSetLayout
@@ -162,7 +161,7 @@ namespace Flower
         else
         {
             VkDescriptorSetLayout layout;
-            vkCreateDescriptorSetLayout(RHI::Device, info, nullptr, &layout);
+            vkCreateDescriptorSetLayout(m_context->getDevice(), info, nullptr, &layout);
             m_layoutCache[layoutinfo] = layout;
             return layout;
         }
@@ -172,7 +171,7 @@ namespace Flower
     {
         for (auto& pair : m_layoutCache)
         {
-            vkDestroyDescriptorSetLayout(RHI::Device, pair.second, nullptr);
+            vkDestroyDescriptorSetLayout(m_context->getDevice(), pair.second, nullptr);
         }
         m_layoutCache.clear();
     }
@@ -182,9 +181,9 @@ namespace Flower
         return other.hash() == hash();
     }
 
-    size_t DescriptorLayoutCache::DescriptorLayoutInfo::hash() const
+    uint64_t DescriptorLayoutCache::DescriptorLayoutInfo::hash() const
     {
-        return CRC::Calculate(bindings.data(), bindings.size() * sizeof(VkDescriptorSetLayoutBinding), CRC::CRC_32());
+        return CityHash64((const char*)bindings.data(), bindings.size() * sizeof(VkDescriptorSetLayoutBinding));
     }
 
     DescriptorFactory DescriptorFactory::begin(DescriptorLayoutCache* layoutCache, DescriptorAllocator* allocator)
@@ -253,7 +252,7 @@ namespace Flower
     }
 
     DescriptorFactory& DescriptorFactory::bindNoInfo(
-        VkDescriptorType type, 
+        VkDescriptorType type,
         VkShaderStageFlags stageFlags,
         uint32_t binding,
         uint32_t count)
@@ -340,7 +339,7 @@ namespace Flower
             writes.push_back(newWrite);
         }
 
-        vkUpdateDescriptorSets(RHI::Device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+        vkUpdateDescriptorSets(m_allocator->getContext()->getDevice(), static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
 
         set = retSet;
         layout = retLayout;

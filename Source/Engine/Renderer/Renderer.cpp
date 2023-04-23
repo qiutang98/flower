@@ -1,137 +1,195 @@
-#include "Pch.h"
-#include "Renderer.h"
-#include "ImGuiPass.h"
-#include "DeferredRenderer/DeferredRenderer.h"
-#include "SceneTextures.h"
-#include "../UI/UIManager.h"
-#include "RenderSettingContext.h"
+#include "renderer.h"
+#include "render_scene.h"
+#include <scene/scene.h>
+#include "scene_textures.h"
 
-namespace Flower
+namespace engine
 {
-	static AutoCVarFloat cVarRequireUIFPS(
-		"r.Render.UIFps",
-		"Require ui fps, if world renderer is slow, will skip some frame to keep a smooth fps.",
-		"Render",
-		60,
-		CVarFlags::ReadAndWrite
-	);
+    Renderer* getRenderer()
+    {
+        static Renderer* renderer = Framework::get()->getEngine().getRuntimeModule<Renderer>();
+        return renderer;
+    }
 
-	Renderer::Renderer(ModuleManager* in, std::string name)
-		: IRuntimeModule(in, name)
-	{
-		
-	}
+	void Renderer::registerCheck(Engine* engine)
+    {
+        ASSERT(engine->existRegisteredModule<VulkanContext>(),
+            "When renderer enable, you must register vulkan context module before renderer.");
 
-	bool Renderer::init()
-	{
-		UIManager::get()->init();
-		m_uiPass.init();
-		m_sceneData = std::make_unique<RenderSceneData>();
+        ASSERT(engine->existRegisteredModule<SceneManager>(),
+            "When renderer enable, you must register vulkan context module before renderer.")
+    }
 
-		// prepare common cmdbuffer and semaphore.
-		{
-			VkSemaphoreCreateInfo semaphoreInfo{};
-			semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    bool Renderer::init()
+    {
+        // Fetch and cache vulkan context handle.
+        m_context = m_engine->getRuntimeModule<VulkanContext>();
+        m_renderScene = new RenderScene(m_context, m_engine->getRuntimeModule<SceneManager>());
 
-			for (size_t i = 0; i < GBackBufferCount; i++)
-			{
-				m_dynamicGraphicsCommandBuffers[i] = RHI::get()->createMajorGraphicsCommandBuffer();
-				RHICheck(vkCreateSemaphore(RHI::Device, &semaphoreInfo, nullptr, &m_dynamicGraphicsCommandExecuteSemaphores[i]));
-			}
-		}
+        m_temporalBlueNoise = new TemporalBlueNoise();
+        m_sharedTextures = new SharedTextures();
 
-		StaticTexturesManager::get()->init();
-		return true;
-	}
+        // Prepare windows present need datas.
+        if (m_engine->isWindowApp())
+        {
+            // Preapre command buffers and semaphore, this is useful when render and present to surface.
+            initWindowCommandContext();
 
-	void Renderer::tick(const RuntimeModuleTickData& tickData)
-	{
-		if (RenderSettingManager::get()->displayMode != RHI::eDisplayMode)
-		{
-			RHI::eDisplayMode = RenderSettingManager::get()->displayMode;
-			RHI::get()->recreateSwapChain();
-		}
+            m_imguiManager.init(m_context);
+        }
 
+        return true;
+    }
 
+    bool Renderer::tick(const RuntimeModuleTickData& tickData)
+    {
+        // Window present render tick.
+        if (m_engine->isWindowApp())
+        {
+            // Imgui new frame.
+            m_imguiManager.newFrame();
 
-		UIManager::get()->newFrame();
+            // Broadcast tick functions and render imgui.
+            tickFunctions.broadcast(tickData, m_context);
 
-		imguiTickFunctions.broadcast(tickData);
+            // Prepare render data.
+            m_imguiManager.render();
 
-		ImGui::Render();
+            auto rendererTick = [&](VkCommandBuffer graphicsCmd)
+            {
+                RHICheck(vkResetCommandBuffer(graphicsCmd, 0));
+                VkCommandBufferBeginInfo cmdBeginInfo = RHICommandbufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
+                // Record tick command functions.
+                RHICheck(vkBeginCommandBuffer(graphicsCmd, &cmdBeginInfo));
+                {
+                    m_renderScene->tick(tickData, graphicsCmd);
+                    tickCmdFunctions.broadcast(tickData, graphicsCmd, m_context);
+                }
+                RHICheck(vkEndCommandBuffer(graphicsCmd));
+            };
 
+            VkPipelineStageFlags waitFlags = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
 
-		ImDrawData* mainDrawData = ImGui::GetDrawData();
-		const bool bMainMinimized = (mainDrawData->DisplaySize.x <= 0.0f || mainDrawData->DisplaySize.y <= 0.0f);
-		if (!bMainMinimized)
-		{
-			uint32_t backBufferIndex = RHI::get()->acquireNextPresentImage();
-			CHECK(backBufferIndex < GBackBufferCount && "Swapchain backbuffer count should equal to flighting count.");
+            // Check main imgui minimized state to decide wether should we present current frame.
+            const bool bMainMinimized = m_imguiManager.isMainMinimized();
+            if (!bMainMinimized)
+            {
+                // Acquire next present image.
+                uint32_t backBufferIndex = m_context->acquireNextPresentImage();
+                ASSERT(backBufferIndex < m_context->getBackBufferCount(), "Swapchain backbuffer count should equal to flighting count.");
 
-			StaticTexturesManager::get()->tick();
+                // Prepare current
+                VkCommandBuffer graphicsCmd = m_windowCmdContext.mainCmdRing.at(backBufferIndex);
 
-			VkCommandBuffer graphicsCmd = m_dynamicGraphicsCommandBuffers[backBufferIndex];
-			RHICheck(vkResetCommandBuffer(graphicsCmd, 0));
-			VkCommandBufferBeginInfo cmdBeginInfo = RHICommandbufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-			RHICheck(vkBeginCommandBuffer(graphicsCmd, &cmdBeginInfo));
-			{
-				// Update scene data.
-				m_sceneData->tick(tickData, graphicsCmd);
+                // Record.
+                rendererTick(graphicsCmd);
 
+                // Record ui render.
+                m_imguiManager.renderFrame(backBufferIndex);
 
-				// Broadcast renderer tick functions.
-				rendererTickHooks.broadcast(tickData, graphicsCmd);
-			}
-			RHICheck(vkEndCommandBuffer(graphicsCmd));
+                // Load all semaphores.
+                auto frameStartSemaphore     = m_context->getCurrentFrameWaitSemaphore();
+                auto graphicsCmdEndSemaphore = m_windowCmdContext.mainSemaphoreRing[backBufferIndex];
+                auto frameEndSemaphore       = m_context->getCurrentFrameFinishSemaphore();
 
-			// Record ui render.
-			m_uiPass.renderFrame(backBufferIndex);
+                // Submit with semaphore.
+                RHISubmitInfo graphicsCmdSubmitInfo{};
+                graphicsCmdSubmitInfo.setWaitStage(&waitFlags)
+                    .setWaitSemaphore(&frameStartSemaphore, 1)
+                    .setSignalSemaphore(&graphicsCmdEndSemaphore, 1)
+                    .setCommandBuffer(&graphicsCmd, 1);
 
-			auto frameStartSemaphore = RHI::get()->getCurrentFrameWaitSemaphore();
-			auto* graphicsCmdEndSemaphore = &m_dynamicGraphicsCommandExecuteSemaphores[backBufferIndex];
+                RHISubmitInfo uiCmdSubmitInfo{};
+                VkCommandBuffer uiCmdBuffer = m_imguiManager.getCommandBuffer(backBufferIndex);
+                uiCmdSubmitInfo.setWaitStage(&waitFlags)
+                    .setWaitSemaphore(&graphicsCmdEndSemaphore, 1)
+                    .setSignalSemaphore(&frameEndSemaphore, 1)
+                    .setCommandBuffer(&uiCmdBuffer, 1);
 
-			auto frameEndSemaphore = RHI::get()->getCurrentFrameFinishSemaphore();
+                std::vector<VkSubmitInfo> infosRawSubmit{ graphicsCmdSubmitInfo, uiCmdSubmitInfo };
 
-			VkPipelineStageFlags waitFlags = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+                m_context->resetFence();
+                m_context->submit((uint32_t)infosRawSubmit.size(), infosRawSubmit.data());
+            }
+            else
+            {
+                m_context->waitDeviceIdle();
+            }
 
-			std::vector<VkSemaphore> graphicsCmdWaitSemaphores = { frameStartSemaphore };
-			RHISubmitInfo graphicsCmdSubmitInfo{};
-			graphicsCmdSubmitInfo.setWaitStage(&waitFlags)
-				.setWaitSemaphore(&frameStartSemaphore, 1)
-				.setSignalSemaphore(graphicsCmdEndSemaphore, 1)
-				.setCommandBuffer(&graphicsCmd, 1);
+            m_imguiManager.updateAfterSubmit();
 
-			RHISubmitInfo uiCmdSubmitInfo{};
-			VkCommandBuffer uiCmdBuffer = m_uiPass.getCommandBuffer(backBufferIndex);
-			uiCmdSubmitInfo.setWaitStage(&waitFlags)
-				.setWaitSemaphore(graphicsCmdEndSemaphore, 1)
-				.setSignalSemaphore(&frameEndSemaphore, 1)
-				.setCommandBuffer(&uiCmdBuffer, 1);
+            if (!bMainMinimized)
+            {
+                m_context->present();
+            }
+        }
 
-			std::vector<VkSubmitInfo> infosRawSubmit{ graphicsCmdSubmitInfo, uiCmdSubmitInfo };
+        return true;
+    }
 
-			RHI::get()->resetFence();
-			RHI::get()->submit((uint32_t)infosRawSubmit.size(), infosRawSubmit.data());
-		}
+    void Renderer::release()
+    {
+        // Wait device finish all work before release.
+        m_context->waitDeviceIdle();
 
-		UIManager::get()->updateAfterSubmit();
+        // Release blue noise.
+        delete m_temporalBlueNoise;
+        m_temporalBlueNoise = nullptr;
 
-		if (!bMainMinimized)
-		{
-			RHI::get()->present();
-		}
-	}
+        delete m_sharedTextures;
+        m_sharedTextures = nullptr;
 
-	void Renderer::release()
-	{
-		// Free graphics command buffer misc.
-		for (size_t i = 0; i < GBackBufferCount; i++)
-		{
-			vkDestroySemaphore(RHI::Device, m_dynamicGraphicsCommandExecuteSemaphores[i], nullptr);
-		}
-		StaticTexturesManager::get()->release();
-		m_uiPass.release();
-		UIManager::get()->release();
-	}
+        delete m_renderScene; 
+        m_renderScene = nullptr;
+
+        if (m_engine->isWindowApp())
+        {
+            m_imguiManager.release();
+
+            destroyWindowCommandContext();
+        }
+    }
+
+    void Renderer::initWindowCommandContext()
+    {
+        ASSERT(m_engine->isWindowApp(), "Only init these context for windows app.");
+
+        // prepare common cmdbuffer and semaphore.
+        VkSemaphoreCreateInfo semaphoreInfo{ };
+        semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+        // Main window prepare.
+        m_windowCmdContext.mainCmdRing.resize(m_context->getBackBufferCount());
+        m_windowCmdContext.mainSemaphoreRing.resize(m_context->getBackBufferCount());
+        for (size_t i = 0; i < m_context->getBackBufferCount(); i++)
+        {
+            m_windowCmdContext.mainCmdRing[i] = m_context->createMajorGraphicsCommandBuffer();
+            RHICheck(vkCreateSemaphore(m_context->getDevice(), &semaphoreInfo, nullptr, &m_windowCmdContext.mainSemaphoreRing[i]));
+        }
+
+        // Second context prepare.
+        VkFenceCreateInfo fenceInfo{};
+        fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+        RHICheck(vkCreateFence(m_context->getDevice(), &fenceInfo, nullptr, &m_windowCmdContext.secondCmdFence));
+        m_windowCmdContext.secondCmd = m_context->createMajorGraphicsCommandBuffer();
+    }
+
+    void Renderer::destroyWindowCommandContext()
+    {
+        ASSERT(m_engine->isWindowApp(), "Only destroy these context for windows app.");
+
+        // Main window release.
+        for (size_t i = 0; i < m_context->getBackBufferCount(); i++)
+        {
+            vkDestroySemaphore(m_context->getDevice(), m_windowCmdContext.mainSemaphoreRing[i], nullptr);
+            m_context->freeMajorGraphicsCommandBuffer(m_windowCmdContext.mainCmdRing[i]);
+        }
+
+        // Second context destroy.
+        m_context->freeMajorGraphicsCommandBuffer(m_windowCmdContext.secondCmd);
+        vkDestroyFence(m_context->getDevice(), m_windowCmdContext.secondCmdFence, nullptr);
+    }
+
 }

@@ -1,8 +1,6 @@
-#include "Pch.h"
-#include "Editor.h"
+#include "editor.h"
 
-int main()
+int main(int argc, char** argv)
 {
-	GEditor->run();
-	return 0;
+	return Editor::get()->run(argc, argv);
 }

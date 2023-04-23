@@ -1,76 +1,66 @@
 #pragma once
-#include "../Component.h"
 
-namespace Flower
+#include "../component.h"
+
+namespace engine
 {
 	class SceneNode;
 
 	class Transform : public Component
 	{
-		ARCHIVE_DECLARE;
+	public:
+		Transform() = default;
+		Transform(std::shared_ptr<SceneNode> sceneNode) : Component(sceneNode) { }
+
+		virtual ~Transform() = default;
+		
+		// Interface override.
+		virtual void tick(const RuntimeModuleTickData& tickData) override;
+
+		// Getter.
+		math::vec3& getTranslation() { return m_translation; }
+		const math::vec3& getTranslation() const { return m_translation; }
+		math::vec3& getRotation() { return m_rotation; }
+		const math::quat& getRotation() const { return m_rotation; }
+		math::vec3& getScale() { return m_scale; }
+		const math::vec3& getScale() const { return m_scale; }
+
+		// Mark world matrix dirty, also change child's dirty state.
+		void invalidateWorldMatrix();
+
+		// setter.
+		void setTranslation(const math::vec3& translation);
+		void setRotation(const math::vec3& rotation);
+		void setScale(const math::vec3& scale);
+		void setMatrix(const math::mat4& matrix);
+
+		// Get final world matrix. relate to parent.
+		const math::mat4& getWorldMatrix() const { return m_worldMatrix; }
+
+		// Get last tick world matrix result.
+		const math::mat4& getPrevWorldMatrix() const { return m_prevWorldMatrix; }
+
+		void updateWorldTransform();
+
+	protected:
+		// Compute local matrix.
+		math::mat4 computeLocalMatrix() const;
 
 	protected:
 		// need update?
 		bool m_bUpdateFlag = true;
 
 		// world space matrix.
-		glm::mat4 m_worldMatrix = glm::mat4(1.0);
+		math::mat4 m_worldMatrix = math::mat4(1.0);
 
 		// Prev-frame world matrix.
-		glm::mat4 m_prevWorldMatrix = glm::mat4(1.0);
+		math::mat4 m_prevWorldMatrix = math::mat4(1.0);
 
-#pragma region SerializeField
-		////////////////////////////// Serialize area //////////////////////////////
 	protected:
-		glm::vec3 m_translation = { .0f, .0f, .0f };
-		glm::quat m_rotation = { 1.f, .0f, .0f, .0f };
-		glm::vec3 m_scale = { 1.f, 1.f, 1.f };
+		ARCHIVE_DECLARE;
 
-		////////////////////////////// Serialize area //////////////////////////////
-#pragma endregion SerializeField
-
-	public:
-		Transform() = default;
-		virtual ~Transform() = default;
-
-		Transform(std::shared_ptr<SceneNode> sceneNode)
-			: Component(sceneNode)
-		{
-
-		}
-
-	public:
-		virtual void tick(const RuntimeModuleTickData& tickData) override;
-
-	public:
-		// getter
-		glm::vec3& getTranslation();
-		const glm::vec3& getTranslation() const;
-
-		glm::quat& getRotation();
-		const glm::quat& getRotation() const;
-
-		glm::vec3& getScale();
-		const glm::vec3& getScale() const;
-
-		// get local matrix, no relate to parent. 
-		glm::mat4 getMatrix() const;
-
-		// mark world matrix dirty, also change child's dirty state.
-		void invalidateWorldMatrix();
-
-		// setter.
-		void setTranslation(const glm::vec3& translation);
-		void setRotation(const glm::quat& rotation);
-		void setScale(const glm::vec3& scale);
-		void setMatrix(const glm::mat4& matrix);
-
-		// get final world matrix. relate to parent.
-		glm::mat4 getWorldMatrix();
-
-		// get last tick world matrix result.
-		glm::mat4 getPrevWorldMatrix();
-
-		void updateWorldTransform();
+		math::vec3 m_translation = { .0f, .0f, .0f };
+		math::vec3 m_rotation    = { .0f, .0f, .0f };
+		math::vec3 m_scale       = { 1.f, 1.f, 1.f };
 	};
 }

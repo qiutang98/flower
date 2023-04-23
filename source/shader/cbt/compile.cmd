@@ -1,0 +1,3 @@
+%~dp0/../glslc.exe -fshader-stage=comp --target-env=vulkan1.3 %~dp0/cbt_dispatcher.glsl -O -o %~dp0/../../../install/shader/cbt_dispatcher.comp.spv
+%~dp0/../glslc.exe -fshader-stage=comp --target-env=vulkan1.3 %~dp0/cbt_sumReduction.glsl -O -o %~dp0/../../../install/shader/cbt_sumReduction.comp.spv
+%~dp0/../glslc.exe -fshader-stage=comp --target-env=vulkan1.3 %~dp0/cbt_sumReductionPrepass.glsl -O -o %~dp0/../../../install/shader/cbt_sumReductionPrepass.comp.spv

@@ -1,16 +1,23 @@
 #pragma once
-#include "Pch.h"
-#include "MainMenu.h"
-#include "Widget.h"
 
-class DockSpace : public Widget
+#include <util/framework.h>
+#include <rhi/rhi.h>
+#include <renderer/renderer.h>
+#include <imgui/ui.h>
+#include "../widget.h"
+
+// Control main viewport dockspace of the windows.
+class MainViewportDockspaceAndMenu : public Widget
 {
 public:
-	DockSpace();
-	~DockSpace() = default;
+	MainViewportDockspaceAndMenu(Editor* editor);
 
-	virtual void onTick(const Flower::RuntimeModuleTickData& tickData) override;
+	static void dockspace(bool bNewWindow, const std::string& name, const engine::RuntimeModuleTickData& tickData, engine::VulkanContext* context, ImGuiViewport* viewport, std::function<void()>&& menu);
 
-private:
-	MainMenu m_mainMenu;
+protected:
+	virtual void onTick(const engine::RuntimeModuleTickData& tickData, engine::VulkanContext* context) override;
+
+
+
+	void drawDockspaceMenu();
 };

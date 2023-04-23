@@ -1,11 +1,11 @@
-#include "Pch.h"
-#include "Query.h"
-#include "RHI.h"
+#include "rhi.h"
 
-namespace Flower
+namespace engine
 {
-    void GPUTimestamps::init(uint32_t numberOfBackBuffers)
+    void GPUTimestamps::init(const VulkanContext* context, uint32_t numberOfBackBuffers)
     {
+        m_context = context;
+
         m_numberOfBackBuffers = numberOfBackBuffers;
         m_frame = 0;
 
@@ -15,19 +15,21 @@ namespace Flower
             NULL,                                         // const void*                      pNext
             (VkQueryPoolCreateFlags)0,                    // VkQueryPoolCreateFlags           flags
             VK_QUERY_TYPE_TIMESTAMP ,                     // VkQueryType                      queryType
-            m_maxValuesPerFrame * numberOfBackBuffers,      // deUint32                         entryCount
+            m_maxValuesPerFrame * numberOfBackBuffers,    // deUint32                         entryCount
             0,                                            // VkQueryPipelineStatisticFlags    pipelineStatistics
         };
 
-        RHICheck(vkCreateQueryPool(RHI::Device, &queryPoolCreateInfo, NULL, &m_queryPool));
+        RHICheck(vkCreateQueryPool(m_context->getDevice(), &queryPoolCreateInfo, NULL, &m_queryPool));
     }
 
     void GPUTimestamps::release()
     {
-        vkDestroyQueryPool(RHI::Device, m_queryPool, nullptr);
+        vkDestroyQueryPool(m_context->getDevice(), m_queryPool, nullptr);
 
         for (uint32_t i = 0; i < m_numberOfBackBuffers; i++)
+        {
             m_labels[i].clear();
+        }
     }
 
     void GPUTimestamps::getTimeStamp(VkCommandBuffer cmd, const char* label)
@@ -66,37 +68,37 @@ namespace Flower
         if (measurements > 0)
         {
             // timestampPeriod is the number of nanoseconds per timestamp value increment
-            double microsecondsPerTick = (1e-3f * RHI::get()->getPhysicalDeviceProperties().limits.timestampPeriod);
+            double microsecondsPerTick = (1e-3f * m_context->getPhysicalDeviceProperties().limits.timestampPeriod);
             {
                 uint64_t timingsInTicks[256] = {};
                 VkResult res = vkGetQueryPoolResults(
-                    RHI::Device, 
-                    m_queryPool, 
-                    offset, 
-                    measurements, 
-                    measurements * sizeof(uint64_t), 
-                    &timingsInTicks, 
-                    sizeof(uint64_t), 
+                    m_context->getDevice(),
+                    m_queryPool,
+                    offset,
+                    measurements,
+                    measurements * sizeof(uint64_t),
+                    &timingsInTicks,
+                    sizeof(uint64_t),
                     VK_QUERY_RESULT_64_BIT);
 
                 if (res == VK_SUCCESS)
                 {
                     for (uint32_t i = 1; i < measurements; i++)
                     {
-                        TimeStamp ts = 
-                        { 
-                            m_labels[m_frame][i], 
-                            float(microsecondsPerTick * (double)(timingsInTicks[i] - timingsInTicks[i - 1])) 
+                        TimeStamp ts =
+                        {
+                            m_labels[m_frame][i],
+                            float(microsecondsPerTick * (double)(timingsInTicks[i] - timingsInTicks[i - 1]))
                         };
 
                         pTimestamps->push_back(ts);
                     }
 
                     // compute total
-                    TimeStamp ts = 
-                    { 
-                        "Total GPU Time", 
-                        float(microsecondsPerTick * (double)(timingsInTicks[measurements - 1] - timingsInTicks[0])) 
+                    TimeStamp ts =
+                    {
+                        "Total GPU Time",
+                        float(microsecondsPerTick * (double)(timingsInTicks[measurements - 1] - timingsInTicks[0]))
                     };
 
                     pTimestamps->push_back(ts);
@@ -122,5 +124,3 @@ namespace Flower
         m_frame = (m_frame + 1) % m_numberOfBackBuffers;
     }
 }
-
-

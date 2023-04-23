@@ -1,27 +1,34 @@
-#include "Pch.h"
-#include "Bindless.h"
-#include "RHI.h"
+#include "rhi.h"
 
-namespace Flower
+namespace engine
 {
-	namespace Bindless
-	{
-		BindlessTexture* const Texture = new BindlessTexture();
-		BindlessSampler* const Sampler = new BindlessSampler();
-	}
+	static AutoCVarInt32 cVarRHIBindlessMaxCount(
+		"r.RHI.BindlessMaxCount",
+		"Bindless set max count.",
+		"RHI",
+		10000,
+		CVarFlags::ReadOnly
+	);
 
-	void BindlessBase::initTemplate(VkDescriptorType type)
+	void BindlessBase::initTemplate(const char* name, VkDescriptorType type, const VulkanContext* inContext, uint32_t maxDeviceLimit)
 	{
+		m_context = inContext;
+		m_name = name;
+		m_maxDeviceLimitCount = maxDeviceLimit;
+
 		// Create bindless binding here.
 		VkDescriptorSetLayoutBinding binding{};
 		binding.descriptorType = type;
-		binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
+		binding.stageFlags = kCommonShaderStage;
 		binding.binding = 0;
 
+		static uint32_t bindlessMaxCountConfig = (uint32_t)cVarRHIBindlessMaxCount.get();
+		// LOG_RHI_TRACE("Config max bindless count is {0}, device limit is {1}.", bindlessMaxCountConfig, maxDeviceLimit);
+
 		// Set max descriptor sampler count to a big number.
-		CHECK(MAX_BINDLESS_COUNT <
-			RHI::get()->getPhysicalDeviceDescriptorIndexingProperties().maxDescriptorSetUpdateAfterBindSamplers)
-		binding.descriptorCount = MAX_BINDLESS_COUNT;
+		CHECK(bindlessMaxCountConfig < maxDeviceLimit);
+
+		binding.descriptorCount = bindlessMaxCountConfig;
 
 		// One binding.
 		VkDescriptorSetLayoutCreateInfo setLayoutCreateInfo{};
@@ -42,15 +49,11 @@ namespace Flower
 		bindingFlags.pBindingFlags = &flags;
 		setLayoutCreateInfo.pNext = &bindingFlags;
 
-		RHICheck(vkCreateDescriptorSetLayout(
-			RHI::Device,
-			&setLayoutCreateInfo,
-			nullptr,
-			&m_bindlessDescriptorHeap.setLayout));
+		RHICheck(vkCreateDescriptorSetLayout(m_context->getDevice(), &setLayoutCreateInfo, nullptr, &m_bindlessDescriptorHeap.setLayout));
 
 		VkDescriptorPoolSize  poolSize{};
 		poolSize.type = type;
-		poolSize.descriptorCount = MAX_BINDLESS_COUNT;
+		poolSize.descriptorCount = bindlessMaxCountConfig;
 
 		VkDescriptorPoolCreateInfo poolCreateInfo{};
 		poolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -59,7 +62,7 @@ namespace Flower
 		poolCreateInfo.maxSets = 1;
 		poolCreateInfo.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT_EXT;
 
-		RHICheck(vkCreateDescriptorPool(RHI::Device, &poolCreateInfo, nullptr, &m_bindlessDescriptorHeap.descriptorPool));
+		RHICheck(vkCreateDescriptorPool(m_context->getDevice(), &poolCreateInfo, nullptr, &m_bindlessDescriptorHeap.descriptorPool));
 
 		VkDescriptorSetAllocateInfo allocateInfo{};
 		allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -72,9 +75,13 @@ namespace Flower
 		variableInfo.descriptorSetCount = 1;
 		allocateInfo.pNext = &variableInfo;
 
-		const uint32_t NumDescriptors = MAX_BINDLESS_COUNT;
+		const uint32_t NumDescriptors = bindlessMaxCountConfig;
 		variableInfo.pDescriptorCounts = &NumDescriptors;
-		RHICheck(vkAllocateDescriptorSets(RHI::Device, &allocateInfo, &m_bindlessDescriptorHeap.descriptorSetUpdateAfterBind));
+		RHICheck(vkAllocateDescriptorSets(m_context->getDevice(), &allocateInfo, &m_bindlessDescriptorHeap.descriptorSetUpdateAfterBind));
+
+		m_context->setResourceName(VK_OBJECT_TYPE_DESCRIPTOR_SET, (uint64_t)m_bindlessDescriptorHeap.descriptorSetUpdateAfterBind, m_name);
+		m_context->setResourceName(VK_OBJECT_TYPE_DESCRIPTOR_POOL, (uint64_t)m_bindlessDescriptorHeap.descriptorPool, m_name);
+		m_context->setResourceName(VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, (uint64_t)m_bindlessDescriptorHeap.setLayout, m_name);
 	}
 
 	uint32_t BindlessBase::getCountAndAndOne()
@@ -82,13 +89,24 @@ namespace Flower
 		std::lock_guard lock(m_bindlessElementCountLock);
 
 		uint32_t index = 0;
-		static const auto maxFreeIndexSize = MAX_BINDLESS_COUNT / 4;
-		if(m_freeIndex.size() < maxFreeIndexSize)
+
+		static const uint32_t maxRHIBindlessCount = (uint32_t)cVarRHIBindlessMaxCount.get();
+		static const auto maxFreeIndexSize = maxRHIBindlessCount / 4;
+		if (m_freeIndex.size() < maxFreeIndexSize)
 		{
 			// No free index, increment.
 			index = m_bindlessElementCount;
 			m_bindlessElementCount++;
-			CHECK(m_bindlessElementCount < MAX_BINDLESS_COUNT && "Too much item loaded in gpu!");
+
+			if (m_bindlessElementCount >= maxRHIBindlessCount)
+			{
+				LOG_WARN("Too much item use in this set, current bindless count already reach {0}, and the config max is {1}, the device limit is {2}. ", 
+					m_bindlessElementCount, maxRHIBindlessCount, m_maxDeviceLimitCount);
+
+				LOG_WARN("We reset bindless set count now, maybe cause some render error after this.");
+
+				m_bindlessElementCount = 0;
+			}
 		}
 		else
 		{
@@ -107,25 +125,26 @@ namespace Flower
 		m_freeIndex.insert(index);
 	}
 
-	VkDescriptorSetLayout BindlessBase::getSetLayout()
+	VkDescriptorSetLayout BindlessBase::getSetLayout() const
 	{
 		return m_bindlessDescriptorHeap.setLayout;
 	}
 
 	void BindlessBase::release()
 	{
-		vkDestroyDescriptorSetLayout(RHI::Device, m_bindlessDescriptorHeap.setLayout, nullptr);
-		vkDestroyDescriptorPool(RHI::Device, m_bindlessDescriptorHeap.descriptorPool, nullptr);
+		vkDestroyDescriptorSetLayout(m_context->getDevice(), m_bindlessDescriptorHeap.setLayout, nullptr);
+		vkDestroyDescriptorPool(m_context->getDevice(), m_bindlessDescriptorHeap.descriptorPool, nullptr);
 	}
 
-	VkDescriptorSet BindlessBase::getSet()
+	VkDescriptorSet BindlessBase::getSet() const
 	{
 		return m_bindlessDescriptorHeap.descriptorSetUpdateAfterBind;
 	}
 
-	void BindlessSampler::init()
+	void BindlessSampler::init(const char* name, const VulkanContext* context)
 	{
-		initTemplate(VK_DESCRIPTOR_TYPE_SAMPLER);
+		initTemplate(name, VK_DESCRIPTOR_TYPE_SAMPLER, context, 
+			context->getPhysicalDeviceDescriptorIndexingProperties().maxDescriptorSetUpdateAfterBindSamplers);
 	}
 
 	uint32_t BindlessSampler::updateSamplerToBindlessDescriptorSet(VkSampler in)
@@ -144,7 +163,7 @@ namespace Flower
 		write.descriptorCount = 1;
 		write.dstArrayElement = getCountAndAndOne();
 
-		vkUpdateDescriptorSets(RHI::Device, 1, &write, 0, nullptr);
+		vkUpdateDescriptorSets(m_context->getDevice(), 1, &write, 0, nullptr);
 
 		return write.dstArrayElement;
 	}
@@ -167,15 +186,16 @@ namespace Flower
 			write.descriptorCount = 1;
 			write.dstArrayElement = index;
 
-			vkUpdateDescriptorSets(RHI::Device, 1, &write, 0, nullptr);
+			vkUpdateDescriptorSets(m_context->getDevice(), 1, &write, 0, nullptr);
 		}
 
 		BindlessBase::freeBindless(index);
 	}
 
-	void BindlessTexture::init()
+	void BindlessTexture::init(const char* name, const VulkanContext* context)
 	{
-		initTemplate(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
+		initTemplate(name, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, context,
+			context->getPhysicalDeviceDescriptorIndexingProperties().maxDescriptorSetUpdateAfterBindSampledImages);
 	}
 
 	uint32_t BindlessTexture::updateTextureToBindlessDescriptorSet(VkImageView view, VkImageLayout layout)
@@ -195,19 +215,19 @@ namespace Flower
 		write.descriptorCount = 1;
 		write.dstArrayElement = getCountAndAndOne();
 
-		vkUpdateDescriptorSets(RHI::Device, 1, &write, 0, nullptr);
+		vkUpdateDescriptorSets(m_context->getDevice(), 1, &write, 0, nullptr);
 
 		return write.dstArrayElement;
 	}
 
-	void BindlessTexture::freeBindlessImpl(uint32_t index, std::shared_ptr<VulkanImage> fallback)
+	void BindlessTexture::freeBindlessImpl(uint32_t index, VulkanImage* fallback)
 	{
+		// If exist fallback input, we change bindless index to this fallback, so validation will happy to immediately delete current bindless asset. 
 		if (fallback)
 		{
 			VkDescriptorImageInfo imageInfo{};
 			imageInfo.sampler = VK_NULL_HANDLE;
-
-			imageInfo.imageView = fallback->getView(buildBasicImageSubresource());
+			imageInfo.imageView = fallback->getOrCreateView(buildBasicImageSubresource());
 			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 			VkWriteDescriptorSet  write{};
@@ -219,16 +239,16 @@ namespace Flower
 			write.descriptorCount = 1;
 			write.dstArrayElement = index;
 
-			vkUpdateDescriptorSets(RHI::Device, 1, &write, 0, nullptr);
+			vkUpdateDescriptorSets(m_context->getDevice(), 1, &write, 0, nullptr);
 		}
-		
+
 		BindlessBase::freeBindless(index);
-		
 	}
 
-	void BindlessStorageBuffer::init()
+	void BindlessStorageBuffer::init(const char* name, const VulkanContext* context)
 	{
-		initTemplate(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		initTemplate(name, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, context,
+			context->getPhysicalDeviceDescriptorIndexingProperties().maxDescriptorSetUpdateAfterBindStorageBuffers);
 	}
 
 	uint32_t BindlessStorageBuffer::updateBufferToBindlessDescriptorSet(VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range)
@@ -236,7 +256,7 @@ namespace Flower
 		VkDescriptorBufferInfo bufferInfo{};
 		bufferInfo.buffer = buffer;
 		bufferInfo.offset = offset;
-		bufferInfo.range  = range;
+		bufferInfo.range = range;
 
 		VkWriteDescriptorSet write{};
 		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -247,13 +267,15 @@ namespace Flower
 		write.descriptorCount = 1;
 		write.dstArrayElement = getCountAndAndOne();
 
-		vkUpdateDescriptorSets(RHI::Device, 1, &write, 0, nullptr);
+		vkUpdateDescriptorSets(m_context->getDevice(), 1, &write, 0, nullptr);
 
 		return write.dstArrayElement;
 	}
-	void BindlessStorageBuffer::freeBindlessImpl(uint32_t index, std::shared_ptr<VulkanBuffer> fallback)
+
+	void BindlessStorageBuffer::freeBindlessImpl(uint32_t index, VulkanBuffer* fallback)
 	{
-		if (fallback != VK_NULL_HANDLE)
+		// Fallback same logic with texture.
+		if (fallback)
 		{
 			VkDescriptorBufferInfo bufferInfo{};
 			bufferInfo.buffer = fallback->getVkBuffer();
@@ -269,7 +291,7 @@ namespace Flower
 			write.descriptorCount = 1;
 			write.dstArrayElement = index;
 
-			vkUpdateDescriptorSets(RHI::Device, 1, &write, 0, nullptr);
+			vkUpdateDescriptorSets(m_context->getDevice(), 1, &write, 0, nullptr);
 		}
 
 		BindlessBase::freeBindless(index);

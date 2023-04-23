@@ -1,56 +1,42 @@
 #pragma once
 
-#include "Pch.h"
-#include "../Core/Core.h"
-#include "../RuntimeModule.h"
+#include <util/util.h>
+#include <asset/asset_archive.h>
 
-namespace Flower
+namespace engine
 {
 	class SceneNode;
 
 	class Component
 	{
-		ARCHIVE_DECLARE;
-		
-#pragma region SerializeField
-	////////////////////////////// Serialize area //////////////////////////////
-	protected:
-		std::weak_ptr<SceneNode> m_node;
-
-	////////////////////////////// Serialize area //////////////////////////////
-#pragma endregion SerializeField
-
 	public:
 		Component() = default;
-		Component(std::shared_ptr<SceneNode> sceneNode) :
-			m_node(sceneNode)
-		{
+		Component(std::shared_ptr<SceneNode> sceneNode) : m_node(sceneNode) { }
 
-		}
+		virtual ~Component() = default;
 
-		virtual ~Component() { }
+		// Interface.
+		virtual void init() { }
+		virtual void tick(const RuntimeModuleTickData& tickData) {}
+		virtual void release() { }
 
-		void setNode(std::weak_ptr<SceneNode> node) 
-		{ 
-			m_node = node; 
-		}
+		// Change owner node.
+		void setNode(std::weak_ptr<SceneNode> node);
 
-		bool isValid() const { return m_node.lock().get(); }
+		// Get owner node.
+		std::shared_ptr<SceneNode> getNode();
 
-		std::shared_ptr<SceneNode> getNode() 
-		{
-			CHECK(isValid());
-			return m_node.lock(); 
-		}
+		// Component is valid or not.
+		bool isValid() const;
 
-	public:
+		// Mark dirty.
 		void markDirty();
 
-		virtual void init() { }
-
-		// Tick function should call every frame.
-		virtual void tick(const RuntimeModuleTickData& tickData) {} 
-
-		virtual void release() { }
+	protected:
+		ARCHIVE_DECLARE;
+		
+		// Component host node.
+		std::weak_ptr<SceneNode> m_node;
 	};
 }
+

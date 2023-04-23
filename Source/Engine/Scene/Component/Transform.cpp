@@ -1,12 +1,7 @@
-#include "Pch.h"
-#include "Transform.h"
-#include "../SceneNode.h"
-#include "../Component.h"
-#include <glm/gtx/matrix_decompose.hpp>
-#include <glm/gtx/transform.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include "transform.h"
+#include "../scene_node.h"
 
-namespace Flower
+namespace engine
 {
 	void Transform::tick(const RuntimeModuleTickData& tickData)
 	{
@@ -32,7 +27,7 @@ namespace Flower
 		invalidateWorldMatrix();
 	}
 
-	void Transform::setRotation(const glm::quat& rotation)
+	void Transform::setRotation(const glm::vec3& rotation)
 	{
 		m_rotation = rotation;
 		invalidateWorldMatrix();
@@ -44,70 +39,40 @@ namespace Flower
 		invalidateWorldMatrix();
 	}
 
-	const glm::vec3& Transform::getTranslation() const
-	{
-		return m_translation;
-	}
-
-	glm::vec3& Transform::getTranslation()
-	{
-		return m_translation;
-	}
-
-	const glm::quat& Transform::getRotation() const
-	{
-		return m_rotation;
-	}
-
-	glm::quat& Transform::getRotation()
-	{
-		return m_rotation;
-	}
-
-	const glm::vec3& Transform::getScale() const
-	{
-		return m_scale;
-	}
-
-	glm::vec3& Transform::getScale()
-	{
-		return m_scale;
-	}
-
 	void Transform::setMatrix(const glm::mat4& matrix)
 	{
-		glm::vec3 skew;
-		glm::vec4 perspective;
-		glm::decompose(matrix, m_scale, m_rotation, m_translation, skew, perspective);
-		m_rotation = glm::conjugate(m_rotation);
+		if (getNode()->getParent()->isRoot())
+		{
+			decomposeTransform(matrix, m_translation, m_rotation, m_scale);
+			invalidateWorldMatrix();
+		}
+		else
+		{
+			const math::mat4 parentInverse = math::inverse(getNode()->getParent()->getTransform()->getWorldMatrix());
+			const math::mat4 localNew = parentInverse * matrix;
+
+			decomposeTransform(localNew, m_translation, m_rotation, m_scale);
+			invalidateWorldMatrix();
+		}
+
+
 	}
 
-	glm::mat4 Transform::getMatrix() const
+	glm::mat4 Transform::computeLocalMatrix() const
 	{
-		// TRS - style 
-		glm::mat4 scale = glm::scale(m_scale);
-		glm::mat4 rotator = glm::mat4_cast(m_rotation);
-		glm::mat4 translate = glm::translate(glm::mat4(1.0f), m_translation);
-
-		// maybe i should cache result instead of calculate every call.
-		return translate * rotator * scale;
+		// TRS - style.
+		return 
+			math::translate(glm::mat4(1.0f), m_translation) * 
+			math::toMat4(glm::quat(m_rotation)) *
+			math::scale(glm::mat4(1.0f), m_scale);
 	}
 
-	glm::mat4 Transform::getWorldMatrix()
-	{
-		return m_worldMatrix;
-	}
-
-	glm::mat4 Transform::getPrevWorldMatrix()
-	{
-		return m_prevWorldMatrix;
-	}
 
 	void Transform::updateWorldTransform()
 	{
 		if (m_bUpdateFlag)
 		{
-			m_worldMatrix = getMatrix();
+			m_worldMatrix = computeLocalMatrix();
 			auto parent = getNode()->getParent();
 
 			// recursive multiply all parent's world matrix.

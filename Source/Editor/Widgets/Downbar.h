@@ -1,12 +1,17 @@
 #pragma once
-#include "Pch.h"
-#include "Widget.h"
 
-class WidgetDownbar : public Widget
+#include <util/framework.h>
+#include <rhi/rhi.h>
+#include <renderer/renderer.h>
+#include <imgui/ui.h>
+#include "../widget.h"
+
+class DownbarWidget : public Widget
 {
 public:
-	WidgetDownbar();
-	~WidgetDownbar() = default;
+	DownbarWidget(Editor* editor);
 
-	virtual void onTick(const Flower::RuntimeModuleTickData& tickData) override;
+	static void draw(bool bNewWindow, const engine::RuntimeModuleTickData& tickData, engine::VulkanContext* context, const std::string& name, ImGuiID ID);
+
+	virtual void onTick(const engine::RuntimeModuleTickData& tickData, engine::VulkanContext* context) override;
 };

@@ -1,5 +1,0 @@
-#pragma once
-
-#define ASSET_VERSION_CONTROL   1
-#define PROJECT_VERSION_CONTROL 0
-#define SCENE_VERSION_CONTROL   10

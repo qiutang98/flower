@@ -1,11 +1,9 @@
-#include "Pch.h"
-#include "Light.h"
-#include "../SceneNode.h"
-#include "../Scene.h"
+#include "light.h"
+#include "scene/scene_archive.h"
 
-namespace Flower
+namespace engine
 {
-	bool LightComponent::setForward(const glm::vec3& inForward)
+	bool LightComponent::setForward(const math::vec3& inForward)
 	{
 		if (m_forward != inForward)
 		{
@@ -17,7 +15,7 @@ namespace Flower
 		return false;
 	}
 
-	bool LightComponent::setColor(const glm::vec3& inColor)
+	bool LightComponent::setColor(const math::vec3& inColor)
 	{
 		if (m_color != inColor)
 		{
@@ -41,29 +39,29 @@ namespace Flower
 		return false;
 	}
 
-	glm::vec4 LightComponent::getDirection() const
+	math::vec3 LightComponent::getDirection() const
 	{
 		if (auto node = m_node.lock())
 		{
 			const auto worldMatrix = node->getTransform()->getWorldMatrix();
-			glm::vec4 forward = glm::vec4(m_forward.x, m_forward.y, m_forward.z, 0.0f);
+			math::vec4 forward = math::vec4(m_forward.x, m_forward.y, m_forward.z, 0.0f);
 
-			return glm::normalize(worldMatrix * forward);
+			return math::normalize(math::vec3(worldMatrix * forward));
 		}
 
-		return glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
+		return math::vec3(0.0f, -1.0f, 0.0f);
 	}
 
-	glm::vec3 LightComponent::getPosition() const
+	math::vec3 LightComponent::getPosition() const
 	{
 		if (auto node = m_node.lock())
 		{
 			const auto worldMatrix = node->getTransform()->getWorldMatrix();
-			glm::vec4 posOrign = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+			math::vec4 posOrign = math::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
-			return glm::vec3(worldMatrix * posOrign);
+			return math::vec3(worldMatrix * posOrign);
 		}
 
-		return glm::vec3(0.0f, 0.0f, 0.0f);
+		return math::vec3(0.0f, 0.0f, 0.0f);
 	}
 }

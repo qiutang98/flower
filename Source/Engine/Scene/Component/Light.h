@@ -1,24 +1,11 @@
 #pragma once
-#include "../Component.h"
 
-namespace Flower
+#include "../component.h"
+
+namespace engine
 {
 	class LightComponent : public Component
 	{
-		ARCHIVE_DECLARE;
-
-#pragma region SerializeField
-	////////////////////////////// Serialize area //////////////////////////////
-	protected:
-
-		glm::vec3 m_color = { 1.0f, 1.0f, 1.0f };
-		glm::vec3 m_forward = { 0.0f, -1.0f, 0.0f };
-
-		float m_intensity = 10.0f;
-
-	////////////////////////////// Serialize area //////////////////////////////
-#pragma endregion SerializeField
-
 	public:
 		LightComponent() = default;
 		virtual ~LightComponent() = default;
@@ -30,29 +17,24 @@ namespace Flower
 		}
 
 	public:
-		glm::vec3 getColor() const 
-		{ 
-			return m_color; 
-		}
+		const math::vec3& getColor() const { return m_color; }
+		const math::vec3& getForward() const { return m_forward; }
+		float getIntensity() const { return m_intensity; }
 
-		glm::vec3 getForward() const 
-		{ 
-			return m_forward; 
-		}
-
-		float getIntensity() const 
-		{ 
-			return m_intensity; 
-		}
-
-		bool setForward(const glm::vec3& in);
-
-		bool setColor(const glm::vec3& in);
-
+		// Forward of this node, maybe should set in one forward component.
+		bool setForward(const math::vec3& in);
+		bool setColor(const math::vec3& in);
 		bool setIntensity(float in);
 
-		glm::vec4 getDirection() const;
-		glm::vec3 getPosition() const;
+		math::vec3 getDirection() const;
+		math::vec3 getPosition() const;
+		
+	protected:
+		ARCHIVE_DECLARE;
+
+		math::vec3 m_color = { 1.0f, 1.0f, 1.0f };
+		math::vec3 m_forward = { 0.0f, -1.0f, 0.0f };
+		float m_intensity = 1.0f;
 	};
 }
 

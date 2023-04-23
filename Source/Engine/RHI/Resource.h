@@ -1,162 +1,177 @@
 #pragma once
-#include "RHICommon.h"
-#include "CommandBuffer.h"
 
-namespace Flower
+#include <vulkan/vulkan.h>
+#include <vk_mem_alloc.h>
+#include <util/noncopyable.h>
+#include <string>
+#include <vector>
+#include <unordered_map>
+#include <cstdint>
+
+#include "rhi_misc.h"
+
+namespace engine
 {
-	struct GpuResource : NonCopyable
+
+	class VulkanContext;
+
+	// Global interface for vulkan gpu resource. 
+	class GpuResource : NonCopyable
 	{
+	protected:
+		const VulkanContext* m_context;
+
+		// Resource name.
+		std::string m_name;
+
+		// Resource size.
+		VkDeviceSize m_size;
+
+		// Resource runtime uuid.
+		UUID64u m_runtimeUUID;
+
+		void init(const VulkanContext* context, const std::string& name, VkDeviceSize size);
+
+	public:
+		GpuResource() = default;
 		virtual ~GpuResource() = default;
+
+		// Getter.
+		VkDeviceSize getSize() const { return m_size; }
+		const std::string& getName() const { return m_name; }
+
+		const UUID64u& getRuntimeUUID() const { return m_runtimeUUID; }
 	};
 
 	class VulkanBuffer : public GpuResource
 	{
-	protected:
-		std::string m_name;
-		bool m_bHeap = false;
-		VkDeviceSize m_size = 0;
-		VkBuffer m_buffer = VK_NULL_HANDLE;
-		VmaAllocation m_allocation = nullptr;
-		VkDeviceMemory m_memory = VK_NULL_HANDLE;
-
-		uint64_t m_deviceAddress = 0;
-
 	public:
-		operator VkBuffer() const { return m_buffer; }
-		operator VkDeviceMemory() const { return m_memory; }
-		VkBuffer getVkBuffer() const { return m_buffer; }
-		VkDeviceSize getSize() const { return m_size; }
-
-	protected:
-		// Buffer is heap or vma allocate?
-		bool isHeap() const { return m_bHeap; }
-		
-		bool innerCreate(
+		explicit VulkanBuffer(
+			const VulkanContext* context,
+			const std::string& name,
 			VkBufferUsageFlags usageFlags,
-			VkMemoryPropertyFlags memoryPropertyFlags,
 			VmaAllocationCreateFlags vmaUsage,
-			void* data
-		);
+			VkDeviceSize size,
+			void* data = nullptr);
 
-	public:
 		virtual ~VulkanBuffer();
-		VulkanBuffer() = default;
 
-		uint64_t getDeviceAddress();
+		void rename(const std::string& newName);
 
-		// Mapped pointer for buffer.
-		void* mapped = nullptr;
+		// Get buffer address.
+		uint64_t getDeviceAddress() const { CHECK(m_bSupportDeviceAddress); return m_deviceAddress; }
 
-		VkResult map(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
-		void copyTo(const void* data, VkDeviceSize size);
+		// Get vkbuffer handle.
+		operator VkBuffer() const { return m_buffer; }
+		VkBuffer getVkBuffer() const { return m_buffer; }
+
+		// Manually copy or other usage.
+		void map(VkDeviceSize size = VK_WHOLE_SIZE);
+		void* getMapped() const { return m_mapped; }
 		void unmap();
 
-		VkResult bind(VkDeviceSize offset = 0);
-		VkResult flush(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
-		VkResult invalidate(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
+		// Copy whole size of buffer.
+		void copyTo(const void* data, VkDeviceSize size);
+
+		void bind(VkDeviceSize offset = 0);
+
+		void invalidate(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
+
+		void flush(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
+
+		// Copy stage buffer data to this buffer use vkCmdCopyBuffer.
 		void stageCopyFrom(VkBuffer inBuffer, VkDeviceSize size, VkDeviceSize srcOffset = 0, VkDeviceSize destOffset = 0);
 
-		const char* getName() const { return m_name.c_str(); }
-		void setName(const char* newName);
+		// Helper function for init config vma flags.
+		inline static VmaAllocationCreateFlags getStageCopyForUploadBufferFlags()
+		{
+			return VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+				VMA_ALLOCATION_CREATE_MAPPED_BIT;
+		}
 
-		static std::shared_ptr<VulkanBuffer> create(
-			const char* name,
-			VkBufferUsageFlags usageFlags,
-			VkMemoryPropertyFlags memoryPropertyFlags,
-			EVMAUsageFlags vmaFlags,
-			VkDeviceSize size,
-			void* data = nullptr // Copy data.
-		);
-		
-		static std::shared_ptr<VulkanBuffer> create2(
-			const char* name,
-			VkBufferUsageFlags usageFlags,
-			VkMemoryPropertyFlags memoryPropertyFlags,
-			VmaAllocationCreateFlags vmaUsage,
-			VkDeviceSize size,
-			void* data = nullptr // Copy data.
-		);
+		// Helper function for init config vma flags.
+		inline static VmaAllocationCreateFlags getReadBackFlags()
+		{
+			return VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT |
+				VMA_ALLOCATION_CREATE_MAPPED_BIT;
+		}
 
-		static std::shared_ptr<VulkanBuffer> createRTScratchBuffer(const char* name, VkDeviceSize size);
+		const VkDescriptorBufferInfo& getDefaultInfo() const { return m_defaultInfo; }
+
+	protected:
+		// Buffer address.
+		uint64_t m_deviceAddress = 0;
+
+		// Buffer handle.
+		VkBuffer m_buffer = VK_NULL_HANDLE;
+
+		// VMA handle.
+		VmaAllocation m_allocation = nullptr;
+
+		// Mapped pointer for buffer.
+		void* m_mapped = nullptr;
+
+		// Support device address.
+		bool m_bSupportDeviceAddress = false;
+
+		VkDescriptorBufferInfo m_defaultInfo;
 	};
 
 	class VulkanImage : public GpuResource
 	{
-	protected:
-		std::string m_name;
-
-		bool m_bHeap = false;
-		VkDeviceSize m_size;
-
-		VkImage m_image = VK_NULL_HANDLE;
-		VkDeviceMemory m_memory = VK_NULL_HANDLE;
-		VmaAllocation m_allocation = nullptr;
-		VkImageCreateInfo m_createInfo = {};
-
-		std::vector<uint32_t> m_ownerQueueFamilys;
-		std::vector<VkImageLayout> m_layouts;
-
-		std::unordered_map<size_t, VkImageView> m_cacheImageViews { };
 	public:
-		VkImage getImage() const { return m_image; }   
-		VkFormat getFormat() const { return m_createInfo.format; }
-		VkExtent3D getExtent() const { return m_createInfo.extent; }
-		const VkImageCreateInfo& getInfo() const { return m_createInfo; }
-		VkDeviceSize getMemorySize() const { return m_size; }
-
-	protected:
-		bool isHeap() const { return m_bHeap; }
-		bool innerCreate(VkMemoryPropertyFlags preperty);
-
-		inline size_t getSubresourceIndex(uint32_t layerIndex, uint32_t mipLevel) const
-		{
-			CHECK((layerIndex < m_createInfo.arrayLayers) && (mipLevel < m_createInfo.mipLevels));
-
-			return layerIndex * m_createInfo.mipLevels + mipLevel;
-		}
-
-	public:
-		virtual ~VulkanImage();
-		VulkanImage() = default;
-
-		void rename(const std::string& name);
-		
-		static std::shared_ptr<VulkanImage> create(
-			const char* name, 
-			const VkImageCreateInfo& createInfo, 
+		explicit VulkanImage(
+			const VulkanContext* context,
+			const std::string& name,
+			const VkImageCreateInfo& createInfo,
 			VkMemoryPropertyFlags preperty = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-		// Try get view and create if no exist.
-		VkImageView getView(VkImageSubresourceRange range, VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_2D);
+		virtual ~VulkanImage();
 
-		void transitionLayout(
-			RHICommandBufferBase& cmd,
-			VkImageLayout newLayout, 
-			VkImageSubresourceRange range
-		);
+		VkImage getImage() const { return m_image; }
+
+		VkFormat getFormat() const { return m_createInfo.format; }
+
+		VkExtent3D getExtent() const { return m_createInfo.extent; }
+
+		const VkImageCreateInfo& getInfo() const { return m_createInfo; }
+
+		VkImageLayout getCurrentLayout(uint32_t layerIndex, uint32_t mipLevel) const;
+
+		// Try get view and create if no exist.
+		VkImageView getOrCreateView(
+			VkImageSubresourceRange range, VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_2D);
+
+		void transitionLayout(RHICommandBufferBase& cmd, VkImageLayout newLayout, VkImageSubresourceRange range);
+
+
+		void transitionLayout(VkCommandBuffer cb, uint32_t cmdQueueFamily, VkImageLayout newLayout, VkImageSubresourceRange range);
 
 		// Use graphics queue family.
-		void transitionLayout(
-			VkCommandBuffer cmd,
-			VkImageLayout newLayout,
-			VkImageSubresourceRange range
-		);
-
-		void transitionLayout(
-			VkCommandBuffer cb,
-			uint32_t cmdQueueFamily,
-			VkImageLayout newLayout,
-			VkImageSubresourceRange range
-		);
+		void transitionLayout(VkCommandBuffer cmd, VkImageLayout newLayout, VkImageSubresourceRange range);
 
 		// Transition on major graphics.
-		void transitionLayoutImmediately(
-			VkImageLayout newLayout,
-			VkImageSubresourceRange range
-		);
+		void transitionLayoutImmediately(VkImageLayout newLayout, VkImageSubresourceRange range);
 
-		
+	protected:
+		size_t getSubresourceIndex(uint32_t layerIndex, uint32_t mipLevel) const;
 
-		VkImageLayout getCurrentLayout(uint32_t layerIndex, uint32_t mipLevel) const { return m_layouts.at(getSubresourceIndex(layerIndex, mipLevel)); }
+	protected:
+		// Image handle.
+		VkImage m_image = VK_NULL_HANDLE;
+
+		VmaAllocation m_allocation = nullptr;
+
+		// Cache image create info.
+		VkImageCreateInfo m_createInfo = {};
+
+		// Image resource queue family owner.
+		std::vector<uint32_t> m_ownerQueueFamilyIndices;
+
+		// Image layouts.
+		std::vector<VkImageLayout> m_layouts;
+
+		// Cache created image views.
+		std::unordered_map<uint64_t, VkImageView> m_cacheImageViews{ };
 	};
 }

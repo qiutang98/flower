@@ -1,36 +1,27 @@
-#include "Pch.h"
-#include "Resource.h"
-#include "RHI.h"
+#include "rhi.h"
+#include <util/cityhash/city.h>
 
-#include <vma/vk_mem_alloc.h>
-
-#pragma warning (disable: 4297)
-
-namespace Flower
+namespace engine
 {
-	static AutoCVarInt32 cVarEnableVma(
-		"r.RHI.EnableVma",
-		"Enable vma allocator to manage vkBuffer create and destroy. 0 is off, others are on.",
-		"RHI",
-		1, // when vram > 256 MB, may allocate fail on some machine, so we use heap memory here.
-		CVarFlags::ReadOnly | CVarFlags::InitOnce
-	);
-
-	// If size <= 128 MB, we use VMA, else use heap memory.
-	constexpr VkDeviceSize GMaxVMASize = 128 * 1024 * 1024;
-
-	constexpr bool canUseVMA(VkDeviceSize size)
+	void GpuResource::init(const VulkanContext* context, const std::string& name, VkDeviceSize size)
 	{
-		return size <= GMaxVMASize;
+		m_runtimeUUID = buildRuntimeUUID64u();
+		m_context = context;
+		m_name = name;
+		m_size = size;
+
+		ASSERT(m_size > 0, "you should set size of buffer before create.");
 	}
 
-	bool VulkanBuffer::innerCreate(
+	VulkanBuffer::VulkanBuffer(
+		const VulkanContext* context,
+		const std::string& name,
 		VkBufferUsageFlags usageFlags, 
-		VkMemoryPropertyFlags memoryPropertyFlags, 
-		VmaAllocationCreateFlags vmaUsage,
+		VmaAllocationCreateFlags vmaUsage, 
+		VkDeviceSize size, 
 		void* data)
 	{
-		CHECK(m_size > 0 && "you should set size of buffer before create.");
+		GpuResource::init(context, name, size);
 
 		VkBufferCreateInfo bufferInfo{};
 		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -38,199 +29,103 @@ namespace Flower
 		bufferInfo.usage = usageFlags;
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		if (!isHeap())
+		VmaAllocationCreateInfo vmaallocInfo = {};
+		vmaallocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+		vmaallocInfo.flags = vmaUsage;
+
+		RHICheck(vmaCreateBuffer(m_context->getVMA(), &bufferInfo, &vmaallocInfo, &m_buffer, &m_allocation, nullptr));
+
+		m_bSupportDeviceAddress = (usageFlags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+		if (m_bSupportDeviceAddress)
 		{
-			VmaAllocationCreateInfo vmaallocInfo = {};
-			vmaallocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-			vmaallocInfo.flags = vmaUsage;
-
-
-			RHICheck(vmaCreateBuffer(RHI::VMA, &bufferInfo, &vmaallocInfo,
-				&m_buffer,
-				&m_allocation,
-				nullptr));
-
-			if (data != nullptr)
-			{
-				void* mapped;
-				vmaMapMemory(RHI::VMA, m_allocation, &mapped);
-				memcpy(mapped, data, m_size);
-				vmaUnmapMemory(RHI::VMA, m_allocation);
-			}
-		}
-		else
-		{
-			if (vkCreateBuffer(RHI::Device, &bufferInfo, nullptr, &m_buffer) != VK_SUCCESS)
-			{
-				LOG_RHI_FATAL("Fail to create vulkan buffer.");
-			}
-
-			VkMemoryRequirements memRequirements;
-			vkGetBufferMemoryRequirements(RHI::Device, m_buffer, &memRequirements);
-
-			VkMemoryAllocateInfo allocInfo{};
-			allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-			allocInfo.allocationSize = memRequirements.size;
-			allocInfo.memoryTypeIndex = RHI::get()->findMemoryType(memRequirements.memoryTypeBits, memoryPropertyFlags);
-
-			VkMemoryAllocateFlagsInfo memoryAllocateFlagsInfo = {};
-			if(RHI::bSupportRayTrace)
-			{
-				memoryAllocateFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
-				memoryAllocateFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
-				allocInfo.pNext = &memoryAllocateFlagsInfo;
-			}
-			
-
-			if (vkAllocateMemory(RHI::Device, &allocInfo, nullptr, &m_memory) != VK_SUCCESS)
-			{
-				LOG_RHI_FATAL("Fail to allocate vulkan buffer.");
-			}
-
-			if (data != nullptr)
-			{
-				void* mapped;
-				vkMapMemory(RHI::Device, m_memory, 0, m_size, 0, &mapped);
-				memcpy(mapped, data, m_size);
-				vkUnmapMemory(RHI::Device, m_memory);
-			}
-
-			vkBindBufferMemory(RHI::Device, m_buffer, m_memory, 0);
-		}
-		RHI::setResourceName(VK_OBJECT_TYPE_BUFFER, (uint64_t)m_buffer, m_name.c_str());
-		RHI::addGpuResourceMemoryUsed(m_size);
-
-		return true;
-	}
-
-	VulkanBuffer::~VulkanBuffer()
-	{
-		if (!isHeap())
-		{
-			vmaDestroyBuffer(RHI::VMA, m_buffer, m_allocation);
-		}
-		else
-		{
-			if (m_buffer != VK_NULL_HANDLE)
-			{
-				vkDestroyBuffer(RHI::Device, m_buffer, nullptr);
-			}
-			if (m_memory != VK_NULL_HANDLE)
-			{
-				vkFreeMemory(RHI::Device, m_memory, nullptr);
-			}
-		}
-
-		RHI::minusGpuResourceMemoryUsed(m_size);
-	}
-
-	uint64_t VulkanBuffer::getDeviceAddress()
-	{
-		if (m_deviceAddress == 0)
-		{
+			// Get buffer address.
 			VkBufferDeviceAddressInfo bufferDeviceAddressInfo{};
 			bufferDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
 			bufferDeviceAddressInfo.buffer = m_buffer;
-
-			m_deviceAddress = vkGetBufferDeviceAddress(RHI::Device, &bufferDeviceAddressInfo);
+			m_deviceAddress = vkGetBufferDeviceAddress(m_context->getDevice(), &bufferDeviceAddressInfo);
 		}
 
-		return m_deviceAddress;
+		// Copy data if need upload.
+		if (data != nullptr)
+		{
+			void* dataMapped = nullptr;
+			vmaMapMemory(m_context->getVMA(), m_allocation, &dataMapped);
+			memcpy(dataMapped, data, m_size);
+			vmaUnmapMemory(m_context->getVMA(), m_allocation);
+		}
+
+		m_context->setResourceName(VK_OBJECT_TYPE_BUFFER, (uint64_t)m_buffer, m_name.c_str());
+
+		m_defaultInfo.offset = 0;
+		m_defaultInfo.range = m_size;
+		m_defaultInfo.buffer = m_buffer;
 	}
 
-	VkResult VulkanBuffer::map(VkDeviceSize size, VkDeviceSize offset)
+	void VulkanBuffer::rename(const std::string& newName)
 	{
-		VkResult res;
+		m_name = newName;
+		m_context->setResourceName(VK_OBJECT_TYPE_BUFFER, (uint64_t)m_buffer, newName.c_str());
+	}
 
-		if (!isHeap())
+	void VulkanBuffer::map(VkDeviceSize size)
+	{
+		if (m_mapped == nullptr)
 		{
-			res = vmaMapMemory(RHI::VMA, m_allocation, &mapped);
+			RHICheck(vmaMapMemory(m_context->getVMA(), m_allocation, &m_mapped));
 		}
-		else
-		{
-			res = vkMapMemory(RHI::Device, m_memory, offset, size, 0, &mapped);
-		}
-		CHECK(mapped != nullptr && "Map fail.");
-		return res;
 	}
 
 	void VulkanBuffer::copyTo(const void* data, VkDeviceSize size)
 	{
-		CHECK(mapped && "you must map buffer first before copy.");
-		memcpy(mapped, data, size);
+		if (m_mapped != nullptr)
+		{
+			LOG_ERROR("Buffer already mapped, don't use this function.");
+		}
+
+		map(size);
+		memcpy(m_mapped, data, size);
+		unmap();
 	}
 
 	void VulkanBuffer::unmap()
 	{
-		CHECK(mapped != nullptr && "you should call unmap only once after call map.");
-
-		if (!isHeap())
+		if (m_mapped != nullptr)
 		{
-			vmaUnmapMemory(RHI::VMA, m_allocation);
-			mapped = nullptr;
-		}
-		else
-		{
-			vkUnmapMemory(RHI::Device, m_memory);
-			mapped = nullptr;
+			vmaUnmapMemory(m_context->getVMA(), m_allocation);
+			m_mapped = nullptr;
 		}
 	}
 
-	VkResult VulkanBuffer::bind(VkDeviceSize offset)
+
+	VulkanBuffer::~VulkanBuffer()
 	{
-		if (!isHeap())
+		if (m_mapped)
 		{
-			return vmaBindBufferMemory2(RHI::VMA, m_allocation, offset, m_buffer, nullptr);
+			unmap();
 		}
-		else
-		{
-			return vkBindBufferMemory(RHI::Device, m_buffer, m_memory, offset);
-		}
+
+		vmaDestroyBuffer(m_context->getVMA(), m_buffer, m_allocation);
 	}
 
-	VkResult VulkanBuffer::flush(VkDeviceSize size, VkDeviceSize offset)
-	{
-		VkResult res;
-		if (!isHeap())
-		{
-			res = vmaFlushAllocation(RHI::VMA, m_allocation, offset, size);
-		}
-		else
-		{
-			VkMappedMemoryRange mappedRange = {};
-			mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-			mappedRange.memory = m_memory;
-			mappedRange.offset = offset;
-			mappedRange.size = size;
-			res = vkFlushMappedMemoryRanges(RHI::Device, 1, &mappedRange);
-		}
 
-		return res;
+	void VulkanBuffer::bind(VkDeviceSize offset)
+	{
+		RHICheck(vmaBindBufferMemory2(m_context->getVMA(), m_allocation, offset, m_buffer, nullptr));
 	}
 
-	VkResult VulkanBuffer::invalidate(VkDeviceSize size, VkDeviceSize offset)
+	void VulkanBuffer::flush(VkDeviceSize size, VkDeviceSize offset)
 	{
-		VkResult res;
-		if (!isHeap())
-		{
-			res = vmaInvalidateAllocation(RHI::VMA, m_allocation, offset, size);
-		}
-		else
-		{
-			VkMappedMemoryRange mappedRange = {};
-			mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-			mappedRange.memory = m_memory;
-			mappedRange.offset = offset;
-			mappedRange.size = size;
-			res = vkInvalidateMappedMemoryRanges(RHI::Device, 1, &mappedRange);
-		}
+		RHICheck(vmaFlushAllocation(m_context->getVMA(), m_allocation, offset, size));
+	}
 
-		return res;
+	void VulkanBuffer::invalidate(VkDeviceSize size, VkDeviceSize offset)
+	{
+		RHICheck(vmaInvalidateAllocation(m_context->getVMA(), m_allocation, offset, size));
 	}
 
 	void VulkanBuffer::stageCopyFrom(VkBuffer inBuffer, VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize destOffset)
 	{
-		RHI::executeImmediatelyMajorGraphics([&](VkCommandBuffer cb) {
+		m_context->executeImmediatelyMajorGraphics([&](VkCommandBuffer cb) {
 			VkBufferCopy copyRegion{};
 
 			copyRegion.srcOffset = srcOffset;
@@ -240,234 +135,95 @@ namespace Flower
 		});
 	}
 
-	void VulkanBuffer::setName(const char* newName)
+	VulkanImage::VulkanImage(
+		const VulkanContext* context,
+		const std::string& name,
+		const VkImageCreateInfo& createInfo,
+		VkMemoryPropertyFlags preperty) : m_createInfo(createInfo)
 	{
-		if (m_name != newName)
-		{
-			m_name = newName;
-			RHI::setResourceName(VK_OBJECT_TYPE_BUFFER, (uint64_t)m_buffer, newName);
-		}
-	}
+		// Create image to query memory size.
+		RHICheck(vkCreateImage(context->getDevice(), &m_createInfo, nullptr, &m_image));
+		VkMemoryRequirements memRequirements;
+		vkGetImageMemoryRequirements(context->getDevice(), m_image, &memRequirements);
+		vkDestroyImage(context->getDevice(), m_image, nullptr);
+		m_image = VK_NULL_HANDLE;
 
-	std::shared_ptr<VulkanBuffer> VulkanBuffer::create(
-		const char* name,
-		VkBufferUsageFlags usageFlags, 
-		VkMemoryPropertyFlags memoryPropertyFlags, 
-		EVMAUsageFlags vmaFlags,
-		VkDeviceSize size, 
-		void* data)
-	{
-		auto result = std::make_shared<VulkanBuffer>();
+		// Parent init.
+		GpuResource::init(context, name, memRequirements.size);
 
-		result->m_bHeap = (cVarEnableVma.get() == 0) || !canUseVMA(size);
-		result->m_size = size;
-		result->m_name = name;
-
-		VmaAllocationCreateFlags vmaUsage {};
-		if (vmaFlags == EVMAUsageFlags::StageCopyForUpload)
-		{
-			vmaUsage =
-				VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-				VMA_ALLOCATION_CREATE_MAPPED_BIT;
-		}
-		else if (vmaFlags == EVMAUsageFlags::Readback)
-		{
-			vmaUsage =
-				VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT |
-				VMA_ALLOCATION_CREATE_MAPPED_BIT;
-		}
-
-		result->innerCreate(usageFlags, memoryPropertyFlags, vmaUsage, data);
-
-		return result;
-	}
-
-	std::shared_ptr<VulkanBuffer> VulkanBuffer::create2(
-		const char* name,
-		VkBufferUsageFlags usageFlags,
-		VkMemoryPropertyFlags memoryPropertyFlags,
-		VmaAllocationCreateFlags vmaUsage,
-		VkDeviceSize size,
-		void* data)
-	{
-		auto result = std::make_shared<VulkanBuffer>();
-
-		result->m_bHeap = (cVarEnableVma.get() == 0) || !canUseVMA(size);
-		result->m_size = size;
-		result->m_name = name;
-		result->innerCreate(usageFlags, memoryPropertyFlags, vmaUsage, data);
-
-		return result;
-	}
-
-	std::shared_ptr<VulkanBuffer> VulkanBuffer::createRTScratchBuffer(const char* name, VkDeviceSize size)
-	{
-		return create(
-			name, 
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, 
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
-			EVMAUsageFlags::GPUOnly, 
-			size, 
-			nullptr);
-	}
-
-	bool VulkanImage::innerCreate(VkMemoryPropertyFlags preperty)
-	{
-		RHICheck(vkCreateImage(RHI::Device, &m_createInfo, nullptr, &m_image));
-
-		m_layouts.resize(m_createInfo.arrayLayers * m_createInfo.mipLevels);
-		m_ownerQueueFamilys.resize(m_layouts.size());
+		// Init some subresources.
+		size_t subresourceNum = m_createInfo.arrayLayers * m_createInfo.mipLevels;
+		m_layouts.resize(subresourceNum);
+		m_ownerQueueFamilyIndices.resize(subresourceNum);
 		for (size_t i = 0; i < m_layouts.size(); i++)
 		{
 			m_layouts[i] = VK_IMAGE_LAYOUT_UNDEFINED;
-			m_ownerQueueFamilys[i] = VK_QUEUE_FAMILY_IGNORED;
+			m_ownerQueueFamilyIndices[i] = VK_QUEUE_FAMILY_IGNORED;
 		}
 
-		VkMemoryRequirements memRequirements;
-		vkGetImageMemoryRequirements(RHI::Device, m_image, &memRequirements);
+		VmaAllocationCreateInfo imageAllocCreateInfo = {};
+		imageAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+		imageAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
+		imageAllocCreateInfo.pUserData = (void*)m_name.c_str();
+		VmaAllocationInfo gpuImageAllocInfo = {};
 
-		m_size = memRequirements.size;
-		m_bHeap = (cVarEnableVma.get() == 0) || !canUseVMA(m_size);
+		RHICheck(vmaCreateImage(m_context->getVMA(), &m_createInfo, &imageAllocCreateInfo, &m_image, &m_allocation, &gpuImageAllocInfo));
 
-		vkDestroyImage(RHI::Device, m_image, nullptr);
-		m_image = VK_NULL_HANDLE;
-
-		if (!isHeap())
-		{
-			VmaAllocationCreateInfo imageAllocCreateInfo = {};
-			imageAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-			imageAllocCreateInfo.flags = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
-			imageAllocCreateInfo.pUserData = (void*)m_name.c_str();
-			VmaAllocationInfo gpuImageAllocInfo = {};
-
-			RHICheck(vmaCreateImage(RHI::VMA, &m_createInfo, &imageAllocCreateInfo, &m_image, &m_allocation, &gpuImageAllocInfo));
-		}
-		else
-		{
-			RHICheck(vkCreateImage(RHI::Device, &m_createInfo, nullptr, &m_image));
-
-			VkMemoryAllocateInfo allocInfo{};
-			allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-			allocInfo.allocationSize = m_size;
-
-			VkMemoryPropertyFlags properties = preperty;
-
-			allocInfo.memoryTypeIndex = RHI::get()->findMemoryType(memRequirements.memoryTypeBits, properties);
-			RHICheck(vkAllocateMemory(RHI::Device, &allocInfo, nullptr, &m_memory));
-
-			vkBindImageMemory(RHI::Device, m_image, m_memory, 0);
-		}
-		RHI::setResourceName(VK_OBJECT_TYPE_IMAGE, (uint64_t)m_image, m_name.c_str());
-		RHI::addGpuResourceMemoryUsed(m_size);
-		LOG_RHI_INFO("Image {0} has created.", m_name);
-
-		return true;
+		m_context->setResourceName(VK_OBJECT_TYPE_IMAGE, (uint64_t)m_image, m_name.c_str());
 	}
 
 	VulkanImage::~VulkanImage()
 	{
-		CHECK(m_image != VK_NULL_HANDLE);
-
-		if (m_allocation != nullptr)
+		if (m_image != VK_NULL_HANDLE)
 		{
-			vmaDestroyImage(RHI::VMA, m_image, m_allocation);
+			vmaDestroyImage(m_context->getVMA(), m_image, m_allocation);
 			m_image = VK_NULL_HANDLE;
-		}
-		else
-		{
-			vkDestroyImage(RHI::Device, m_image, nullptr);
-			m_image = VK_NULL_HANDLE;
-
-			CHECK(m_memory != VK_NULL_HANDLE);
-			vkFreeMemory(RHI::Device, m_memory, nullptr);
-			m_memory = VK_NULL_HANDLE;
 		}
 
 		for (auto& pair : m_cacheImageViews)
 		{
-			CHECK(pair.second != VK_NULL_HANDLE);
-			vkDestroyImageView(RHI::Device, pair.second, nullptr);
+			vkDestroyImageView(m_context->getDevice(), pair.second, nullptr);
 		}
 		m_cacheImageViews.clear();
-		RHI::minusGpuResourceMemoryUsed(m_size);
-		LOG_RHI_INFO("Image {0} has release.", m_name);
 	}
 
-	void VulkanImage::rename(const std::string& name)
+	size_t VulkanImage::getSubresourceIndex(uint32_t layerIndex, uint32_t mipLevel) const
 	{
-	// RT pool reuse will trigger rename frequently. close here.
-#if 0
-		if (m_name != name)
-		{
-
-			LOG_RHI_INFO("Rename resource {0} to {1}.", m_name, name);
-			m_name = name;
-
-			RHI::setResourceName(VK_OBJECT_TYPE_IMAGE, (uint64_t)m_image, m_name.c_str());
-
-			for (auto& pair : m_cacheImageViews)
-			{
-				RHI::setResourceName(VK_OBJECT_TYPE_IMAGE_VIEW, (uint64_t)&pair.second, m_name.c_str());
-			}
-
-		}
-#endif
+		CHECK((layerIndex < m_createInfo.arrayLayers) && (mipLevel < m_createInfo.mipLevels));
+		return layerIndex * m_createInfo.mipLevels + mipLevel;
 	}
 
-	std::shared_ptr<VulkanImage> VulkanImage::create(const char* name, const VkImageCreateInfo& createInfo, VkMemoryPropertyFlags preperty)
+	VkImageLayout VulkanImage::getCurrentLayout(uint32_t layerIndex, uint32_t mipLevel) const
 	{
-		auto result = std::make_shared<VulkanImage>();
-
-		result->m_name = name;
-		result->m_createInfo = createInfo;
-		result->innerCreate(preperty);
-
-		return result;
+		size_t subresourceIndex = getSubresourceIndex(layerIndex, mipLevel);
+		return m_layouts.at(subresourceIndex);
 	}
 
-	// Try get view and create if no exist.
-	VkImageView VulkanImage::getView(VkImageSubresourceRange range, VkImageViewType viewType)
+	VkImageView VulkanImage::getOrCreateView(VkImageSubresourceRange range, VkImageViewType viewType)
 	{
 		VkImageViewCreateInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		info.image = m_image;
 		info.subresourceRange = range;
-
 		info.format = m_createInfo.format;
 		info.viewType = viewType;
-
-		size_t hashVal = CRC::Calculate(&info, sizeof(VkImageViewCreateInfo), CRC::CRC_32());
+		uint64_t hashVal = CityHash64((const char*)&info, sizeof(VkImageViewCreateInfo));
 		if (!m_cacheImageViews.contains(hashVal))
 		{
 			m_cacheImageViews[hashVal] = VK_NULL_HANDLE;
 
-			RHICheck(vkCreateImageView(RHI::Device, &info, NULL, &m_cacheImageViews[hashVal]));
+			RHICheck(vkCreateImageView(m_context->getDevice(), &info, NULL, &m_cacheImageViews[hashVal]));
 		}
 
 		return m_cacheImageViews[hashVal];
 	}
 
-	void VulkanImage::transitionLayout(
-		RHICommandBufferBase& cmd,
-		VkImageLayout newLayout,
-		VkImageSubresourceRange range)
+	void VulkanImage::transitionLayout(RHICommandBufferBase& cmd, VkImageLayout newLayout, VkImageSubresourceRange range)
 	{
 		transitionLayout(cmd.cmd, cmd.queueFamily, newLayout, range);
 	}
 
-	void VulkanImage::transitionLayout(
-		VkCommandBuffer cmd,
-		VkImageLayout newLayout,
-		VkImageSubresourceRange range)
-	{
-		transitionLayout(cmd, RHI::get()->getGraphiscFamily(), newLayout, range);
-	}
-
-	void VulkanImage::transitionLayout(
-		VkCommandBuffer cb, 
-		uint32_t newQueueFamily,
-		VkImageLayout newLayout, 
-		VkImageSubresourceRange range)
+	void VulkanImage::transitionLayout(VkCommandBuffer cb, uint32_t newQueueFamily, VkImageLayout newLayout, VkImageSubresourceRange range)
 	{
 		std::vector<VkImageMemoryBarrier> barriers;
 
@@ -484,7 +240,7 @@ namespace Flower
 				size_t flatId = getSubresourceIndex(layerIndex, mipIndex);
 
 				VkImageLayout oldLayout = m_layouts.at(flatId);
-				uint32_t oldFamily = m_ownerQueueFamilys.at(flatId);
+				uint32_t oldFamily = m_ownerQueueFamilyIndices.at(flatId);
 
 				if ((newLayout == oldLayout) && (oldFamily == newQueueFamily))
 				{
@@ -493,7 +249,7 @@ namespace Flower
 
 
 				m_layouts[flatId] = newLayout;
-				m_ownerQueueFamilys[flatId] = newQueueFamily;
+				m_ownerQueueFamilyIndices[flatId] = newQueueFamily;
 
 				VkImageMemoryBarrier barrier{};
 				barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -513,11 +269,8 @@ namespace Flower
 
 				barrier.subresourceRange = rangSpecial;
 
-
 				VkAccessFlags srcMask{};
 				VkAccessFlags dstMask{};
-
-
 
 				switch (oldLayout)
 				{
@@ -588,12 +341,9 @@ namespace Flower
 
 				barrier.srcAccessMask = srcMask;
 				barrier.dstAccessMask = dstMask;
-
 				barriers.push_back(barrier);
 			}
-
 		}
-
 
 		if (barriers.empty())
 		{
@@ -602,25 +352,28 @@ namespace Flower
 
 		vkCmdPipelineBarrier(
 			cb,
-			srcStageMask, 
+			srcStageMask,
 			dstStageMask,
 			dependencyFlags,
-			0, 
+			0,
 			nullptr,
-			0, 
+			0,
 			nullptr,
 			(uint32_t)barriers.size(),
 			barriers.data()
 		);
 	}
 
-	void VulkanImage::transitionLayoutImmediately(
-		VkImageLayout newLayout, 
-		VkImageSubresourceRange range)
+	void VulkanImage::transitionLayout(VkCommandBuffer cmd, VkImageLayout newLayout, VkImageSubresourceRange range)
 	{
-		RHI::executeImmediatelyMajorGraphics([&, this](VkCommandBuffer cb)
+		transitionLayout(cmd, m_context->getGraphiscFamily(), newLayout, range);
+	}
+
+	void VulkanImage::transitionLayoutImmediately(VkImageLayout newLayout, VkImageSubresourceRange range)
+	{
+		m_context->executeImmediatelyMajorGraphics([&, this](VkCommandBuffer cb)
 		{
-			transitionLayout(cb, RHI::get()->getGraphiscFamily(), newLayout, range);
+			transitionLayout(cb, m_context->getGraphiscFamily(), newLayout, range);
 		});
 	}
 }

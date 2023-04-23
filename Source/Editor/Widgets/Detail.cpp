@@ -1,17 +1,23 @@
-#include "Pch.h"
-#include "Detail.h"
-#include "../Editor.h"
-#include "DrawComponent/DrawComponent.h"
+#include "detail.h"
+#include "imgui/ui.h"
+#include "imgui/region_string.h"
+#include "../editor.h"
+#include "scene_outliner.h"
+#include <scene/component.h>
+#include "component_draw/component_draw.h"
+#include <scene/component/static_mesh.h>
+#include <scene/component/terrain.h>
+using namespace engine;
+using namespace engine::ui;
 
-using namespace Flower;
-using namespace Flower::UI;
+RegionStringInit Detail_Title("Detail_Title", "Detail", "Detail");
+const static std::string ICON_DETAIL = ICON_FA_LIST;
 
-static const std::string DETAIL_DetailIcon = ICON_FA_LIST;
 static const std::string DETAIL_SearchIcon = ICON_FA_MAGNIFYING_GLASS;
 static const std::string DETAIL_AddIcon    = std::string("  ") + ICON_FA_SQUARE_PLUS + std::string("  ADD  ");
 
-WidgetDetail::WidgetDetail()
-	: Widget("  " + DETAIL_DetailIcon + "  Detail")
+WidgetDetail::WidgetDetail(Editor* editor)
+	: Widget(editor, "Detail")
 {
 
 }
@@ -23,8 +29,7 @@ WidgetDetail::~WidgetDetail() noexcept
 
 void WidgetDetail::onInit() 
 {
-	m_outliner = GEditor->getSceneOutliner();
-
+	m_name = combineIcon(Detail_Title, ICON_DETAIL);
 }
 
 void WidgetDetail::onRelease() 
@@ -32,7 +37,7 @@ void WidgetDetail::onRelease()
 
 }
 
-void WidgetDetail::onTick(const RuntimeModuleTickData& tickData)
+void WidgetDetail::onTick(const RuntimeModuleTickData& tickData, VulkanContext* context)
 {
 
 }
@@ -42,90 +47,94 @@ void WidgetDetail::onVisibleTick(const RuntimeModuleTickData& tickData)
 {
 	ImGui::Spacing();
 
-	Scene* scene = m_outliner->getScene();
-	if (!scene)
-	{
-		ImGui::TextDisabled("No active scene to inspect.");
-		return;
-	}
-
-	std::shared_ptr<SceneNode> selectedNode = m_outliner->getSelectedNode();
-	if (!selectedNode || selectedNode->isRoot())
+	if (m_editor->getSceneNodeSelected().empty())
 	{
 		ImGui::TextDisabled("No selected node to inspect.");
 		return;
 	}
 
-	if (selectedNode)
+	if (m_editor->getSceneNodeSelected().size() > 1)
 	{
-		ImGui::TextDisabled("%s with runtime ID %d", selectedNode->getName().c_str(), selectedNode->getId());
+		ImGui::TextDisabled("Multi node detail inspect still no support.");
+		return;
 	}
+
+	std::shared_ptr<SceneNode> selectedNode;
+	for (auto node : m_editor->getSceneNodeSelected()) 
+	{
+		if (node)
+		{
+			selectedNode = node.node.lock();
+			break;
+		} 
+	}
+
+	if (!selectedNode)
+	{
+		// No valid scene node.
+		return;
+	}
+
+	// Print detail info.
+	ImGui::TextDisabled("%s with runtime ID %d and depth %d.", selectedNode->getName().c_str(), selectedNode->getId(), selectedNode->getDepth());
+
 	ImGui::Separator();
 	ImGui::Spacing();
 
+	 
 	auto transform = selectedNode->getTransform();
 
-	const float sizeLable = ImGui::GetFontSize();
-	const auto cacheTranslation = transform->getTranslation();
-	const auto cacheScale = transform->getTranslation();
+	const float sizeLable = ImGui::GetFontSize() * 1.5f;
 
-	glm::vec3 rotation = glm::degrees(glm::eulerAngles(transform->getRotation()));
-	UIHelper::drawVector3(" P ", transform->getTranslation(), glm::vec3(0.0f), sizeLable);
-	UIHelper::drawVector3(" R ", rotation, glm::vec3(0.0f), sizeLable);
-	UIHelper::drawVector3(" S ", transform->getScale(), glm::vec3(1.0f), sizeLable);
-	glm::quat rotationQ = glm::quat(glm::radians(rotation));
-	if (rotationQ != transform->getRotation())
-	{
-		transform->setRotation(rotationQ);
-	}
+	bool bChangeTransform = false;
+	math::vec3 anglesRotate = math::degrees(transform->getRotation());
 
-	if (cacheTranslation != transform->getTranslation() || cacheScale != transform->getScale())
+	bChangeTransform |= ui::drawVector3("  P  ", transform->getTranslation(), math::vec3(0.0f), sizeLable);
+	bChangeTransform |= ui::drawVector3("  R  ", anglesRotate, math::vec3(0.0f), sizeLable);
+	bChangeTransform |= ui::drawVector3("  S  ", transform->getScale(), math::vec3(1.0f), sizeLable);
+
+
+	if (bChangeTransform)
 	{
+		transform->getRotation() = math::radians(anglesRotate);
 		transform->invalidateWorldMatrix();
 	}
 
 	ImGui::Spacing();
 
-	UIHelper::helpMarker(
+	ui::helpMarker(
 		"Scene node state can use for accelerate engine speed.\n"
 		"When invisible, renderer can cull this entity before render and save render time\n"
 		"But still can simulate or tick logic on entity.\n"
 		"When un movable, renderer can do some cache for mesh, skip too much dynamic objects."); ImGui::SameLine();
 
 	const bool bCanSetVisiblity = selectedNode->canSetNewVisibility();
-	
-	if (!bCanSetVisiblity)
-	{
-		ImGui::BeginDisabled();
-	}
+	const bool bCanSetStatic = selectedNode->canSetNewStatic();
+
 	bool bVisibleState = selectedNode->getVisibility();
-	if (ImGui::Checkbox("Show", &bVisibleState))
+	bool bMovableState = !selectedNode->getStatic();
+
+	ui::disableLambda([&]() 
 	{
-		selectedNode->setVisibility(!selectedNode->getVisibility());
-	}
-	UIHelper::hoverTip("Scene node visibility state.");
-	if (!bCanSetVisiblity)
-	{
-		ImGui::EndDisabled();
-	}
+		if (ImGui::Checkbox("Show", &bVisibleState))
+		{
+			SceneGraphUndoRecord("Change scene node visibility.");
+			selectedNode->setVisibility(!selectedNode->getVisibility());
+		}
+		ui::hoverTip("Scene node visibility state.");
+	}, !bCanSetVisiblity);
 
 	ImGui::SameLine();
 
-	const bool bCanSetStatic = selectedNode->canSetNewStatic();
-	if (!bCanSetStatic)
+	ui::disableLambda([&]()
 	{
-		ImGui::BeginDisabled();
-	}
-	bool bStatic = selectedNode->getStatic();
-	if (ImGui::Checkbox("Movable", &bStatic))
-	{
-		selectedNode->setStatic(!selectedNode->getStatic());
-	}
-	UIHelper::hoverTip("Entity movable state.");
-	if (!bCanSetStatic)
-	{
-		ImGui::EndDisabled();
-	}
+		if (ImGui::Checkbox("Movable", &bMovableState))
+		{
+			SceneGraphUndoRecord("Change scene node static state.");
+			selectedNode->setStatic(!selectedNode->getStatic());
+		}
+		ui::hoverTip("Entity movable state.");
+	}, !bCanSetStatic);
 
 	ImGui::Separator();
 
@@ -149,12 +158,12 @@ void WidgetDetail::drawComponent(std::shared_ptr<SceneNode> node)
 
 		if (ImGui::BeginPopup("##XComponentContextMenu_Add"))
 		{
-			ImGui::TextDisabled("New  Components:");
+			ImGui::TextDisabled("New  Components");
 			ImGui::Separator();
 
 			bool bExistOneNewComponent = false;
 
-			auto drawAddNode = [&]<typename T>(const std::string& showName)
+			auto drawAddNode = [&]<typename T>(const std::string & showName)
 			{
 				const bool bShouldAdd = !node->hasComponent<T>();
 
@@ -170,13 +179,11 @@ void WidgetDetail::drawComponent(std::shared_ptr<SceneNode> node)
 				}
 			};
 
-			drawAddNode.template operator()<PMXComponent>(GIconPMX);
-			drawAddNode.template operator()<StaticMeshComponent>(GIconStaticMesh);
-			drawAddNode.template operator()<LandscapeComponent>(GIconLandscape);
-			drawAddNode.template operator()<SunSkyComponent>(GIconSunSky);
-			drawAddNode.template operator()<SpotLightComponent>(GIconSpotLight);
-			drawAddNode.template operator()<ReflectionCaptureComponent>(GIconReflectionCapture);
-			drawAddNode.template operator()<PostprocessVolumeComponent>(GIconPostprocessVolume);
+			drawAddNode.template operator()<StaticMeshComponent>(kIconStaticMesh);
+			drawAddNode.template operator()<SkyComponent>(kIconSky);
+			drawAddNode.template operator()<PostprocessVolumeComponent>(kIconPostprocess);
+			drawAddNode.template operator()<TerrainComponent>(kIconTerrain);
+
 			if (!bExistOneNewComponent)
 			{
 				ImGui::TextDisabled("Non-Component");
@@ -184,7 +191,7 @@ void WidgetDetail::drawComponent(std::shared_ptr<SceneNode> node)
 			ImGui::EndPopup();
 		}
 
-		UIHelper::hoverTip("Add new component for entity.");
+		ui::hoverTip("Add new component for entity.");
 
 		ImGui::TableNextColumn();
 		m_filter.Draw((DETAIL_SearchIcon).c_str());
@@ -201,7 +208,7 @@ void WidgetDetail::drawComponent(std::shared_ptr<SceneNode> node)
 		ImGuiTreeNodeFlags_AllowItemOverlap |
 		ImGuiTreeNodeFlags_FramePadding;
 
-	for (auto& [showName, drawer] : GDrawComponentMap)
+	for (auto& [showName, drawer] : kDrawComponentMap)
 	{
 		if (node->hasComponent(drawer.typeName))
 		{
@@ -214,7 +221,7 @@ void WidgetDetail::drawComponent(std::shared_ptr<SceneNode> node)
 			bool open = ImGui::TreeNodeEx("TreeNodeForComp", treeNodeFlags, showName.c_str());
 			ImGui::PopStyleVar();
 
-			ImGui::SameLine(contentRegionAvailable.x - lineHeight * 0.5f);
+			ImGui::SameLine(contentRegionAvailable.x - lineHeight + GImGui->Style.FramePadding.x);
 			if (ImGui::Button(ICON_FA_XMARK, ImVec2{ lineHeight, lineHeight }))
 			{
 				node->getScene()->removeComponent(node, drawer.typeName);
@@ -227,7 +234,7 @@ void WidgetDetail::drawComponent(std::shared_ptr<SceneNode> node)
 
 				continue;
 			}
-			UIHelper::hoverTip("Remove component.");
+			ui::hoverTip("Remove component.");
 
 			if (open)
 			{

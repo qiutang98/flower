@@ -1,0 +1,1 @@
+%~dp0/../glslc.exe -fshader-stage=comp --target-env=vulkan1.3 %~dp0/ssgi_intersect.glsl -O -o %~dp0/../../../install/shader/ssgi_intersect.comp.spv

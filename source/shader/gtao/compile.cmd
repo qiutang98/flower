@@ -1,0 +1,3 @@
+%~dp0/../glslc.exe -fshader-stage=comp --target-env=vulkan1.3 %~dp0/gtao_evaluate.glsl -O -o %~dp0/../../../install/shader/gtao_evaluate.comp.spv
+%~dp0/../glslc.exe -fshader-stage=comp --target-env=vulkan1.3 %~dp0/gtao_prefilter.glsl -O -o %~dp0/../../../install/shader/gtao_prefilter.comp.spv
+%~dp0/../glslc.exe -fshader-stage=comp --target-env=vulkan1.3 %~dp0/gtao_temporal.glsl -O -o %~dp0/../../../install/shader/gtao_temporal.comp.spv

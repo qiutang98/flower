@@ -1,225 +1,73 @@
-#include "Pch.h"
-#include "Scene.h"
-#include "SceneManager.h"
-#include "../Engine.h"
+#include "scene.h"
+#include <asset/asset_system.h>
 
-namespace Flower
+namespace engine
 {
-	size_t Scene::requireId()
+	void SceneManager::registerCheck(Engine* engine)
 	{
-		CHECK(m_currentId < SIZE_MAX && "GUID max than size_t's max value.");
 
-		m_currentId++;
-		return m_currentId;
 	}
 
-	SceneManager* Scene::getManager()
+	bool SceneManager::init()
 	{
-		if (m_manager == nullptr)
-		{
-			m_manager = GEngine->getRuntimeModule<SceneManager>();
-		}
-
-		return m_manager;
-	}
-
-	std::shared_ptr<Scene> Scene::create(std::string name)
-	{
-		auto newScene = std::shared_ptr<Scene>(new Scene());
-		newScene->m_initName = name;
-		return newScene;
-	}
-
-	Scene::~Scene()
-	{
-		m_root.reset();
-	}
-
-	bool Scene::init()
-	{
-		m_root = SceneNode::create(ROOT_ID, m_initName, shared_from_this());
 		return true;
 	}
 
-	bool Scene::setDirty(bool bDirty)
+	bool SceneManager::tick(const RuntimeModuleTickData& tickData)
 	{
-		if (m_bDirty != bDirty)
+		getActiveScene()->tick(tickData);
+
+		return true;
+	}
+
+	void SceneManager::release()
+	{
+		releaseScene();
+	}
+
+	std::shared_ptr<Scene> SceneManager::getActiveScene()
+	{
+		if (m_scene == nullptr)
 		{
-			m_bDirty = bDirty;
+			m_scene = Scene::create();
+			m_scene->init();
+			m_scene->setDirty(false);
+		}
+
+		return m_scene;
+	}
+
+	void SceneManager::releaseScene()
+	{
+		m_scene = nullptr;
+	}
+
+
+	bool SceneManager::saveScene(bool bBinary, const std::filesystem::path& relativeProjectRootPath)
+	{
+		return true;
+	}
+
+	bool SceneManager::loadScene(const std::filesystem::path& loadPath)
+	{
+		// Reload active scene.
+		if (!getActiveScene()->savePathUnvalid())
+		{
+			getAssetSystem()->reloadAsset<Scene>(getActiveScene());
+		}
+
+
+		auto copyPath = loadPath;
+		const auto relativePath = buildRelativePathUtf8(getAssetSystem()->getProjectRootPath(), copyPath.replace_extension());
+
+		auto newScene = std::static_pointer_cast<Scene>(getAssetSystem()->getAssetByRelativeMap(relativePath));
+		if (newScene)
+		{
+			m_scene = newScene;
 			return true;
 		}
 
-		return false;
-	}
-
-	void Scene::shrinkCacheComponent(const char* id)
-	{
-		auto& cacheWeakPtr = m_cacheSceneComponents[id];
-
-		cacheWeakPtr.erase(std::remove_if(cacheWeakPtr.begin(), cacheWeakPtr.end(),
-			[](const std::weak_ptr<Component>& p)
-			{
-				return p.lock().get() == nullptr;
-			}),
-			cacheWeakPtr.end()
-		);
-		m_cacheSceneComponentsShrinkAlready[id] = true;
-	}
-
-	bool Scene::setName(const std::string& name)
-	{
-		return m_root->setName(name);
-	}
-
-	void Scene::tick(const RuntimeModuleTickData& tickData)
-	{
-		// update all transforms.
-		loopNodeTopToDown([tickData](std::shared_ptr<SceneNode> node)
-		{
-			node->tick(tickData);
-		}, m_root);
-	}
-
-	void Scene::deleteNode(std::shared_ptr<SceneNode> node)
-	{
-		node->selfDelete();
-	}
-
-	std::shared_ptr<SceneNode> Scene::createNode(const std::string& name, std::shared_ptr<SceneNode> parent)
-	{
-		// use require id to avoid guid repeat problem.
-		m_nodeCount ++;
-		auto result = SceneNode::create(requireId(), name, shared_from_this());
-
-		setParent(parent ? parent : m_root, result);
-		setDirty();
-
-		return result;
-	}
-
-	void Scene::addChild(std::shared_ptr<SceneNode> child)
-	{
-		m_root->addChild(child);
-	}
-
-	void Scene::loopNodeDownToTop(
-		const std::function<void(std::shared_ptr<SceneNode>)>& func, 
-		std::shared_ptr<SceneNode> node)
-	{
-		auto& children = node->getChildren();
-		for (auto& child : children)
-		{
-			loopNodeDownToTop(func, child);
-		}
-
-		func(node);
-	}
-
-	void Scene::loopNodeTopToDown(
-		const std::function<void(std::shared_ptr<SceneNode>)>& func,
-		std::shared_ptr<SceneNode> node)
-	{
-		func(node);
-
-		auto& children = node->getChildren();
-		for (auto& child : children)
-		{
-			loopNodeTopToDown(func, child);
-		}
-	}
-
-	std::shared_ptr<SceneNode> Scene::findNode(const std::string& name)
-	{
-		if (name == m_root->getName())
-		{
-			return m_root;
-		}
-
-		for (auto& root_node : m_root->getChildren())
-		{
-			std::queue<std::shared_ptr<SceneNode>> traverseNodes{};
-			traverseNodes.push(root_node);
-
-			while (!traverseNodes.empty())
-			{
-				auto& node = traverseNodes.front();
-				traverseNodes.pop();
-
-				if (node->getName() == name)
-				{
-					return node;
-				}
-
-				for (auto& child_node : node->getChildren())
-				{
-					traverseNodes.push(child_node);
-				}
-			}
-		}
-
-		return nullptr;
-	}
-
-	std::vector<std::shared_ptr<SceneNode>> Scene::findNodes(const std::string& name)
-	{
-		std::vector<std::shared_ptr<SceneNode>> results{ };
-
-		for (auto& root_node : m_root->getChildren())
-		{
-			std::queue<std::shared_ptr<SceneNode>> traverse_nodes{};
-			traverse_nodes.push(root_node);
-
-			while (!traverse_nodes.empty())
-			{
-				auto& node = traverse_nodes.front();
-				traverse_nodes.pop();
-
-				if (node->getName() == name)
-				{
-					results.push_back(node);
-				}
-
-				for (auto& child_node : node->getChildren())
-				{
-					traverse_nodes.push(child_node);
-				}
-			}
-		}
-
-		if (name == m_root->getName())
-		{
-			results.push_back(m_root);
-		}
-
-		return results;
-	}
-
-	bool Scene::setParent(std::shared_ptr<SceneNode> parent, std::shared_ptr<SceneNode> son)
-	{
-		bool bNeedSet = false;
-
-		auto oldP = son->getParent();
-
-		if (oldP == nullptr || (!son->isSon(parent) && parent->getId() != oldP->getId()))
-		{
-			bNeedSet = true;
-		}
-
-		if (bNeedSet)
-		{
-			son->setParent(parent);
-			return true;
-		}
 
 		return false;
-	}
-
-	// sync scene node tree's transform form top to down to get current result.
-	void Scene::flushSceneNodeTransform()
-	{
-		loopNodeTopToDown([](std::shared_ptr<SceneNode> node)
-		{
-			node->getTransform()->updateWorldTransform();
-		},m_root);
 	}
 }

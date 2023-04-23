@@ -1,4 +1,5 @@
-.vs/
-Build/
-*.log
-Art/
+build
+.vscode
+.vs
+log
+bin

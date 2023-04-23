@@ -1,0 +1,54 @@
+[submodule "external/glfw"]
+	path = external/glfw
+	url = https://github.com/glfw/glfw
+[submodule "external/spdlog"]
+	path = external/spdlog
+	url = https://github.com/gabime/spdlog
+[submodule "external/stduuid"]
+	path = external/stduuid
+	url = https://github.com/mariusbancila/stduuid
+[submodule "external/glm"]
+	path = external/glm
+	url = https://github.com/g-truc/glm
+[submodule "external/json"]
+	path = external/json
+	url = https://github.com/nlohmann/json
+[submodule "external/lz4"]
+	path = external/lz4
+	url = https://github.com/lz4/lz4
+[submodule "external/vma"]
+	path = external/vma
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
+[submodule "external/stb"]
+	path = external/stb
+	url = https://github.com/nothings/stb
+[submodule "external/rttr"]
+	path = external/rttr
+	url = https://github.com/rttrorg/rttr
+[submodule "external/inipp"]
+	path = external/inipp
+	url = https://github.com/mcmtroffaes/inipp
+[submodule "external/utfcpp"]
+	path = external/utfcpp
+	url = https://github.com/nemtrif/utfcpp
+[submodule "external/iconFontcppHeaders"]
+	path = external/iconFontcppHeaders
+	url = https://github.com/juliettef/IconFontCppHeaders
+[submodule "external/nativefiledialogs"]
+	path = external/nativefiledialogs
+	url = https://github.com/qiutang98/nativefiledialog
+[submodule "external/cereal"]
+	path = external/cereal
+	url = https://github.com/USCiLab/cereal
+[submodule "external/entt"]
+	path = external/entt
+	url = https://github.com/skypjack/entt
+[submodule "external/assimp"]
+	path = external/assimp
+	url = https://github.com/assimp/assimp
+[submodule "external/fsr2"]
+	path = external/fsr2
+	url = https://github.com/GPUOpen-Effects/FidelityFX-FSR2
+[submodule "external/tinyexr"]
+	path = external/tinyexr
+	url = https://github.com/syoyo/tinyexr
