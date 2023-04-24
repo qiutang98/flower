@@ -90,6 +90,21 @@ namespace engine
 		ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 0.0f);
 		ImGui::PushStyleVar(ImGuiStyleVar_TabRounding, 0.0f);
 
+		colors[ImGuiCol_BorderShadow] = ImVec4(0.1f, 0.1f, 0.0f, 0.39f);
+		style.WindowBorderSize = 1;
+		style.ChildBorderSize = 1;
+		style.PopupBorderSize = 1;
+		style.FrameBorderSize = 1;
+		style.TabBorderSize = 1;
+		style.WindowRounding = 0;
+		style.ChildRounding = 0;
+		style.FrameRounding = 3;
+		style.PopupRounding = 0;
+		style.ScrollbarRounding = 0;
+		style.GrabRounding = 0;
+		style.LogSliderDeadzone = 0;
+		style.TabRounding = 0;
+
 		ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = true;
 		ImGui::GetIO().ConfigWindowsResizeFromEdges = true;
 
@@ -147,6 +162,21 @@ namespace engine
 		styleGizmo.Colors[ImGuizmo::TEXT_SHADOW] = ImVec4(0.000f, 0.000f, 0.000f, 1.000f);
 
 		ImGuizmo::AllowAxisFlip(false);
+
+		colors[ImGuiCol_BorderShadow] = ImVec4(0.1f, 0.1f, 0.0f, 0.39f);
+		style.WindowBorderSize = 1;
+		style.ChildBorderSize = 1;
+		style.PopupBorderSize = 1;
+		style.FrameBorderSize = 1;
+		style.TabBorderSize = 1;
+		style.WindowRounding = 0;
+		style.ChildRounding = 0;
+		style.FrameRounding = 3;
+		style.PopupRounding = 0;
+		style.ScrollbarRounding = 0;
+		style.GrabRounding = 0;
+		style.LogSliderDeadzone = 0;
+		style.TabRounding = 0;
 	}
 
 	void styleFontSetup()

@@ -81,7 +81,7 @@ namespace engine
             m_uploader = std::make_unique<AsyncUploaderManager>(this, 64, 32); 
 
             // 1024 MB + 512 MB LRU cache.
-            m_lru = std::make_unique<LRUAssetCache>(256, 128);
+            m_lru = std::make_unique<LRUAssetCache>(1024, 512);
 
             uint32_t frameNum = 1;
             if (m_engine->isWindowApp())

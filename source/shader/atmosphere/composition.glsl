@@ -5,6 +5,7 @@
 #include "atmosphere_common.glsl"
 #include "../common/shared_shading_model.glsl"
 
+#if 0
 //https://www.shadertoy.com/view/MdGSWy
 
 #define ORB_FLARE_COUNT	6.0
@@ -98,6 +99,8 @@ vec3 LensFlare()
     vec3 lf = colorSunlight * (vec3(gl * GLARE_BRIGHTNESS) + fl * FLARE_BRIGHTNESS);
     return lf;
 }
+
+#endif
 
 layout (local_size_x = 8, local_size_y = 8) in;
 void main() 

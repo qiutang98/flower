@@ -172,7 +172,7 @@ void main()
     }
 
     // Offset retarget for new seeds each frame
-    uvec2 offset = uvec2(vec2(0.754877669, 0.569840296) * (frameData.frameIndex.x) * uvec2(depthSize));
+    uvec2 offset = uvec2(vec2(0.754877669, 0.569840296) * (frameData.frameIndex.x % frameData.jitterPeriod) * uvec2(depthSize));
     uvec2 offsetId = uvec2(workPos) + offset;
     offsetId.x = offsetId.x % depthSize.x;
     offsetId.y = offsetId.y % depthSize.y;
@@ -228,6 +228,8 @@ void main()
         shadowResult = mix(shadowResult, lerpShadowValue, cascadeFadeEdge);
     }
 
+#if 0
+    // TODO: Hiz heightmap accelerate.
     // Ray cast in world space, and sample height map to know current pixel is occluded or not.
     const bool bShouldRayTraceTerrainShadow = shadowResult > 1e-3f;
     if(bHeightmapValid > 0 && bShouldRayTraceTerrainShadow)
@@ -237,11 +239,10 @@ void main()
 
         const vec3 rayStart = worldPos;
 
-        const uint kMaxSampleRayCount = 4;
-        const uint kStepCount = 32;
-        const float kLodLevel = 4.0;
-        const float kAdoptionCount = 10.0;
-
+        const uint kMaxSampleRayCount = 1; // Current use spp 1.
+        const uint kStepCount = 128;
+        const float kLodLevel = 1.0;
+        const float kAdoptionCount = 128.0;
         for(uint index = 0; index < kMaxSampleRayCount; index ++)
         {
             float jitter = samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d(offsetId.x, offsetId.y, index, 0u);
@@ -259,8 +260,8 @@ void main()
                 float t = dt * jitter;
                 float stepDt = dt;
                 float adoption = kRayLen / float(kAdoptionCount)  * abs(rayDirection.y);
-                vec3 ray;
 
+                vec3 ray;
                 for (uint i = 0u ; i < kStepCount ; i++, t += stepDt) 
                 {
                     ray = rayStart + rayDirection * t;
@@ -271,22 +272,14 @@ void main()
                     const float heightSample = textureLod(sampler2D(inHeightmap, linearClampEdgeSampler), vec2(rayUvz.xy) / heightMapSize, kLodLevel).r * heightfiledDump;
                     if(rayUvz.z < heightSample)
                     {
-                    #if 1
-                        occFactor += 1.0f;
-                        break;
-                    #elif 0
-                        const float dist = heightSample - rayUvz.z;
-                        if(dist < adoption)
+                        if(heightSample - rayUvz.z > 0.5 * adoption  && heightSample - rayUvz.z < adoption)
                         {
                             occFactor += 1.0f;
                             break;
                         }
-                    #endif
 
-                    #if 0
                         t -= stepDt;
                         stepDt *= 0.5;
-                    #endif
                     }
 
                 }
@@ -295,6 +288,7 @@ void main()
         occFactor /= float(kMaxSampleRayCount);
         shadowResult = min(shadowResult, 1.0 - occFactor);
     }
+#endif
 
     // SDSM keep high accurate shadow when camera move near, and may see some visual artifact which cause by contact shadow.
     // So current don't need this tech here.

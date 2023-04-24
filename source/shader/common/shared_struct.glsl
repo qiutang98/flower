@@ -67,6 +67,50 @@ struct AtmosphereConfig
 	vec4 rayleighDensity[3];
 	vec4 mieDensity[3]; 
 	vec4 absorptionDensity[3];
+
+    // Clout infos.
+    float cloudAreaStartHeight; // km
+    float cloudAreaThickness;
+    float atmospherePreExposure;
+    float cloudShadowExtent; // x4
+
+    vec3 camWorldPos; // cameraworld Position, in atmosphere space unit.
+    uint updateFaceIndex; // update face index for cloud cubemap capture
+
+    // World space to cloud space view project matrix. Unit also is km.
+    mat4 cloudSpaceViewProject;
+    mat4 cloudSpaceViewProjectInverse;
+
+    // Cloud settings.
+    vec2  cloudWeatherUVScale;
+    float cloudCoverage;
+    float cloudDensity;
+
+    float cloudShadingSunLightScale;
+    float cloudFogFade; 
+    float cloudMaxTraceingDistance; 
+    float cloudTracingStartMaxDistance; 
+
+    vec3 cloudDirection;
+    float cloudSpeed;
+
+    float cloudMultiScatterExtinction;
+    float cloudMultiScatterScatter;
+    float cloudBasicNoiseScale;
+    float cloudDetailNoiseScale;
+
+    vec3  cloudAlbedo;
+    float cloudPhaseForward;
+
+    float cloudPhaseBackward;
+    float cloudPhaseMixFactor;
+    float cloudPowderScale;
+    float cloudPowderPow;
+
+    float cloudLightStepMul;
+    float cloudLightBasicStep;
+    int  cloudLightStepNum;
+    int cloudEnableGroundContribution;
 };
 
 struct SkyInfo

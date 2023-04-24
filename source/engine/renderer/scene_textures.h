@@ -41,7 +41,8 @@ namespace engine
 	{
 	public:
 		std::unique_ptr<VulkanImage> brdfLut = nullptr;
-
+		std::unique_ptr<VulkanImage> cloudBasicNoise = nullptr;
+		std::unique_ptr<VulkanImage> cloudDetailNoise = nullptr;
 
 		explicit SharedTextures();
 

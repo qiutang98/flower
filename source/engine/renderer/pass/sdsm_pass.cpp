@@ -89,7 +89,7 @@ namespace engine
 			{
 				  setLayout
 				, m_context->getSamplerCache().getCommonDescriptorSetLayout()
-				, getRenderer()->getBlueNoise().spp_4_buffer.setLayouts
+				, getRenderer()->getBlueNoise().spp_1_buffer.setLayouts
 			};
 			resolvePipe = std::make_unique<ComputePipeResources>("shader/sdsm_resolve.comp.spv", (uint32_t)sizeof(GPUSDSMPushConst), resolveSetLayouts);
 		}
@@ -363,7 +363,7 @@ namespace engine
 
 			pass->resolvePipe->bindSet(cmd, std::vector<VkDescriptorSet>{
 				  m_context->getSamplerCache().getCommonDescriptorSet()
-				, m_renderer->getBlueNoise().spp_4_buffer.set
+				, m_renderer->getBlueNoise().spp_1_buffer.set
 			}, 1);
 
 			vkCmdDispatch(cmd, getGroupCount(sdsmMask->getImage().getExtent().width, 8), getGroupCount(sdsmMask->getImage().getExtent().height, 8), 1);

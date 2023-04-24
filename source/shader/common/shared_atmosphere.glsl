@@ -54,6 +54,11 @@ struct AtmosphereParameters
 
 	uint viewRayMarchMinSPP;
 	uint viewRayMarchMaxSPP;
+
+	float cloudAreaStartHeight; // km
+    float cloudAreaThickness;
+    mat4 cloudShadowViewProj;
+    mat4 cloudShadowViewProjInverse;
 };
 
 // Build atmosphere parameters from frame data.
@@ -88,6 +93,11 @@ AtmosphereParameters getAtmosphereParameters(in const PerFrameData frameData)
     parameters.mieAbsorption      = config.mieAbsorption;
 	parameters.mieScattering      = config.mieScatteringColor * config.mieScatteringLength;
 	parameters.mieExtinction      = parameters.mieScattering + config.mieAbsColor * config.mieAbsLength;
+
+	parameters.cloudAreaStartHeight       = config.cloudAreaStartHeight;
+    parameters.cloudAreaThickness         = config.cloudAreaThickness;
+    parameters.cloudShadowViewProj        = config.cloudSpaceViewProject;
+    parameters.cloudShadowViewProjInverse = config.cloudSpaceViewProjectInverse;
 
 	return parameters;
 }
