@@ -28,6 +28,8 @@ namespace engine
 		Texture_Translucent, // 0, 0, 0, 0
 		Texture_Normal, // 125, 130, 255, 0
 		Texture_Specular, // 255, 255, 0, 0 .r AO, .g roughness, .b metal
+		Texture_CloudWeather,
+		Texture_CurlNoise,
 		Texture_Max,
 
 		StaticMesh_Min,

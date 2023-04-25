@@ -1,18 +1,8 @@
 #version 460
-
-/*
-** Physical based render code, develop by engineer: qiutanguu.
-*/
-
-// Single scatter version volumetric cloud renderering.
-// Q: Why no use multi-scatter version? 
-// A: Ugly and no fit flower render style.
-
 #extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_samplerless_texture_functions : enable
-#include "Cloud_Common.glsl"
-#include "Noise.glsl"
-#include "Phase.glsl"
+
+#include "cloud_common.glsl"
 
 // Evaluate quater resolution.
 layout (local_size_x = 8, local_size_y = 8) in;
@@ -28,7 +18,7 @@ void main()
 
     // Get bayer offset matrix.
     uint bayerIndex = frameData.frameIndex.x % 16;
-    ivec2 bayerOffset = ivec2(bayerFilter4x4[bayerIndex] % 4, bayerFilter4x4[bayerIndex] / 4);
+    ivec2 bayerOffset = ivec2(kBayerMatrix16[bayerIndex] % 4, kBayerMatrix16[bayerIndex] / 4);
 
     // Get evaluate position in full resolution.
     ivec2 fullResSize = texSize * 4;
@@ -46,9 +36,9 @@ void main()
 
      // We are revert z.
     vec4 clipSpace = vec4(uv.x * 2.0f - 1.0f, 1.0f - uv.y * 2.0f, 0.0, 1.0);
-    vec4 viewPosH = viewData.camInvertProj * clipSpace;
+    vec4 viewPosH = frameData.camInvertProj * clipSpace;
     vec3 viewSpaceDir = viewPosH.xyz / viewPosH.w;
-    vec3 worldDir = normalize((viewData.camInvertView * vec4(viewSpaceDir, 0.0)).xyz);
+    vec3 worldDir = normalize((frameData.camInvertView * vec4(viewSpaceDir, 0.0)).xyz);
 
 
     AtmosphereParameters atmosphere = getAtmosphereParameters(frameData);

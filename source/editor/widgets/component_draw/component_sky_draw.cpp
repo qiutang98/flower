@@ -48,11 +48,12 @@ void drawAtmosphereConfig(AtmosphereConfig& inout)
 {
 	if (ImGui::CollapsingHeader("Atmosphere Config"))
 	{
+		ImGui::Spacing();
 		if (ImGui::Button("Reset Atmosphere"))
 		{
-			inout.reset();
+			inout.resetAtmosphere();
 		}
-
+		ImGui::Spacing();
 		auto copyValue = inout;
 
 		float atmosphereHeight = copyValue.topRadius - copyValue.bottomRadius;
@@ -73,7 +74,7 @@ void drawAtmosphereConfig(AtmosphereConfig& inout)
 		ui::endGroupPanel();
 
 		ui::beginGroupPanel("Render Config");
-		ImGui::PushItemWidth(180.0f);
+		ImGui::PushItemWidth(150.0f);
 		{
 			ImGui::ColorEdit3("Ground Albedo", &copyValue.groundAlbedo.x);
 
@@ -107,7 +108,69 @@ void drawAtmosphereConfig(AtmosphereConfig& inout)
 		}
 	}
 
+	if (ImGui::CollapsingHeader("Cloud Setting"))
+	{
+		ImGui::PushItemWidth(150.0f);
+		ImGui::Spacing();
+		if (ImGui::Button("Reset Cloud"))
+		{
+			inout.resetCloud();
+		}
+		ImGui::Spacing();
+		auto copyValue = inout;
 
+		float cloudBottomAltitude = copyValue.cloudAreaStartHeight - copyValue.bottomRadius;
+
+		bool bEnableGroundContribution = copyValue.cloudEnableGroundContribution != 0;
+		ImGui::Checkbox("enable ground contribution", &bEnableGroundContribution);
+		copyValue.cloudEnableGroundContribution = bEnableGroundContribution ? 1 : 0;
+
+		ImGui::DragFloat("start height(km)", &cloudBottomAltitude, 0.1f, 0.0f, 20.0f);
+		ImGui::DragFloat("thickness(km)", &copyValue.cloudAreaThickness, 0.1f, 0.1f, 20.0f);
+		ImGui::DragFloat("shadow extent(km)", &copyValue.cloudShadowExtent, 0.1f, 1.0f, 50.0f);
+
+		ImGui::DragFloat("coverage", &copyValue.cloudCoverage, 0.1f, 0.0f, 1.0f);
+		ImGui::DragFloat("density", &copyValue.cloudDensity, 0.1f, 0.0f, 1.0f);
+		ImGui::DragFloat("fog fade", &copyValue.cloudFogFade, 0.001f, 0.0f, 0.1f);
+		ImGui::DragFloat("max tracing distance", &copyValue.cloudMaxTraceingDistance, 1.0f, 10.0f, 100.0f);
+		ImGui::DragFloat("max tracing start distance", &copyValue.cloudTracingStartMaxDistance, 1.0f, 300.0f, 500.0f);
+
+		ImGui::DragFloat2("Wether UV scale", &copyValue.cloudWeatherUVScale.x, 0.0f, 0.01f);
+
+		ImGui::DragFloat("basic noise scale", &copyValue.cloudBasicNoiseScale, 0.01f, 0.0f, 1.0f);
+		ImGui::DragFloat("detail noise scale", &copyValue.cloudDetailNoiseScale, 0.01f, 0.0f, 1.0f);
+
+		ImGui::DragFloat("sun light scale", &copyValue.cloudShadingSunLightScale, 0.1f, 0.1f, 10.0f);
+
+
+		ImGui::DragFloat3("wind dir", &copyValue.cloudDirection.x, 0.01f, 0.0f);
+		ImGui::DragFloat("wind speed", &copyValue.cloudSpeed, 0.1f, 0.0f, 1.0f);
+
+
+		ImGui::DragFloat("multi scatter", &copyValue.cloudMultiScatterScatter, 0.1f, 0.0f, 1.0f);
+		ImGui::DragFloat("multi extinction", &copyValue.cloudMultiScatterExtinction, 0.1f, 0.0f, 1.0f);
+
+		ImGui::DragFloat("phase forward", &copyValue.cloudPhaseForward, 0.01f, 0.01f, 0.99f);
+		ImGui::DragFloat("phase backward", &copyValue.cloudPhaseBackward, 0.01f, -0.99f, -0.01f);
+		ImGui::DragFloat("phase mix factor", &copyValue.cloudPhaseMixFactor, 0.01f, 0.01f, 0.99f);
+		ImGui::DragFloat("cloud powder scale", &copyValue.cloudPowderScale, 0.1f, 0.01f, 100.0f);
+		ImGui::DragFloat("cloud powder pow", &copyValue.cloudPowderPow, 0.1f, 0.01f, 10.0f);
+
+		ImGui::ColorEdit3("cloud albedo", &copyValue.cloudAlbedo.x);
+		ImGui::DragFloat("light step mul", &copyValue.cloudLightStepMul, 0.01f, 1.01f, 1.5f);
+		ImGui::DragFloat("light basic step", &copyValue.cloudLightBasicStep, 0.01f, 0.10f, 0.5f);
+		ImGui::DragInt("light step num", &copyValue.cloudLightStepNum, 1, 6, 24);
+
+		ImGui::Spacing();
+		ImGui::PopItemWidth();
+
+		copyValue.cloudAreaStartHeight = cloudBottomAltitude + copyValue.bottomRadius;
+
+		if (copyValue != inout)
+		{
+			inout = copyValue;
+		}
+	}
 }
 
 void ComponentDrawer::drawSky(std::shared_ptr<SceneNode> node)

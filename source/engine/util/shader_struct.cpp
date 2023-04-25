@@ -59,10 +59,7 @@ namespace engine
 		return defaultMaterial;
 	}
 
-
-
-
-	void AtmosphereConfig::reset()
+	void AtmosphereConfig::resetAtmosphere()
 	{
 		// Unit in kilometers.
 
@@ -145,6 +142,45 @@ namespace engine
 		inAtmosphere.atmospherePreExposure = 1.0f;
 		inAtmosphere.viewRayMarchMaxSPP = 31; // [2, 31]
 		inAtmosphere.viewRayMarchMinSPP = 14; // [1, 31]
+	}
+
+	void AtmosphereConfig::resetCloud()
+	{
+		auto& inAtmosphere = *this;
+
+		inAtmosphere.cloudAreaStartHeight = inAtmosphere.bottomRadius + 1.0f; // km
+		inAtmosphere.cloudAreaThickness = 10.0f; // km
+
+		inAtmosphere.cloudWeatherUVScale = { 0.005f, 0.005f }; // vec2(0.005)
+		inAtmosphere.cloudCoverage = 0.5f; // 0.50
+		inAtmosphere.cloudDensity = 0.1f;  // 0.10
+
+		inAtmosphere.cloudShadingSunLightScale = 1.0f; // 5.0
+		inAtmosphere.cloudFogFade = 0.005f; // 0.005
+		inAtmosphere.cloudMaxTraceingDistance = 50.0f; // 50.0 km
+		inAtmosphere.cloudTracingStartMaxDistance = 350.0f; // 350.0 km
+
+		inAtmosphere.cloudDirection = glm::normalize(glm::vec3{ 0.8, 0.2, 0.4 });
+		inAtmosphere.cloudSpeed = 0.1f;
+
+		inAtmosphere.cloudMultiScatterExtinction = 0.5f;
+		inAtmosphere.cloudMultiScatterScatter = 0.75f;
+
+		inAtmosphere.cloudBasicNoiseScale = 0.15f;
+		inAtmosphere.cloudDetailNoiseScale = 0.30f;
+
+		inAtmosphere.cloudAlbedo = { 1.0f , 1.0f, 1.0f };
+		inAtmosphere.cloudPhaseForward = 0.5f;
+
+		inAtmosphere.cloudPhaseBackward = -0.5f;
+		inAtmosphere.cloudPhaseMixFactor = 0.2f;
+		inAtmosphere.cloudPowderScale = 20.0f;
+		inAtmosphere.cloudPowderPow = 0.5f;
+
+		inAtmosphere.cloudLightStepMul = 1.05f;
+		inAtmosphere.cloudLightBasicStep = 0.167f;
+		inAtmosphere.cloudLightStepNum = 16;
+		inAtmosphere.cloudEnableGroundContribution = 0;
 	}
 
 }

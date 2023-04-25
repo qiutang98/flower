@@ -45,8 +45,13 @@ namespace engine
     // All distance units in kilometers
     struct AtmosphereConfig
     {
-        AtmosphereConfig() { reset(); }
-        void reset();
+        AtmosphereConfig() 
+        { 
+            resetAtmosphere(); 
+            resetCloud();
+        }
+        void resetAtmosphere();
+        void resetCloud();
 
         float atmospherePreExposure;
         float pad0;
@@ -80,6 +85,50 @@ namespace engine
         float mieDensity[12];
         float absorptionDensity[12];
 
+        // Clout infos.
+        float cloudAreaStartHeight; // km
+        float cloudAreaThickness;
+        float pad3;
+        float cloudShadowExtent; // x4
+
+        math::vec3 camWorldPos; // cameraworld Position, in atmosphere space unit.
+        uint32_t updateFaceIndex; // update face index for cloud cubemap capture
+
+        // World space to cloud space view project matrix. Unit also is km.
+        math::mat4 cloudSpaceViewProject;
+        math::mat4 cloudSpaceViewProjectInverse;
+
+        // Cloud settings.
+        math::vec2  cloudWeatherUVScale;
+        float cloudCoverage;
+        float cloudDensity;
+
+        float cloudShadingSunLightScale;
+        float cloudFogFade;
+        float cloudMaxTraceingDistance;
+        float cloudTracingStartMaxDistance;
+
+        math::vec3 cloudDirection;
+        float cloudSpeed;
+
+        float cloudMultiScatterExtinction;
+        float cloudMultiScatterScatter;
+        float cloudBasicNoiseScale;
+        float cloudDetailNoiseScale;
+
+        math::vec3  cloudAlbedo;
+        float cloudPhaseForward;
+
+        float cloudPhaseBackward;
+        float cloudPhaseMixFactor;
+        float cloudPowderScale;
+        float cloudPowderPow;
+
+        float cloudLightStepMul;
+        float cloudLightBasicStep;
+        int  cloudLightStepNum;
+        int cloudEnableGroundContribution;
+
         auto operator<=>(const AtmosphereConfig&) const = default;
         template<class Archive> void serialize(Archive& archive)
         {
@@ -108,6 +157,35 @@ namespace engine
                 archive(mieDensity[i]);
                 archive(absorptionDensity[i]);
             }
+
+
+            archive(
+                cloudAreaStartHeight,
+                cloudAreaThickness,
+                cloudShadowExtent,
+                cloudWeatherUVScale,
+                cloudCoverage,
+                cloudDensity,
+                cloudShadingSunLightScale,
+                cloudFogFade,
+                cloudMaxTraceingDistance,
+                cloudTracingStartMaxDistance,
+                cloudDirection,
+                cloudSpeed,
+                cloudMultiScatterExtinction,
+                cloudMultiScatterScatter,
+                cloudBasicNoiseScale,
+                cloudDetailNoiseScale,
+                cloudAlbedo,
+                cloudPhaseForward,
+                cloudPhaseBackward,
+                cloudPhaseMixFactor,
+                cloudPowderScale,
+                cloudPowderPow,
+                cloudLightStepMul,
+                cloudLightBasicStep,
+                cloudLightStepNum,
+                cloudEnableGroundContribution);
         }
     };
     static_assert(sizeof(AtmosphereConfig) % (4 * sizeof(float)) == 0);

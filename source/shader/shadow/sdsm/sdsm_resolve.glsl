@@ -228,7 +228,7 @@ void main()
         shadowResult = mix(shadowResult, lerpShadowValue, cascadeFadeEdge);
     }
 
-#if 0
+#if 1
     // TODO: Hiz heightmap accelerate.
     // Ray cast in world space, and sample height map to know current pixel is occluded or not.
     const bool bShouldRayTraceTerrainShadow = shadowResult > 1e-3f;
@@ -270,8 +270,11 @@ void main()
                     rayUvz.y = heightMapSize.y - rayUvz.y;
 
                     const float heightSample = textureLod(sampler2D(inHeightmap, linearClampEdgeSampler), vec2(rayUvz.xy) / heightMapSize, kLodLevel).r * heightfiledDump;
-                    if(rayUvz.z < heightSample)
+                    if(rayUvz.z + adoption < heightSample)
                     {
+                        occFactor += 1.0f;
+                        break;
+                    #if 0
                         if(heightSample - rayUvz.z > 0.5 * adoption  && heightSample - rayUvz.z < adoption)
                         {
                             occFactor += 1.0f;
@@ -280,6 +283,7 @@ void main()
 
                         t -= stepDt;
                         stepDt *= 0.5;
+                    #endif
                     }
 
                 }

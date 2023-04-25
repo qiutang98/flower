@@ -112,6 +112,9 @@ namespace engine
 		PoolImageSharedRef m_prevDepth = nullptr;
 		PoolImageSharedRef m_prevGBufferB = nullptr;
 
+		PoolImageSharedRef m_cloudReconstruction = nullptr;
+		PoolImageSharedRef m_cloudReconstructionDepth = nullptr;
+
 		SSSRResource m_sssrRts;
 
 		PoolImageSharedRef m_averageLum = nullptr;
@@ -166,6 +169,13 @@ namespace engine
 			class RenderScene* scene,
 			BufferParameterHandle perFrameGPU,
 			PoolImageSharedRef inHiz);
+
+		void renderVolumetricCloud(
+			VkCommandBuffer cmd,
+			class GBufferTextures* inGBuffers,
+			class RenderScene* scene,
+			BufferParameterHandle perFrameGPU,
+			AtmosphereTextures& inAtmosphere);
 
 
 		void renderSSSR(

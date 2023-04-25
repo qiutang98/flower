@@ -434,6 +434,8 @@ namespace engine
             CASE_STR(Texture_Translucent)
             CASE_STR(Texture_Normal)
             CASE_STR(Texture_Specular)
+            CASE_STR(Texture_CloudWeather)
+            CASE_STR(Texture_CurlNoise)
             CASE_STR(StaticMesh_Box)
             CASE_STR(StaticMesh_Sphere)
         }
@@ -497,6 +499,22 @@ namespace engine
             "EngineSpecular",
             getBuiltEngineAssetUUID(EBuiltinEngineAsset::Texture_Specular),
             { 255, 255, 0, 0 }
+        ));
+
+        m_uploader->addTask(RawAssetTextureLoadTask::buildEngineTexture(
+            this,
+            "./image/T_CloudWetherMap.png",
+            getBuiltEngineAssetUUID(EBuiltinEngineAsset::Texture_CloudWeather),
+            VK_FORMAT_R8G8B8A8_UNORM,
+            false
+        ));
+
+        m_uploader->addTask(RawAssetTextureLoadTask::buildEngineTexture(
+            this,
+            "./image/T_CurlNoise.png",
+            getBuiltEngineAssetUUID(EBuiltinEngineAsset::Texture_CurlNoise),
+            VK_FORMAT_R8G8B8A8_UNORM,
+            false
         ));
 
         m_uploader->addTask(AssetRawStaticMeshLoadTask::buildFromPath(
