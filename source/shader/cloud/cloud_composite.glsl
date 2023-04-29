@@ -63,7 +63,7 @@ void main()
     vec3 result = srcColor.rgb;
     if(sceneZ <= 0.0f) // reverse z.
     {
-        result = mix(srcColor.rgb, cloudColor.rgb, 1.0 - cloudColor.a);
+        result = srcColor.rgb * cloudColor.a + cloudColor.rgb;
     }
 
     imageStore(imageHdrSceneColor, workPos, vec4(result.rgb, 1.0));

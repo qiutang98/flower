@@ -345,6 +345,11 @@ vec3 getSamplingVector(uint faceId, vec2 st)
     return normalize(getSamplingPosition(faceId, st));
 }
 
+vec3 cubeSmooth(vec3 x)
+{
+    return x * x * (3.0 - 2.0 * x);
+}
+
 // Ray sphere intersection. 
 // https://zhuanlan.zhihu.com/p/136763389
 // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-sphere-intersection
@@ -861,5 +866,26 @@ float bayerDither(float grayscale, ivec2 pixelCoord)
     int pixelIndex16 = (pixelCoord.x % 4) + (pixelCoord.y % 4) * 4;
     return grayscale > (float(kBayerMatrix16[pixelIndex16]) + 0.5) / 16.0 ? 1.0 : 0.0;
 }
+
+float bayer2(vec2 a) {
+    a = floor(a);
+
+    return fract(dot(a, vec2(0.5, a.y * 0.75)));
+}
+
+float bayer4(const vec2 a)   { return bayer2 (0.5   * a) * 0.25     + bayer2(a); }
+float bayer8(const vec2 a)   { return bayer4 (0.5   * a) * 0.25     + bayer2(a); }
+float bayer16(const vec2 a)  { return bayer4 (0.25  * a) * 0.0625   + bayer4(a); }
+float bayer32(const vec2 a)  { return bayer8 (0.25  * a) * 0.0625   + bayer4(a); }
+float bayer64(const vec2 a)  { return bayer8 (0.125 * a) * 0.015625 + bayer8(a); }
+float bayer128(const vec2 a) { return bayer16(0.125 * a) * 0.015625 + bayer8(a); }
+
+#define dither2(p)   (bayer2(  p) - 0.375      )
+#define dither4(p)   (bayer4(  p) - 0.46875    )
+#define dither8(p)   (bayer8(  p) - 0.4921875  )
+#define dither16(p)  (bayer16( p) - 0.498046875)
+#define dither32(p)  (bayer32( p) - 0.499511719)
+#define dither64(p)  (bayer64( p) - 0.49987793 )
+#define dither128(p) (bayer128(p) - 0.499969482)
 
 #endif

@@ -121,45 +121,48 @@ void drawAtmosphereConfig(AtmosphereConfig& inout)
 
 		float cloudBottomAltitude = copyValue.cloudAreaStartHeight - copyValue.bottomRadius;
 
-		bool bEnableGroundContribution = copyValue.cloudEnableGroundContribution != 0;
-		ImGui::Checkbox("enable ground contribution", &bEnableGroundContribution);
-		copyValue.cloudEnableGroundContribution = bEnableGroundContribution ? 1 : 0;
 
 		ImGui::DragFloat("start height(km)", &cloudBottomAltitude, 0.1f, 0.0f, 20.0f);
 		ImGui::DragFloat("thickness(km)", &copyValue.cloudAreaThickness, 0.1f, 0.1f, 20.0f);
-		ImGui::DragFloat("shadow extent(km)", &copyValue.cloudShadowExtent, 0.1f, 1.0f, 50.0f);
 
-		ImGui::DragFloat("coverage", &copyValue.cloudCoverage, 0.1f, 0.0f, 1.0f);
-		ImGui::DragFloat("density", &copyValue.cloudDensity, 0.1f, 0.0f, 1.0f);
-		ImGui::DragFloat("fog fade", &copyValue.cloudFogFade, 0.001f, 0.0f, 0.1f);
-		ImGui::DragFloat("max tracing distance", &copyValue.cloudMaxTraceingDistance, 1.0f, 10.0f, 100.0f);
-		ImGui::DragFloat("max tracing start distance", &copyValue.cloudTracingStartMaxDistance, 1.0f, 300.0f, 500.0f);
 
-		ImGui::DragFloat2("Wether UV scale", &copyValue.cloudWeatherUVScale.x, 0.0f, 0.01f);
-
-		ImGui::DragFloat("basic noise scale", &copyValue.cloudBasicNoiseScale, 0.01f, 0.0f, 1.0f);
-		ImGui::DragFloat("detail noise scale", &copyValue.cloudDetailNoiseScale, 0.01f, 0.0f, 1.0f);
+		ImGui::DragFloat("coverage", &copyValue.cloudCoverage, 0.1f, 0.0f, 2.0f);
+		ImGui::DragFloat("density", &copyValue.cloudDensity, 0.1f, 0.0f, 5.0f);
 
 		ImGui::DragFloat("sun light scale", &copyValue.cloudShadingSunLightScale, 0.1f, 0.1f, 10.0f);
-
-
 		ImGui::DragFloat3("wind dir", &copyValue.cloudDirection.x, 0.01f, 0.0f);
 		ImGui::DragFloat("wind speed", &copyValue.cloudSpeed, 0.1f, 0.0f, 1.0f);
-
-
 		ImGui::DragFloat("multi scatter", &copyValue.cloudMultiScatterScatter, 0.1f, 0.0f, 1.0f);
 		ImGui::DragFloat("multi extinction", &copyValue.cloudMultiScatterExtinction, 0.1f, 0.0f, 1.0f);
-
 		ImGui::DragFloat("phase forward", &copyValue.cloudPhaseForward, 0.01f, 0.01f, 0.99f);
 		ImGui::DragFloat("phase backward", &copyValue.cloudPhaseBackward, 0.01f, -0.99f, -0.01f);
 		ImGui::DragFloat("phase mix factor", &copyValue.cloudPhaseMixFactor, 0.01f, 0.01f, 0.99f);
-		ImGui::DragFloat("cloud powder scale", &copyValue.cloudPowderScale, 0.1f, 0.01f, 100.0f);
-		ImGui::DragFloat("cloud powder pow", &copyValue.cloudPowderPow, 0.1f, 0.01f, 10.0f);
 
 		ImGui::ColorEdit3("cloud albedo", &copyValue.cloudAlbedo.x);
 		ImGui::DragFloat("light step mul", &copyValue.cloudLightStepMul, 0.01f, 1.01f, 1.5f);
 		ImGui::DragFloat("light basic step", &copyValue.cloudLightBasicStep, 0.01f, 0.10f, 0.5f);
 		ImGui::DragInt("light step num", &copyValue.cloudLightStepNum, 1, 6, 24);
+
+		ImGui::DragInt("light marching step", &copyValue.cloudMarchingStepNum, 1, 24, 512);
+		ImGui::DragInt("noise octaves", &copyValue.cloudSunLitMapOctave, 1, 2, 8);
+		ImGui::DragFloat("light noise scale", &copyValue.cloudNoiseScale, 0.01f, 0.01f, 5.0f);
+
+		ImGui::DragFloat("max tracing distance", &copyValue.cloudMaxTraceingDistance, 1.0f, 10.0f, 100.0f);
+		ImGui::DragFloat("max tracing start distance", &copyValue.cloudTracingStartMaxDistance, 1.0f, 300.0f, 500.0f);
+
+		ImGui::DragFloat2("Wether UV scale", &copyValue.cloudWeatherUVScale.x, 0.0f, 0.01f);
+		ImGui::DragFloat("basic noise scale", &copyValue.cloudBasicNoiseScale, 0.01f, 0.0f, 1.0f);
+		ImGui::DragFloat("detail noise scale", &copyValue.cloudDetailNoiseScale, 0.01f, 0.0f, 1.0f);
+
+#if 0
+		ImGui::DragFloat("shadow extent(km)", &copyValue.cloudShadowExtent, 0.1f, 1.0f, 50.0f);
+		bool bEnableGroundContribution = copyValue.cloudEnableGroundContribution != 0;
+		ImGui::Checkbox("enable ground contribution", &bEnableGroundContribution);
+		copyValue.cloudEnableGroundContribution = bEnableGroundContribution ? 1 : 0;
+		ImGui::DragFloat("fog fade", &copyValue.cloudFogFade, 0.001f, 0.0f, 0.1f);
+		ImGui::DragFloat("cloud powder scale", &copyValue.cloudPowderScale, 0.1f, 0.01f, 100.0f);
+		ImGui::DragFloat("cloud powder pow", &copyValue.cloudPowderPow, 0.1f, 0.01f, 10.0f);
+#endif
 
 		ImGui::Spacing();
 		ImGui::PopItemWidth();

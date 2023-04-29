@@ -20,6 +20,11 @@ namespace engine
 		initImpl();
 	}
 
+	void RendererInterface::setCameraCut()
+	{
+		m_tickCount = 0;
+	}
+
 	void RendererInterface::updatePerframeData(const RuntimeModuleTickData& tickData)
 	{
 		GPUPerFrameData perframe{ };

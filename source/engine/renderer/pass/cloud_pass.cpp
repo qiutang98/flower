@@ -135,7 +135,7 @@ namespace engine
         }
 
         auto weatherTexture = std::dynamic_pointer_cast<GPUImageAsset>(getContext()->getEngineAsset(EBuiltinEngineAsset::Texture_CloudWeather));
-        auto curlNoiseTexture = std::dynamic_pointer_cast<GPUImageAsset>(getContext()->getEngineAsset(EBuiltinEngineAsset::Texture_CurlNoise));
+        auto curlNoiseTexture = std::dynamic_pointer_cast<GPUImageAsset>(getContext()->getEngineAsset(EBuiltinEngineAsset::Texture_Noise));
 
         PushSetBuilder setBuilder(cmd);
         setBuilder

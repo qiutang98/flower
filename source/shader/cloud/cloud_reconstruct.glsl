@@ -50,9 +50,11 @@ void main()
         const bool bUpdateEvaluate = (workDeltaPos.x == bayerOffset.x) && (workDeltaPos.y == bayerOffset.y);
         if(bUpdateEvaluate)
         {
-            // Should we also add variance clamp for depth?
             depthZ = curDepthZ;
-
+        #if 1
+            // Just update color is good enough.
+            color = curColor;
+        #else
             if(abs(preDepthZ - curDepthZ) > 0.1)
             {
                 color = curColor;
@@ -92,8 +94,9 @@ void main()
                     clampColorHistory = clamp(preColor, nmin, nmax);
                 }
 
-                color  = mix(clampColorHistory,  curColor, vec4(1.0 / 4.0));
+                color  = mix(clampColorHistory,  curColor, 0.8);
             }
+        #endif
         }
         else
         {

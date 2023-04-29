@@ -34,7 +34,6 @@ float gradientNoise(vec3 x, float freq)
     
     // quintic interpolant
     vec3 u = w * w * w * (w * (w * 6. - 15.) + 10.);
-
     
     // gradients
     vec3 ga = hash33(mod(p + vec3(0., 0., 0.), freq));

@@ -148,39 +148,44 @@ namespace engine
 	{
 		auto& inAtmosphere = *this;
 
-		inAtmosphere.cloudAreaStartHeight = inAtmosphere.bottomRadius + 1.0f; // km
-		inAtmosphere.cloudAreaThickness = 10.0f; // km
+		inAtmosphere.cloudAreaStartHeight = inAtmosphere.bottomRadius + 3.3f; // km
+		inAtmosphere.cloudAreaThickness = 3.4f; // km
 
-		inAtmosphere.cloudWeatherUVScale = { 0.005f, 0.005f }; // vec2(0.005)
-		inAtmosphere.cloudCoverage = 0.5f; // 0.50
-		inAtmosphere.cloudDensity = 0.1f;  // 0.10
+		inAtmosphere.cloudWeatherUVScale = { 0.01f, 0.0125f }; // vec2(0.005)
+		inAtmosphere.cloudCoverage = 1.0f; // 0.50
+		inAtmosphere.cloudDensity = 1.0f;  // 0.10
 
 		inAtmosphere.cloudShadingSunLightScale = 1.0f; // 5.0
 		inAtmosphere.cloudFogFade = 0.005f; // 0.005
 		inAtmosphere.cloudMaxTraceingDistance = 50.0f; // 50.0 km
 		inAtmosphere.cloudTracingStartMaxDistance = 350.0f; // 350.0 km
 
-		inAtmosphere.cloudDirection = glm::normalize(glm::vec3{ 0.8, 0.2, 0.4 });
+		inAtmosphere.cloudDirection = glm::normalize(glm::vec3{ 0.8f, 0.01f, 0.4f });
 		inAtmosphere.cloudSpeed = 0.1f;
 
 		inAtmosphere.cloudMultiScatterExtinction = 0.5f;
-		inAtmosphere.cloudMultiScatterScatter = 0.75f;
+		inAtmosphere.cloudMultiScatterScatter = 1.0f;
 
-		inAtmosphere.cloudBasicNoiseScale = 0.15f;
-		inAtmosphere.cloudDetailNoiseScale = 0.30f;
+		inAtmosphere.cloudBasicNoiseScale = 0.3f;
+		inAtmosphere.cloudDetailNoiseScale = 0.60f;
 
 		inAtmosphere.cloudAlbedo = { 1.0f , 1.0f, 1.0f };
-		inAtmosphere.cloudPhaseForward = 0.5f;
+		inAtmosphere.cloudPhaseForward = 0.8f;
 
 		inAtmosphere.cloudPhaseBackward = -0.5f;
-		inAtmosphere.cloudPhaseMixFactor = 0.2f;
+		inAtmosphere.cloudPhaseMixFactor = 0.5f;
 		inAtmosphere.cloudPowderScale = 20.0f;
 		inAtmosphere.cloudPowderPow = 0.5f;
 
-		inAtmosphere.cloudLightStepMul = 1.05f;
-		inAtmosphere.cloudLightBasicStep = 0.167f;
-		inAtmosphere.cloudLightStepNum = 16;
+		inAtmosphere.cloudLightStepMul = 1.5f;
+		inAtmosphere.cloudLightBasicStep = 0.025f;
+		inAtmosphere.cloudLightStepNum = 12;
 		inAtmosphere.cloudEnableGroundContribution = 0;
+
+
+		inAtmosphere.cloudMarchingStepNum = 128;
+		inAtmosphere.cloudSunLitMapOctave = 5;
+		inAtmosphere.cloudNoiseScale = 1.0f;
 	}
 
 }

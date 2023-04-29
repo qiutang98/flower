@@ -30,6 +30,8 @@ namespace engine
 		Texture_Specular, // 255, 255, 0, 0 .r AO, .g roughness, .b metal
 		Texture_CloudWeather,
 		Texture_CurlNoise,
+		Texture_Noise,
+		Texture_Sky3d,
 		Texture_Max,
 
 		StaticMesh_Min,

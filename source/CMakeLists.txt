@@ -32,7 +32,7 @@ target_precompile_headers(flower PRIVATE
     "engine/imgui/ui.h"
     "engine/renderer/renderer.h"
     "engine/rhi/rhi.h" 
-    "engine/scene/scene.h"
+    "engine/scene/scene.h" 
     "engine/util/util.h"
     "editor/editor.h") 
  

@@ -27,12 +27,16 @@ void main()
     // Get evaluate uv in full resolution.
     const vec2 uv = (vec2(fullResWorkPos) + vec2(0.5f)) / vec2(fullResSize);
 
+#if 0
     // Offset retarget for new seeds each frame
-    uvec2 offset = uvec2(vec2(0.754877669, 0.569840296) * (frameData.frameIndex.x) * uvec2(fullResSize));
-    uvec2 offsetId = fullResWorkPos.xy + offset;
-    offsetId.x = offsetId.x % fullResSize.x;
-    offsetId.y = offsetId.y % fullResSize.y;
+    uvec2 offset = uvec2(vec2(0.754877669, 0.569840296) * (frameData.frameIndex.x % frameData.jitterPeriod) * uvec2(texSize));
+    uvec2 offsetId = workPos.xy + offset;
+    offsetId.x = offsetId.x % texSize.x;
+    offsetId.y = offsetId.y % texSize.y;
     float blueNoise = samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d(offsetId.x, offsetId.y, 0, 0u); 
+#else
+    float blueNoise = float(rand3DPCG16(ivec3(workPos.xy, (frameData.frameIndex.x % frameData.jitterPeriod))).x) / 65536.0;
+#endif
 
      // We are revert z.
     vec4 clipSpace = vec4(uv.x * 2.0f - 1.0f, 1.0f - uv.y * 2.0f, 0.0, 1.0);

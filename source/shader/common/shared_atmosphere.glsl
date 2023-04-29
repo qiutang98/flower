@@ -202,14 +202,14 @@ float aerialPerspectiveSliceToDepth(float slice) { return slice * kAirPerspectiv
 // Camera unit to atmosphere unit convert. meter -> kilometers.
 vec3 convertToAtmosphereUnit(vec3 o, in const PerFrameData frame)
 {
-	const float cameraOffset = 0.05f;
+	const float cameraOffset = 0.02f;
 	return o * 0.001f + vec3(0.0, cameraOffset, 0.0);
 }  
 
 // atmosphere unit to camera unit convert. kilometers -> meter.
 vec3 convertToCameraUnit(vec3 o, in const PerFrameData frame)
 {
-	const float cameraOffset = 0.05f;
+	const float cameraOffset = 0.02f;
 	return (o - vec3(0.0, cameraOffset, 0.0)) * 1000.0f;
 }  
 

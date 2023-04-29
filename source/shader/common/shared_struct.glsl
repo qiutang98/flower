@@ -111,6 +111,11 @@ struct AtmosphereConfig
     float cloudLightBasicStep;
     int  cloudLightStepNum;
     int cloudEnableGroundContribution;
+
+    int cloudMarchingStepNum;
+    int cloudSunLitMapOctave;
+    float cloudNoiseScale;
+    float pad4;
 };
 
 struct SkyInfo

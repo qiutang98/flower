@@ -436,6 +436,8 @@ namespace engine
             CASE_STR(Texture_Specular)
             CASE_STR(Texture_CloudWeather)
             CASE_STR(Texture_CurlNoise)
+            CASE_STR(Texture_Noise)
+            CASE_STR(Texture_Sky3d)
             CASE_STR(StaticMesh_Box)
             CASE_STR(StaticMesh_Sphere)
         }
@@ -515,6 +517,21 @@ namespace engine
             getBuiltEngineAssetUUID(EBuiltinEngineAsset::Texture_CurlNoise),
             VK_FORMAT_R8G8B8A8_UNORM,
             false
+        ));
+        m_uploader->addTask(RawAssetTextureLoadTask::buildEngineTexture(
+            this,
+            "./image/T_Noise.png",
+            getBuiltEngineAssetUUID(EBuiltinEngineAsset::Texture_Noise),
+            VK_FORMAT_R8G8B8A8_UNORM,
+            false
+        ));
+
+        m_uploader->addTask(RawAssetTextureLoadTask::buildEngine3dTexture(
+            this,
+            "./image/T_Sky.texture3d",
+            getBuiltEngineAssetUUID(EBuiltinEngineAsset::Texture_Sky3d),
+            VK_FORMAT_R32G32B32A32_SFLOAT,
+            { 256, 128, 33 }
         ));
 
         m_uploader->addTask(AssetRawStaticMeshLoadTask::buildFromPath(

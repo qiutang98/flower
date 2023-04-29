@@ -37,7 +37,7 @@ namespace engine
 		VkImageCreateInfo info{};
 		info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		info.flags = {};
-		info.imageType = VK_IMAGE_TYPE_2D;
+		info.imageType = depth != 1 ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
 		info.format = format;
 		info.extent.width = width;
 		info.extent.height = height;
@@ -72,7 +72,7 @@ namespace engine
 	void GPUImageAsset::finishUpload(RHICommandBufferBase& cmd, VkImageSubresourceRange range)
 	{
 		m_image->transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range);
-		m_bindlessIndex = m_context->getBindlessTexture().updateTextureToBindlessDescriptorSet(m_image->getOrCreateView(buildBasicImageSubresource()));
+		m_bindlessIndex = m_context->getBindlessTexture().updateTextureToBindlessDescriptorSet(m_image->getOrCreateView(buildBasicImageSubresource(), m_image->getInfo().imageType == VK_IMAGE_TYPE_3D ? VK_IMAGE_VIEW_TYPE_3D : VK_IMAGE_VIEW_TYPE_2D));
 
 		CHECK(m_bindlessIndex != ~0);
 	}
@@ -106,14 +106,15 @@ namespace engine
 			const auto& currentMip = mipmapDatas.at(level);
 			const uint32_t currentMipSize = (uint32_t)currentMip.size();
 
-			uint32_t mipWidth = std::max<uint32_t>(imageAssetGPU->getImage().getExtent().width >> level, 1);
+			uint32_t mipWidth  = std::max<uint32_t>(imageAssetGPU->getImage().getExtent().width  >> level, 1);
 			uint32_t mipHeight = std::max<uint32_t>(imageAssetGPU->getImage().getExtent().height >> level, 1);
+			uint32_t mipDepth  = std::max<uint32_t>(imageAssetGPU->getImage().getExtent().depth  >> level, 1);
 
 			memcpy((void*)((char*)bufferPtrStart + bufferOffset), currentMip.data(), currentMipSize);
 
 			region.bufferOffset = stageBufferOffset + bufferOffset;
 			region.imageSubresource.mipLevel = level;
-			region.imageExtent = { mipWidth, mipHeight, 1 };
+			region.imageExtent = { mipWidth, mipHeight, mipDepth };
 
 			copyRegions.push_back(region);
 
@@ -181,6 +182,41 @@ namespace engine
 		newTask->imageAssetGPU = newAsset;
 
 		stbi_image_free(pixels);
+		return newTask;
+	}
+
+	std::shared_ptr<RawAssetTextureLoadTask> RawAssetTextureLoadTask::buildEngine3dTexture(
+		VulkanContext* context, const std::filesystem::path& path, const UUID& uuid, VkFormat format,
+		math::uvec3 dim)
+	{
+		ASSERT(!context->isEngineAssetExist(uuid), "Persistent asset has exist, don't register repeatly.");
+
+		auto newAsset = std::make_shared<GPUImageAsset>(
+			context,
+			nullptr,
+			format,
+			path.string(),
+			1, // Mipmap count.
+			dim.x,
+			dim.y,
+			dim.z);
+		context->insertEngineAsset(uuid, newAsset);
+
+		std::shared_ptr<RawAssetTextureLoadTask> newTask = std::make_shared<RawAssetTextureLoadTask>();
+		newTask->imageAssetGPU = newAsset;
+
+		newTask->cacheBin->mipmapDatas.resize(1);
+		newTask->cacheBin->mipmapDatas[0].resize(dim.x * dim.y * dim.z * 4 * 4);
+
+		auto file = std::ifstream(path, std::ios::binary);
+
+		file.seekg(0, std::ios::end);
+		int length = (int)file.tellg();
+
+		CHECK(length == newTask->cacheBin->mipmapDatas[0].size());
+		file.seekg(0, std::ios::beg);
+		file.read((char*)newTask->cacheBin->mipmapDatas[0].data(), length);
+
 		return newTask;
 	}
 

@@ -33,13 +33,13 @@ add_subdirectory("dependency/assimp")
 
 SET(GLFW_BUILD_DOCS OFF CACHE BOOL "GLFW build document" FORCE) 
 SET(GLFW_BUILD_TESTS OFF CACHE BOOL "GLFW build tests" FORCE) 
-SET(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "GLFW build examples" FORCE) 
+SET(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "GLFW build examples" FORCE)  
 add_subdirectory("dependency/glfw")  
  
 SET(GFX_API_DX12 OFF CACHE BOOL "Build with DX12" FORCE)
 SET(GFX_API_VK ON CACHE BOOL "Build with Vulkan" FORCE)  
 add_subdirectory("dependency/fsr2") 
-
+ 
 # Prepare imgui path.
 set(CEREAL_DIR ${CMAKE_SOURCE_DIR}/dependency/cereal/include)
 

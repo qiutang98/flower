@@ -55,7 +55,7 @@ namespace engine
 	{
 	public:
 		const GPUPerFrameData& getFrameData() const { return m_cacheGPUPerFrameData; }
-
+		void setCameraCut();
 	protected:
 		// Renderer name.
 		std::string m_name;
@@ -118,6 +118,8 @@ namespace engine
 		SSSRResource m_sssrRts;
 
 		PoolImageSharedRef m_averageLum = nullptr;
+
+
 
 	private:
 		std::unique_ptr<FSR2Context> m_fsr2 = nullptr;

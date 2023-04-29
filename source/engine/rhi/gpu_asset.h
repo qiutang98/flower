@@ -79,6 +79,13 @@ namespace engine
 			bool bSRGB,
 			bool bMipmap = false);
 
+		static std::shared_ptr<RawAssetTextureLoadTask> buildEngine3dTexture(
+			VulkanContext* context,
+			const std::filesystem::path& path,
+			const UUID& uuid,
+			VkFormat format,
+			math::uvec3 dim);
+
 		// Build load task from same value for engine.
 		static std::shared_ptr<RawAssetTextureLoadTask> buildEngineFlatTexture(
 			VulkanContext* context, 

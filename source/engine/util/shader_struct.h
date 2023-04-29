@@ -129,6 +129,11 @@ namespace engine
         int  cloudLightStepNum;
         int cloudEnableGroundContribution;
 
+        int cloudMarchingStepNum;
+        int cloudSunLitMapOctave;
+        float cloudNoiseScale;
+        float pad4;
+
         auto operator<=>(const AtmosphereConfig&) const = default;
         template<class Archive> void serialize(Archive& archive)
         {

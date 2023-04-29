@@ -2,7 +2,6 @@
 #include "scene_textures.h"
 #include "renderer.h"
 #include "render_scene.h"
-
 namespace engine
 {
     DeferredRenderer::DeferredRenderer(const char* name, VulkanContext* context, CameraInterface* inCam)
@@ -78,18 +77,18 @@ namespace engine
 		renderSDSM(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, sdsmInfos);
 
 		AtmosphereTextures atmosphereTextures{};
+
 		if (m_renderer->getScene()->getSky() != nullptr)
 		{
 			renderAtmosphere(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, atmosphereTextures, &sdsmInfos, false);
 			renderSkylight(graphicsCmd, atmosphereTextures);
 		}
 
-
-
 		deferredLighting(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, sdsmInfos.mainViewMask, atmosphereTextures, gtaoImage);
 
 		renderAtmosphere(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, atmosphereTextures, &sdsmInfos, true);
 		renderVolumetricCloud(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, atmosphereTextures);
+
 
 		renderSSGI(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, hzbClosest, gtaoImage);
 		renderSSSR(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, hzbClosest, gtaoImage);
