@@ -153,10 +153,10 @@ namespace engine
 
 		inAtmosphere.cloudWeatherUVScale = { 0.0125f, 0.0125f }; // vec2(0.005)
 		inAtmosphere.cloudCoverage = 1.0f; // 0.50
-		inAtmosphere.cloudDensity = 1.0f;  // 0.10
+		inAtmosphere.cloudDensity = 0.1f;  // 0.10
 
 		inAtmosphere.cloudShadingSunLightScale = 1.0f; // 5.0
-		inAtmosphere.cloudFogFade = 0.005f; // 0.005
+		inAtmosphere.cloudFogFade = 10.0f; // 0.005
 		inAtmosphere.cloudMaxTraceingDistance = 50.0f; // 50.0 km
 		inAtmosphere.cloudTracingStartMaxDistance = 350.0f; // 350.0 km
 

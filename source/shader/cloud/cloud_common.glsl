@@ -7,15 +7,6 @@
 #include "../common/shared_functions.glsl"
 #include "../common/shared_atmosphere.glsl"
 
-float getDensity(vec3 worldPosition)
-{
-    const float fogStartHeight = 0.0;
-	const float falloff = 0.001;
-    const float constFog = 0.0;
-
-    const float fogFinalScale = 0.0001;
-    return (constFog + exp(-(worldPosition.y - fogStartHeight) * falloff)) * fogFinalScale;
-}
 
 layout (set = 0, binding = 0, rgba16f) uniform image2D imageHdrSceneColor;
 layout (set = 0, binding = 1) uniform texture2D inHdrSceneColor;
@@ -50,6 +41,17 @@ layout (set = 0, binding = 26) uniform texture2D inCloudFogReconstructionTexture
 
 #define BLUE_NOISE_BUFFER_SET 2
 #include "../common/shared_bluenoise.glsl"
+
+float getDensity(vec3 worldPosition)
+{
+    const float fogStartHeight = 0.0;
+	const float falloff = 0.001;
+    const float constFog = 0.0;
+
+    const float fogFinalScale = 0.00001 * frameData.sky.atmosphereConfig.cloudFogFade;
+    return (constFog + exp(-(worldPosition.y - fogStartHeight) * falloff)) * fogFinalScale;
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////////////
 //////////////// Paramters ///////////////////////////
@@ -110,9 +112,9 @@ float remap(float value, float orignalMin, float orignalMax, float newMin, float
     return newMin + (saturate((value - orignalMin) / (orignalMax - orignalMin)) * (newMax - newMin));
 }
 
-float cloudMap(vec3 posMeter, float normalizeHeight, int ocat)  // Meter
+float cloudMap(vec3 posMeter, float normalizeHeight, int ocat, bool bFixDensity)  // Meter
 {
-    const float kDensity  = frameData.sky.atmosphereConfig.cloudDensity;
+    const float kDensity  = bFixDensity ? 1.0f : frameData.sky.atmosphereConfig.cloudDensity;
     const float kCoverage = frameData.sky.atmosphereConfig.cloudCoverage;
 
     const vec3 windDirection = frameData.sky.atmosphereConfig.cloudDirection;
@@ -250,7 +252,7 @@ ParticipatingMedia volumetricShadow(vec3 posKm, vec3 sunDirection, in const Atmo
         float normalizeHeight = sampleDt / atmosphere.cloudAreaThickness;
         vec3 samplePosMeter = samplePosKm * 1000.0f;
 
-        extinctionCoefficients[0] = cloudMap(samplePosMeter, normalizeHeight,  frameData.sky.atmosphereConfig.cloudSunLitMapOctave);
+        extinctionCoefficients[0] = cloudMap(samplePosMeter, normalizeHeight,  frameData.sky.atmosphereConfig.cloudSunLitMapOctave, false);
         extinctionAccumulation[0] += extinctionCoefficients[0] * stepL;
 
         float MsExtinctionFactor = frameData.sky.atmosphereConfig.cloudMultiScatterExtinction;
@@ -330,7 +332,7 @@ vec3 getVolumetricGroundContribution(
         float normalizeHeight = sampleDt / atmosphere.cloudAreaThickness;
 
         vec3 samplePosMeter = samplePosKm * 1000.0f;
-        float stepCloudDensity = cloudMap(samplePosMeter, normalizeHeight, 2);
+        float stepCloudDensity = cloudMap(samplePosMeter, normalizeHeight, 2, true);
 
 		opticalDepth += stepCloudDensity * delta;
 	}
@@ -501,7 +503,7 @@ vec4 cloudColorCompute(
 
         // Convert to meter.
         vec3 samplePosMeter = samplePos * 1000.0f;
-        float stepCloudDensity = cloudMap(samplePosMeter, normalizeHeight,  frameData.sky.atmosphereConfig.cloudSunLitMapOctave);
+        float stepCloudDensity = cloudMap(samplePosMeter, normalizeHeight,  frameData.sky.atmosphereConfig.cloudSunLitMapOctave, false);
 
         // Add ray march pos, so we can do some average fading or atmosphere sample effect.
         rayHitPos += samplePos * transmittance;
@@ -521,18 +523,22 @@ vec4 cloudColorCompute(
             ParticipatingMedia participatingMedia = volumetricShadow(samplePos, sunDirection, atmosphere);
 
             // Compute powder term.
-            float powderEffectTermAmbient;
+            float powderEffect;
+            float powderEffectTermAmbient = 1.0f;
             {
                 float depthProbability = pow(clamp(stepCloudDensity * 1000.0 * frameData.sky.atmosphereConfig.cloudPowderScale, 0.0, frameData.sky.atmosphereConfig.cloudPowderPow), remap(normalizeHeight, 0.3, 0.85, 0.5, 2.0));
                 depthProbability += 0.05;
 
-                float verticalProbability = pow(remap(normalizeHeight, 0.07, 0.25, 0.1, 1.0), 0.8);
-                powderEffectTermAmbient = powderEffectNew(depthProbability, verticalProbability, -(VoL));
+                float verticalProbability = pow(remap(normalizeHeight, 0.07, 0.22, 0.1, 1.0), 0.8);
+                powderEffect = powderEffectNew(depthProbability, verticalProbability, VoL);
+
+
+                powderEffectTermAmbient = clamp(stepCloudDensity * 1000.0 * 8.0f, 0.0, kPI) * 0.1f + 0.9f;
             }
 
             vec3 ambientLight = 
                 mix(1.0 / 5.0, 1.0, normalizeHeight) * 
-                mix(vec3(dot(skyBackgroundColor, vec3(0.3, 0.59, .11))), skyBackgroundColor, normalizeHeight) * powderEffectTermAmbient;
+                mix(vec3(dot(skyBackgroundColor, vec3(0.3, 0.59, .11))), skyBackgroundColor, normalizeHeight * 0.8 + 0.2);
 
             vec3 groundLit = vec3(0.0f);
             #if 0
@@ -581,8 +587,8 @@ vec4 cloudColorCompute(
             {
                 float sunVisibilityTerm = participatingMedia.transmittanceToLight[ms];
 
-                vec3 sunSkyLuminance = sunVisibilityTerm * sunlightTerm * participatingMediaPhase.phase[ms];
-                sunSkyLuminance += (ms == 0 ? (ambientLight + groundLit) : vec3(0.0, 0.0, 0.0));
+                vec3 sunSkyLuminance = sunVisibilityTerm * sunlightTerm * powderEffect * participatingMediaPhase.phase[ms];
+                sunSkyLuminance += (ms == 0 ? (ambientLight * powderEffectTermAmbient + groundLit) : vec3(0.0, 0.0, 0.0));
 
                 vec3 sactterLitStep = sunSkyLuminance * scatteringCoefficients[ms];
 
@@ -618,7 +624,7 @@ vec4 cloudColorCompute(
         float transmittanceTotal  = 1.0;
         vec3 scatteredLightTotal = vec3(0.0, 0.0, 0.0);
 
-        float phase = hgPhase(0.3, -VoL);
+        float phase = hgPhase(0.8, -VoL);
         for(uint i = 0; i < kGodRaySteps; i ++)
         {
             vec3 P0 = convertToAtmosphereUnit(rayPosWP, frameData) + vec3(0.0, atmosphere.bottomRadius, 0.0);  // meter -> kilometers.
@@ -641,7 +647,7 @@ vec4 cloudColorCompute(
                     float normalizeHeight = sampleDt / atmosphere.cloudAreaThickness;
                     vec3 samplePosMeter = samplePosKm * 1000.0f;
 
-                    transmittanceShadow += cloudMap(samplePosMeter, normalizeHeight, 3);
+                    transmittanceShadow += cloudMap(samplePosMeter, normalizeHeight, 3, true);
 
                     d += stepL;
                 }
