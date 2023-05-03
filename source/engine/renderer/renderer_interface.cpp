@@ -158,6 +158,7 @@ namespace engine
 		m_gtaoHistory = nullptr;
 		m_cloudReconstruction = nullptr;
 		m_cloudReconstructionDepth = nullptr;
+		m_cloudFogReconstruction = nullptr;
 
 		m_renderWidth = math::clamp(uint32_t(width * validRenderScale), (uint32_t)kMinRenderDim, (uint32_t)kMaxRenderDim);
 		m_renderHeight = math::clamp(uint32_t(height * validRenderScale), (uint32_t)kMinRenderDim, (uint32_t)kMaxRenderDim);

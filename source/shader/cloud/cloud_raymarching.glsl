@@ -28,15 +28,21 @@ void main()
     const vec2 uv = (vec2(fullResWorkPos) + vec2(0.5f)) / vec2(fullResSize);
 
 #if 0
+
+#elif 0
+    float blueNoise = float(rand3DPCG16(ivec3(workPos.xy, (frameData.frameIndex.x % frameData.jitterPeriod))).x) / 65536.0;
+#elif 0
+    float blueNoise = interleavedGradientNoise(vec2(workPos), frameData.frameIndex.x % frameData.jitterPeriod);
+#else 
+    float blueNoise = fract(bayer64(vec2(workPos.xy)) + frameData.frameIndex.x / float(frameData.jitterPeriod));
+#endif
+
     // Offset retarget for new seeds each frame
-    uvec2 offset = uvec2(vec2(0.754877669, 0.569840296) * (frameData.frameIndex.x % frameData.jitterPeriod) * uvec2(texSize));
+    uvec2 offset = uvec2(vec2(0.754877669, 0.569840296) * (frameData.frameIndex.x) * uvec2(texSize));
     uvec2 offsetId = workPos.xy + offset;
     offsetId.x = offsetId.x % texSize.x;
     offsetId.y = offsetId.y % texSize.y;
-    float blueNoise = samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d(offsetId.x, offsetId.y, 0, 0u); 
-#else
-    float blueNoise = float(rand3DPCG16(ivec3(workPos.xy, (frameData.frameIndex.x % frameData.jitterPeriod))).x) / 65536.0;
-#endif
+    float blueNoise2 = samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d(offsetId.x, offsetId.y, 0, 0u); 
 
      // We are revert z.
     vec4 clipSpace = vec4(uv.x * 2.0f - 1.0f, 1.0f - uv.y * 2.0f, 0.0, 1.0);
@@ -48,8 +54,10 @@ void main()
     AtmosphereParameters atmosphere = getAtmosphereParameters(frameData);
 
     float depth = 0.0; // reverse z.
-    vec4 cloudColor = cloudColorCompute(atmosphere, uv, blueNoise, depth, workPos, worldDir);
+    vec4 fogLighting = vec4(0.0);
+    vec4 cloudColor = cloudColorCompute(atmosphere, uv, blueNoise, depth, workPos, worldDir, true, fogLighting, blueNoise2);
 
 	imageStore(imageCloudRenderTexture, workPos, cloudColor);
     imageStore(imageCloudDepthTexture, workPos, vec4(depth));
+    imageStore(imageCloudFogRenderTexture, workPos, fogLighting);
 }

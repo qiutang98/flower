@@ -888,4 +888,26 @@ float bayer128(const vec2 a) { return bayer16(0.125 * a) * 0.015625 + bayer8(a);
 #define dither64(p)  (bayer64( p) - 0.49987793 )
 #define dither128(p) (bayer128(p) - 0.499969482)
 
+
+
+vec3 reinhardInverse(in vec3 sdr)
+{
+    return sdr / max(1.0f - sdr, 1e-2f);
+}
+
+vec3 reinhard(in vec3 hdr)
+{
+    return hdr / (hdr + 1.0f);
+}
+
+float reinhardInverse(in float sdr)
+{
+    return sdr / max(1.0f - sdr, 1e-2f);
+}
+
+float reinhard(in float hdr)
+{
+    return hdr / (hdr + 1.0f);
+}
+
 #endif

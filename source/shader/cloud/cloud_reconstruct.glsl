@@ -34,11 +34,13 @@ void main()
     const bool bPrevUvValid = onRange(uvPrev, vec2(0.0), vec2(1.0)) && (!bCameraCut);
 
     vec4 color = vec4(0.0);
+    vec4 fog = vec4(0.0);
     float depthZ = 0.0; 
     if(bPrevUvValid)
     {
         // Evaluate, fetch it.
         vec4 curColor   = texelFetch(inCloudRenderTexture, workPos / 4, 0);
+        vec4 curFog   = texelFetch(inCloudFogRenderTexture, workPos / 4, 0);
         float curDepthZ = texelFetch(inCloudDepthTexture,  workPos / 4, 0).r;
 
         float preDepthZ = texture(sampler2D(inCloudDepthReconstructionTextureHistory,  linearClampEdgeSampler), uvPrev).r;
@@ -51,6 +53,7 @@ void main()
         if(bUpdateEvaluate)
         {
             depthZ = curDepthZ;
+            fog = curFog;
         #if 1
             // Just update color is good enough.
             color = curColor;
@@ -94,7 +97,7 @@ void main()
                     clampColorHistory = clamp(preColor, nmin, nmax);
                 }
 
-                color  = mix(clampColorHistory,  curColor, 0.8);
+                color  = mix(clampColorHistory,  curColor, 0.5);
             }
         #endif
         }
@@ -102,6 +105,7 @@ void main()
         {
             // Prev uv valid, sample history with prev Uv.
             color  =  texture(sampler2D(inCloudReconstructionTextureHistory,  linearClampEdgeSampler), uvPrev);
+            fog  =  texture(sampler2D(inCloudFogReconstructionTextureHistory,  linearClampEdgeSampler), uvPrev);
             depthZ = preDepthZ;
         }
     }
@@ -109,9 +113,11 @@ void main()
     {
         // No history valid, no evaluate, bilinear sample current.
         color  = texture(sampler2D(inCloudRenderTexture, linearClampEdgeSampler), uv);
+        fog = texture(sampler2D(inCloudFogRenderTexture, linearClampEdgeSampler), uv);
         depthZ = texture(sampler2D(inCloudDepthTexture,  linearClampEdgeSampler), uv).r;
     }
 
     imageStore(imageCloudReconstructionTexture, workPos, color);
+    imageStore(imageCloudFogReconstructionTexture, workPos, fog);
     imageStore(imageCloudDepthReconstructionTexture, workPos, vec4(depthZ));
 }

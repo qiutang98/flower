@@ -154,7 +154,6 @@ void drawAtmosphereConfig(AtmosphereConfig& inout)
 		ImGui::DragFloat("basic noise scale", &copyValue.cloudBasicNoiseScale, 0.01f, 0.0f, 1.0f);
 		ImGui::DragFloat("detail noise scale", &copyValue.cloudDetailNoiseScale, 0.01f, 0.0f, 1.0f);
 
-#if 0
 		ImGui::DragFloat("shadow extent(km)", &copyValue.cloudShadowExtent, 0.1f, 1.0f, 50.0f);
 		bool bEnableGroundContribution = copyValue.cloudEnableGroundContribution != 0;
 		ImGui::Checkbox("enable ground contribution", &bEnableGroundContribution);
@@ -162,7 +161,6 @@ void drawAtmosphereConfig(AtmosphereConfig& inout)
 		ImGui::DragFloat("fog fade", &copyValue.cloudFogFade, 0.001f, 0.0f, 0.1f);
 		ImGui::DragFloat("cloud powder scale", &copyValue.cloudPowderScale, 0.1f, 0.01f, 100.0f);
 		ImGui::DragFloat("cloud powder pow", &copyValue.cloudPowderPow, 0.1f, 0.01f, 10.0f);
-#endif
 
 		ImGui::Spacing();
 		ImGui::PopItemWidth();

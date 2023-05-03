@@ -41,6 +41,11 @@ namespace engine
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,  kCommonShaderStage, 19) // inCloudReconstructionTexture
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,  kCommonShaderStage, 20) // inDepth
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, kCommonShaderStage, 21) // Framedata.
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, kCommonShaderStage, 22) // inDepth
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, kCommonShaderStage, 23) // inDepth
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, kCommonShaderStage, 24) // inDepth
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, kCommonShaderStage, 25) // inDepth
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, kCommonShaderStage, 26) // inDepth
                 .buildNoInfoPush(setLayout);
 
 
@@ -87,6 +92,13 @@ namespace engine
             VK_FORMAT_R16G16B16A16_SFLOAT,
             VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
         );
+        auto computeFog = rtPool->createPoolImage(
+            "CloudFogCompute",
+            sceneDepthZ.getExtent().width / 4,
+            sceneDepthZ.getExtent().height / 4,
+            VK_FORMAT_R16G16B16A16_SFLOAT,
+            VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
+        );
         auto computeCloudDepth = rtPool->createPoolImage(
             "CloudComputeDepth",
             sceneDepthZ.getExtent().width / 4,
@@ -101,6 +113,14 @@ namespace engine
 
         auto newCloudReconstruction = rtPool->createPoolImage(
             "NewCloudReconstruction",
+            sceneDepthZ.getExtent().width,
+            sceneDepthZ.getExtent().height,
+            VK_FORMAT_R16G16B16A16_SFLOAT,
+            VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+
+
+        auto newCloudFogReconstruction = rtPool->createPoolImage(
+            "NewCloudFogReconstruction",
             sceneDepthZ.getExtent().width,
             sceneDepthZ.getExtent().height,
             VK_FORMAT_R16G16B16A16_SFLOAT,
@@ -122,6 +142,16 @@ namespace engine
                 VK_FORMAT_R16G16B16A16_SFLOAT,
                 VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
             m_cloudReconstruction->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+        }
+        if (!m_cloudFogReconstruction)
+        {
+            m_cloudFogReconstruction = rtPool->createPoolImage(
+                "CloudFogReconstruction",
+                sceneDepthZ.getExtent().width,
+                sceneDepthZ.getExtent().height,
+                VK_FORMAT_R16G16B16A16_SFLOAT,
+                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+            m_cloudFogReconstruction->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
         }
         if (!m_cloudReconstructionDepth)
         {
@@ -161,6 +191,11 @@ namespace engine
             .addSRV(m_cloudReconstructionDepth) // 19
             .addSRV(inAtmosphere.skyView) // 20
             .addBuffer(perFrameGPU) // 21
+            .addUAV(computeFog)
+            .addSRV(computeFog)
+            .addUAV(newCloudFogReconstruction)
+            .addSRV(newCloudFogReconstruction)
+            .addSRV(m_cloudFogReconstruction)
             .push(pass->computeCloudPipeline.get());
 
         std::vector<VkDescriptorSet> additionalSets =
@@ -175,6 +210,7 @@ namespace engine
             ScopePerframeMarker marker(cmd, "Compute Cloud", { 1.0f, 1.0f, 0.0f, 1.0f });
 
             computeCloud->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            computeFog->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
             computeCloudDepth->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
 
             pass->computeCloudPipeline->bind(cmd);
@@ -183,6 +219,7 @@ namespace engine
                 getGroupCount(computeCloud->getImage().getExtent().height, 8), 1);
 
             computeCloud->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            computeFog->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
             computeCloudDepth->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
         }
 
@@ -190,13 +227,13 @@ namespace engine
             ScopePerframeMarker marker(cmd, "Compute Reconstruction", { 1.0f, 1.0f, 0.0f, 1.0f });
             newCloudReconstruction->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
             newCloudReconstructionDepth->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
-
+            newCloudFogReconstruction->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
             pass->reconstructionPipeline->bind(cmd);
 
             vkCmdDispatch(cmd,
                 getGroupCount(newCloudReconstruction->getImage().getExtent().width, 8),
                 getGroupCount(newCloudReconstruction->getImage().getExtent().height, 8), 1);
-
+            newCloudFogReconstruction->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
             newCloudReconstruction->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
             newCloudReconstructionDepth->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
         }
@@ -213,6 +250,7 @@ namespace engine
 
         m_cloudReconstruction = newCloudReconstruction;
         m_cloudReconstructionDepth = newCloudReconstructionDepth;
+        m_cloudFogReconstruction = newCloudFogReconstruction;
 
         m_gpuTimer.getTimeStamp(cmd, "Volumetric Cloud");
     }

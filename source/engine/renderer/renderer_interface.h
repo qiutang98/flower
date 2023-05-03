@@ -113,6 +113,7 @@ namespace engine
 		PoolImageSharedRef m_prevGBufferB = nullptr;
 
 		PoolImageSharedRef m_cloudReconstruction = nullptr;
+		PoolImageSharedRef m_cloudFogReconstruction = nullptr;
 		PoolImageSharedRef m_cloudReconstructionDepth = nullptr;
 
 		SSSRResource m_sssrRts;

@@ -34,7 +34,7 @@ public:
 	// mouse speed.
 	float m_moveSpeed = 10.0f;
 	float m_mouseSensitivity = 0.1f;
-	float m_maxMouseMoveSpeed = 20.0f;
+	float m_maxMouseMoveSpeed = 40.0f;
 	float m_minMouseMoveSpeed = 1.0f;
 
 	// first time 

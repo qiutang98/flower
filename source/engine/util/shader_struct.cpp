@@ -148,12 +148,12 @@ namespace engine
 	{
 		auto& inAtmosphere = *this;
 
-		inAtmosphere.cloudAreaStartHeight = inAtmosphere.bottomRadius + 2.0f;// 3.3f; // km
-		inAtmosphere.cloudAreaThickness = 6.0f;// 3.4f; // km
+		inAtmosphere.cloudAreaStartHeight = inAtmosphere.bottomRadius + 3.3f; // km
+		inAtmosphere.cloudAreaThickness = 3.4f; // km
 
-		inAtmosphere.cloudWeatherUVScale = { 0.01f, 0.0125f }; // vec2(0.005)
-		inAtmosphere.cloudCoverage = 0.6f;// 1.0f; // 0.50
-		inAtmosphere.cloudDensity = 0.5f;// 1.0f;  // 0.10
+		inAtmosphere.cloudWeatherUVScale = { 0.0125f, 0.0125f }; // vec2(0.005)
+		inAtmosphere.cloudCoverage = 1.0f; // 0.50
+		inAtmosphere.cloudDensity = 1.0f;  // 0.10
 
 		inAtmosphere.cloudShadingSunLightScale = 1.0f; // 5.0
 		inAtmosphere.cloudFogFade = 0.005f; // 0.005
@@ -167,15 +167,15 @@ namespace engine
 		inAtmosphere.cloudMultiScatterScatter = 1.0f;
 
 		inAtmosphere.cloudBasicNoiseScale = 0.3f;
-		inAtmosphere.cloudDetailNoiseScale = 0.60f;
+		inAtmosphere.cloudDetailNoiseScale = 0.8f;
 
 		inAtmosphere.cloudAlbedo = { 1.0f , 1.0f, 1.0f };
 		inAtmosphere.cloudPhaseForward = 0.8f;
 
 		inAtmosphere.cloudPhaseBackward = -0.5f;
 		inAtmosphere.cloudPhaseMixFactor = 0.5f;
-		inAtmosphere.cloudPowderScale = 20.0f;
-		inAtmosphere.cloudPowderPow = 0.5f;
+		inAtmosphere.cloudPowderScale = 1.0f;
+		inAtmosphere.cloudPowderPow = 3.0f;
 
 		inAtmosphere.cloudLightStepMul = 1.5f;
 		inAtmosphere.cloudLightBasicStep = 0.025f;

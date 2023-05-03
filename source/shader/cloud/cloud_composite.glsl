@@ -21,16 +21,7 @@ vec3 drawSun(vec3 rayDir, vec3 sunDir)
     return vec3(0.0);
 }
 
-float getDensity(vec3 worldPosition, float distToEye)
-{
-    const float fogStartHeight = 0.0;
-    const float heightFallOff  = 0.1;
 
-    float heightFog = exp(-(worldPosition.y - fogStartHeight) * heightFallOff);
-    
-    // Height fog.
-    return 0.0001 + heightFog; // 1.0;
-}
 
 layout (local_size_x = 8, local_size_y = 8) in;
 void main()
@@ -55,7 +46,9 @@ void main()
     float sceneZ = texture(sampler2D(inDepth, pointClampEdgeSampler), uv).r;
     // vec4 cloudColor = kuwaharaFilter(inCloudReconstructionTexture, linearClampEdgeSampler,uv);
 
+
     vec4 cloudColor = texture(sampler2D(inCloudReconstructionTexture, linearClampEdgeSampler), uv);
+    vec4 fogColor = texture(sampler2D(inCloudFogReconstructionTexture, linearClampEdgeSampler), uv);
 
     float cloudDepth = texture(sampler2D(inCloudDepthReconstructionTexture, linearClampEdgeSampler), uv).r;
     cloudDepth = max(1e-5f, cloudDepth); // very far cloud may be negative, use small value is enough.
@@ -64,7 +57,17 @@ void main()
     if(sceneZ <= 0.0f) // reverse z.
     {
         result = srcColor.rgb * cloudColor.a + cloudColor.rgb;
+        if(fogColor.a >= 0.0f)
+        {
+            result.rgb = result.rgb * fogColor.a + fogColor.rgb;
+        }
     }
+    else
+    {
+
+    }
+
+
 
     imageStore(imageHdrSceneColor, workPos, vec4(result.rgb, 1.0));
 }
