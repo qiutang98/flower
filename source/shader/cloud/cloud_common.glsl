@@ -52,7 +52,6 @@ float getDensity(vec3 worldPosition)
     return (constFog + exp(-(worldPosition.y - fogStartHeight) * falloff)) * fogFinalScale;
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////////////
 //////////////// Paramters ///////////////////////////
 
@@ -193,7 +192,7 @@ ParticipatingMediaPhase getParticipatingMediaPhase(float basePhase, float baseMs
 
 float powder(float opticalDepth)
 {
-	return 1.0 - exp2(-opticalDepth * 2.0);
+	return pow(opticalDepth * 20.0, 0.5) * frameData.sky.atmosphereConfig.cloudPowderScale;
 }
 
 vec3 lookupSkylight(vec3 worldDir, vec3 worldPos, float viewHeight, vec3 upVector, ivec2 workPos, in const AtmosphereParameters atmosphere, texture2D lutImage)
@@ -220,7 +219,7 @@ vec3 lookupSkylight(vec3 worldDir, vec3 worldPos, float viewHeight, vec3 upVecto
     return luminance;
 }
 
-ParticipatingMedia volumetricShadow(vec3 posKm, vec3 sunDirection, in const AtmosphereParameters atmosphere)
+ParticipatingMedia volumetricShadow(vec3 posKm, vec3 sunDirection, in const AtmosphereParameters atmosphere, int fixNum)
 {
     ParticipatingMedia participatingMedia;
 
@@ -236,7 +235,7 @@ ParticipatingMedia volumetricShadow(vec3 posKm, vec3 sunDirection, in const Atmo
 	}
 
     const float kStepLMul = frameData.sky.atmosphereConfig.cloudLightStepMul;
-    const uint kStepLight = frameData.sky.atmosphereConfig.cloudLightStepNum;
+    const uint kStepLight = fixNum > 0 ? fixNum : frameData.sky.atmosphereConfig.cloudLightStepNum;
     float stepL = frameData.sky.atmosphereConfig.cloudLightBasicStep; // km
     
     float d = stepL * 0.5;
@@ -260,7 +259,6 @@ ParticipatingMedia volumetricShadow(vec3 posKm, vec3 sunDirection, in const Atmo
 		{
             extinctionCoefficients[ms] = extinctionCoefficients[ms - 1] * MsExtinctionFactor;
             MsExtinctionFactor *= MsExtinctionFactor;
-
 			extinctionAccumulation[ms] += extinctionCoefficients[ms] * stepL;
 		}
 
@@ -520,28 +518,24 @@ vec4 cloudColorCompute(
             float stepTransmittance = max(exp(-opticalDepth), exp(-opticalDepth * 0.25) * 0.7); 
         #endif
 
-            ParticipatingMedia participatingMedia = volumetricShadow(samplePos, sunDirection, atmosphere);
+            ParticipatingMedia participatingMedia = volumetricShadow(samplePos, sunDirection, atmosphere, -1);
 
             // Compute powder term.
             float powderEffect;
-            float powderEffectTermAmbient = 1.0f;
             {
-                float depthProbability = pow(clamp(stepCloudDensity * 1000.0 * frameData.sky.atmosphereConfig.cloudPowderScale, 0.0, frameData.sky.atmosphereConfig.cloudPowderPow), remap(normalizeHeight, 0.3, 0.85, 0.5, 2.0));
+                float depthProbability = pow(clamp(stepCloudDensity * 1000.0, 0.0, frameData.sky.atmosphereConfig.cloudPowderPow), remap(normalizeHeight, 0.3, 0.85, 0.5, 2.0));
                 depthProbability += 0.05;
 
-                float verticalProbability = pow(remap(normalizeHeight, 0.07, 0.22, 0.1, 1.0), 0.8);
-                powderEffect = powderEffectNew(depthProbability, verticalProbability, VoL);
-
-
-                powderEffectTermAmbient = clamp(stepCloudDensity * 1000.0 * 8.0f, 0.0, kPI) * 0.1f + 0.9f;
+                float verticalProbability = pow(remap(normalizeHeight, 0.07, 0.25, 0.1, 1.0), 0.8);
+                powderEffect =  powderEffectNew(depthProbability, verticalProbability, -abs(VoL)) * frameData.sky.atmosphereConfig.cloudPowderScale;
             }
 
             vec3 ambientLight = 
-                mix(1.0 / 5.0, 1.0, normalizeHeight) * 
-                mix(vec3(dot(skyBackgroundColor, vec3(0.3, 0.59, .11))), skyBackgroundColor, normalizeHeight * 0.8 + 0.2);
+                mix(1.0 / 3.0, 1.0, normalizeHeight) * 
+                mix(vec3(dot(skyBackgroundColor, vec3(0.3, 0.59, .11))), skyBackgroundColor, normalizeHeight * 0.7 + 0.3);
 
             vec3 groundLit = vec3(0.0f);
-            #if 0
+            #if 1
                 if(frameData.sky.atmosphereConfig.cloudEnableGroundContribution != 0)
                 {
                     groundLit = getVolumetricGroundContribution(
@@ -559,14 +553,13 @@ vec4 cloudColorCompute(
             // is the combination of ambient light and attenuated direct light.
             vec3 sunlightTerm = frameData.sky.atmosphereConfig.cloudShadingSunLightScale * sunColor; 
 
-
             float sigmaS = stepCloudDensity;
             float sigmaE = max(sigmaS, 1e-8f);
 
             vec3 scatteringCoefficients[kMsCount];
             float extinctionCoefficients[kMsCount];
 
-            vec3 albedo = frameData.sky.atmosphereConfig.cloudAlbedo;
+            vec3 albedo = frameData.sky.atmosphereConfig.cloudAlbedo * powderEffect;
 
             scatteringCoefficients[0] = sigmaS * albedo;
             extinctionCoefficients[0] = sigmaE;
@@ -587,8 +580,8 @@ vec4 cloudColorCompute(
             {
                 float sunVisibilityTerm = participatingMedia.transmittanceToLight[ms];
 
-                vec3 sunSkyLuminance = sunVisibilityTerm * sunlightTerm * powderEffect * participatingMediaPhase.phase[ms];
-                sunSkyLuminance += (ms == 0 ? (ambientLight * powderEffectTermAmbient + groundLit) : vec3(0.0, 0.0, 0.0));
+                vec3 sunSkyLuminance = sunVisibilityTerm * sunlightTerm * participatingMediaPhase.phase[ms];
+                sunSkyLuminance += (ms == 0 ? (ambientLight + groundLit) :  vec3(0.0));
 
                 vec3 sactterLitStep = sunSkyLuminance * scatteringCoefficients[ms];
 
@@ -654,7 +647,7 @@ vec4 cloudColorCompute(
                 visibilityTerm = exp(-transmittanceShadow * stepL * 1000.0);
             }
 
-            visibilityTerm = mix(visibilityTerm, 1.0, saturate(1.0 - sunDirection.y * 8.0));
+            visibilityTerm = mix(visibilityTerm, 0.0, saturate(1.0 - sunDirection.y * 2.0));
 
             // Second evaluate transmittance due to participating media
             vec3 atmosphereTransmittance;
@@ -693,7 +686,6 @@ vec4 cloudColorCompute(
 
 
     // Apply some additional effect.
-    if(transmittance <= 0.99999)
     {
         // Get average hit pos.
         rayHitPos /= rayHitPosWeight;
@@ -719,6 +711,18 @@ vec4 cloudColorCompute(
 
         vec4 airPerspective = weight * texture(sampler3D(inFroxelScatter, linearClampEdgeSampler), vec3(uv, w));
         scatteredLight = scatteredLight * (1.0 - airPerspective.a) + airPerspective.rgb * (1.0 - transmittance);
+
+
+        // Height fog apply.
+        {
+            float worldDistance = distance(rayHitInRender, frameData.camWorldPos.xyz);
+
+            float fogAmount = 1.0 - exp( -worldDistance * 0.001f * 0.001);
+            vec3  fogColor  = vec3(0.5,0.6,0.7);
+
+            // scatteredLight = scatteredLight * fogAmount + fogColor * (1.0 - transmittance);
+        }
+
     }
     // Dual mix transmittance.
     return vec4(scatteredLight, transmittance);

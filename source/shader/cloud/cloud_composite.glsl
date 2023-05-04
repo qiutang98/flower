@@ -56,6 +56,10 @@ void main()
     vec3 result = srcColor.rgb;
     if(sceneZ <= 0.0f) // reverse z.
     {
+        // Composite planar cloud.
+        
+
+
         result = srcColor.rgb * cloudColor.a + cloudColor.rgb;
         if(fogColor.a >= 0.0f)
         {
