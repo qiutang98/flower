@@ -59,7 +59,7 @@ namespace engine
 		math::vec3 m_position = { 25.0f, 25.0f, 25.0f};
 
 		// fov y.
-		float m_fovy = math::radians(45.0f);
+		float m_fovy = math::radians(59.0f);
 
 		// z near.
 		float m_zNear = 0.001f;

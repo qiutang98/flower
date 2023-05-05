@@ -148,8 +148,8 @@ namespace engine
 	{
 		auto& inAtmosphere = *this;
 
-		inAtmosphere.cloudAreaStartHeight = inAtmosphere.bottomRadius + 3.3f; // km
-		inAtmosphere.cloudAreaThickness = 3.4f; // km
+		inAtmosphere.cloudAreaStartHeight = inAtmosphere.bottomRadius + 5.0f; // km
+		inAtmosphere.cloudAreaThickness = 10.0f; // km
 
 		inAtmosphere.cloudWeatherUVScale = { 0.0125f, 0.0125f }; // vec2(0.005)
 		inAtmosphere.cloudCoverage = 1.0f; // 0.50
@@ -166,14 +166,14 @@ namespace engine
 		inAtmosphere.cloudMultiScatterExtinction = 0.5f;
 		inAtmosphere.cloudMultiScatterScatter = 1.0f;
 
-		inAtmosphere.cloudBasicNoiseScale = 0.3f;
+		inAtmosphere.cloudBasicNoiseScale = 0.12f;
 		inAtmosphere.cloudDetailNoiseScale = 0.8f;
 
 		inAtmosphere.cloudAlbedo = { 1.0f , 1.0f, 1.0f };
 		inAtmosphere.cloudPhaseForward = 0.5f;
 
 		inAtmosphere.cloudPhaseBackward = -0.5f;
-		inAtmosphere.cloudPhaseMixFactor = 0.5f;
+		inAtmosphere.cloudPhaseMixFactor = 0.2f;
 		inAtmosphere.cloudPowderScale = 1.0f;
 		inAtmosphere.cloudPowderPow = 1.0f;
 

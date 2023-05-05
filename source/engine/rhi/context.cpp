@@ -507,7 +507,7 @@ namespace engine
             this,
             "./image/T_CloudWetherMap.png",
             getBuiltEngineAssetUUID(EBuiltinEngineAsset::Texture_CloudWeather),
-            VK_FORMAT_R8G8B8A8_UNORM,
+            VK_FORMAT_R8G8B8A8_SRGB,
             false
         ));
 
@@ -522,7 +522,7 @@ namespace engine
             this,
             "./image/T_Noise.png",
             getBuiltEngineAssetUUID(EBuiltinEngineAsset::Texture_Noise),
-            VK_FORMAT_R8G8B8A8_UNORM,
+            VK_FORMAT_R8G8B8A8_SRGB,
             false
         ));
 
