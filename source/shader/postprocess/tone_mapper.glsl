@@ -26,16 +26,6 @@ layout (push_constant) uniform PushConsts
     float bloomBlur;
 };
 
-vec3 acesFilmFit(vec3 x)
-{
-    float a = 2.51f;
-    float b = 0.03f;
-    float c = 2.43f;
-    float d = 0.59f;
-    float e = 0.14f;
-    return saturate((x*(a*x+b))/(x*(c*x+d)+e));
-}
-
 layout (local_size_x = 8, local_size_y = 8) in;
 void main()
 {
@@ -66,27 +56,23 @@ void main()
 #endif
 
     vec3 ldrColor;
-#if 1
+    // Tone mapper.
     {
-        vec3 colorAP0 = hdrColor.xyz * sRGB_2_AP0;
-        #if 1
-            ldrColor = acesFilm(colorAP0);
-        #else
-            ldrColor = ACESOutputTransformsRGBD65(colorAP0);
-        #endif
+        // Film tone mapper in aces space.
+        // vec3 colorAP0 = hdrColor.xyz * sRGB_2_AP0; ldrColor = acesFilm(colorAP0);
+        // ldrColor = acesFilmFit(hdrColor.xyz);
+
+        // Aces tone mapper.
+        vec3 colorAP0 = hdrColor.xyz * sRGB_2_AP0; ldrColor = ACESOutputTransformsRGBD65(colorAP0);
+        // ldrColor = acesFit(hdrColor.xyz);
     }
-#else
-    {
-        ldrColor = acesFilmFit(hdrColor.xyz);
-    }
-#endif
+
 
     ldrColor = WhiteBalance(ldrColor);
     
     // Encode ldr srgb or hdr.
     vec3 encodeColor;
     encodeColor = encodeSRGB(ldrColor.xyz);
-
 
     // Offset retarget for new seeds each frame
     uvec2 offset = uvec2(vec2(0.754877669, 0.569840296) * frameData.frameIndex.x * uvec2(colorSize));
@@ -100,7 +86,9 @@ void main()
     encodeColor.y += 1.0 / 255.0 * (-1.0 + 2.0 * samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d(offsetId.x, offsetId.y, 0, 1u));
     encodeColor.z += 1.0 / 255.0 * (-1.0 + 2.0 * samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d(offsetId.x, offsetId.y, 0, 2u));
     
+    // Safe color.
     encodeColor.xyz = max(encodeColor.xyz, vec3(0.0));
 
+    // Final store.
     imageStore(outLdrColor, workPos, vec4(encodeColor, 1.0f));
 }

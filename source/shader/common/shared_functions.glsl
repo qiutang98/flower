@@ -681,7 +681,7 @@ vec3 RRTAndODTFit(vec3 color)
 }
 
 // Tone mapping 
-vec3 toneMapACES(vec3 color)
+vec3 acesFit(vec3 color)
 {
     color = ACESInputMat * color;
 
@@ -692,6 +692,16 @@ vec3 toneMapACES(vec3 color)
     // Clamp to [0, 1]
     color = clamp(color, 0.0, 1.0);
     return color;
+}
+
+vec3 acesFilmFit(vec3 x)
+{
+    float a = 2.51f;
+    float b = 0.03f;
+    float c = 2.43f;
+    float d = 0.59f;
+    float e = 0.14f;
+    return saturate((x*(a*x+b))/(x*(c*x+d)+e));
 }
 
 // Gamma curve encode to srgb.

@@ -6,14 +6,14 @@ namespace engine
 	class SkyComponent : public LightComponent
 	{
 	public:
-		SkyComponent() {}
+		SkyComponent()
+		{
+			init();
+		}
+
 		virtual ~SkyComponent() = default;
 
-		SkyComponent(std::shared_ptr<SceneNode> sceneNode)
-			: LightComponent(sceneNode)
-		{
-
-		}
+		SkyComponent(std::shared_ptr<SceneNode> sceneNode);
 
 		const CascadeShadowConfig& getCacsadeConfig() const { return m_cascadeConfig; }
 		CascadeShadowConfig& getCacsadeConfig() { return m_cascadeConfig; }
@@ -21,6 +21,9 @@ namespace engine
 
 		const AtmosphereConfig& getAtmosphereConfig() const { return m_atmosphereConfig; }
 		AtmosphereConfig& getAtmosphereConfig() { return m_atmosphereConfig; }
+
+	private:
+		void init();
 
 	protected:
 		ARCHIVE_DECLARE;

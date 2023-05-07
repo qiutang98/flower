@@ -64,7 +64,7 @@ void drawAtmosphereConfig(AtmosphereConfig& inout)
 
 			ImGui::DragFloat("Pre Exposure", &copyValue.atmospherePreExposure, 0.01f, 0.01f, 1.0f);
 			ImGui::DragFloat("Mie Phase", &copyValue.miePhaseFunctionG, 0.0f, 0.01f, 0.99f);
-			ImGui::DragFloat("Multi Scatter", &copyValue.multipleScatteringFactor, 0.01f, 0.01f, 1.0f);
+			ImGui::DragFloat("Multi Scatter", &copyValue.multipleScatteringFactor, 0.01f, 0.01f, 1.0f, "%.6f");
 			ImGui::SliderInt("Min SPP", &copyValue.viewRayMarchMinSPP, 1, 30);
 			ImGui::SliderInt("Max SPP", &copyValue.viewRayMarchMaxSPP, 2, 31);
 			ImGui::DragFloat("Planet Radius(km)", &copyValue.bottomRadius, 100.0f, 8000.0f);
@@ -79,23 +79,23 @@ void drawAtmosphereConfig(AtmosphereConfig& inout)
 			ImGui::ColorEdit3("Ground Albedo", &copyValue.groundAlbedo.x);
 
 			ImGui::ColorEdit3("Mie Scatter Color", &copyValue.mieScatteringColor.x);
-			ImGui::DragFloat("Mie Scatter Scale", &copyValue.mieScatteringLength, 0.00001f, 0.1f);
+			ImGui::DragFloat("Mie Scatter Scale", &copyValue.mieScatteringLength, 0.00001f, 0.1f, 10.0f, "%.6f");
 
 			ImGui::ColorEdit3("Mie Absorb Color", &copyValue.mieAbsColor.x);
-			ImGui::DragFloat("Mie Absorb Scale", &copyValue.mieAbsLength, 0.00001f, 10.0f);
+			ImGui::DragFloat("Mie Absorb Scale", &copyValue.mieAbsLength, 0.00001f, 10.0f, 1000.0f, "%.6f");
 
 			ImGui::ColorEdit3("Ray Scatter Color", &copyValue.rayleighScatteringColor.x);
-			ImGui::DragFloat("Ray Scatter Scale", &copyValue.rayleighScatterLength, 0.00001f, 10.0f);
+			ImGui::DragFloat("Ray Scatter Scale", &copyValue.rayleighScatterLength, 0.00001f, 10.0f, 1000.0f, "%.6f");
 
 			ImGui::ColorEdit3("Ozone Absorb Color", &copyValue.absorptionColor.x);
-			ImGui::DragFloat("Ozone Absorb Scale", &copyValue.absorptionLength, 0.00001f, 10.0f);
+			ImGui::DragFloat("Ozone Absorb Scale", &copyValue.absorptionLength, 0.00001f, 10.0f, 1000.0f, "%.6f");
 
 			// Additional info.
 			float earthAtmosphereMieScaleHeight = -1.0f / copyValue.mieDensity[7];
 			float earthAtmosphereRayleighScaleHeight = -1.0f / copyValue.rayleighDensity[7];
 
-			ImGui::DragFloat("Mie Scale Height", &earthAtmosphereMieScaleHeight, 0.5f, 20.0f);
-			ImGui::DragFloat("Ray Scale Height", &earthAtmosphereRayleighScaleHeight, 0.5f, 20.0f);
+			ImGui::DragFloat("Mie Scale Height", &earthAtmosphereMieScaleHeight, 0.5f, 20.0f, 1000.0f, "%.6f");
+			ImGui::DragFloat("Ray Scale Height", &earthAtmosphereRayleighScaleHeight, 0.5f, 20.0f, 1000.0f, "%.6f");
 		}
 		ImGui::PopItemWidth();
 		ui::endGroupPanel();
@@ -121,7 +121,6 @@ void drawAtmosphereConfig(AtmosphereConfig& inout)
 
 		float cloudBottomAltitude = copyValue.cloudAreaStartHeight - copyValue.bottomRadius;
 
-
 		ImGui::DragFloat("start height(km)", &cloudBottomAltitude, 0.1f, 0.0f, 20.0f);
 		ImGui::DragFloat("thickness(km)", &copyValue.cloudAreaThickness, 0.1f, 0.1f, 20.0f);
 
@@ -144,8 +143,11 @@ void drawAtmosphereConfig(AtmosphereConfig& inout)
 		ImGui::DragInt("light step num", &copyValue.cloudLightStepNum, 1, 6, 24);
 
 		ImGui::DragInt("light marching step", &copyValue.cloudMarchingStepNum, 1, 24, 512);
+
+#if 0
 		ImGui::DragInt("noise octaves", &copyValue.cloudSunLitMapOctave, 1, 2, 8);
 		ImGui::DragFloat("light noise scale", &copyValue.cloudNoiseScale, 0.01f, 0.01f, 5.0f);
+#endif
 
 		ImGui::DragFloat("max tracing distance", &copyValue.cloudMaxTraceingDistance, 1.0f, 10.0f, 100.0f);
 		ImGui::DragFloat("max tracing start distance", &copyValue.cloudTracingStartMaxDistance, 1.0f, 300.0f, 500.0f);
@@ -156,9 +158,9 @@ void drawAtmosphereConfig(AtmosphereConfig& inout)
 
 		ImGui::DragFloat("shadow extent(km)", &copyValue.cloudShadowExtent, 0.1f, 1.0f, 50.0f);
 		bool bEnableGroundContribution = copyValue.cloudEnableGroundContribution != 0;
-		ImGui::Checkbox("enable ground contribution", &bEnableGroundContribution);
+		ImGui::Checkbox("enable ambient contribution", &bEnableGroundContribution);
 		copyValue.cloudEnableGroundContribution = bEnableGroundContribution ? 1 : 0;
-		ImGui::DragFloat("fog fade", &copyValue.cloudFogFade, 0.001f, 0.0f, 0.1f);
+		ImGui::DragFloat("ground contribution", &copyValue.cloudFogFade, 0.01f, 0.0f, 1.0f);
 		ImGui::DragFloat("cloud powder scale", &copyValue.cloudPowderScale, 0.1f, 0.01f, 100.0f);
 		ImGui::DragFloat("cloud powder pow", &copyValue.cloudPowderPow, 0.1f, 0.01f, 10.0f);
 

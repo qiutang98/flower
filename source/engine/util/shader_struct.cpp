@@ -90,7 +90,7 @@ namespace engine
 
 		// 100km atmosphere radius, less edge visible and it contain 99.99% of the atmosphere medium 
 		// https://en.wikipedia.org/wiki/K%C3%A1rm%C3%A1n_line
-		constexpr float kEarthTopRadius = kEarthBottomRadius + 80.0f;
+		constexpr float kEarthTopRadius = kEarthBottomRadius + 60.0f;
 		constexpr float kEarthRayleighScaleHeight = 8.0f;
 		constexpr float kEarthMieScaleHeight = 1.2f;
 
@@ -117,26 +117,26 @@ namespace engine
 
 		static const math::vec3 rayleighScattering = { 0.005802f, 0.013558f, 0.033100f };
 
-		inAtmosphere.rayleighScatteringColor = math::normalize(rayleighScattering);
-		inAtmosphere.rayleighScatterLength = math::length(rayleighScattering);
+		inAtmosphere.rayleighScatteringColor = math::vec3(0.175287f, 0.409607f, 1.0f);// math::normalize(rayleighScattering);
+		inAtmosphere.rayleighScatterLength = 0.0331f;//  math::length(rayleighScattering);
 
 		static const math::vec3 mieScattering = { 0.003996f, 0.003996f, 0.003996f };
 
-		inAtmosphere.mieScatteringColor = math::normalize(mieScattering);
-		inAtmosphere.mieScatteringLength = math::length(mieScattering);
+		inAtmosphere.mieScatteringColor = math::vec3(1.0f, 1.0f, 1.0f); // math::normalize(mieScattering);
+		inAtmosphere.mieScatteringLength = 0.003996f;// math::length(mieScattering);
 
 		static const math::vec3 mieExtinction = { 0.004440f, 0.004440f, 0.004440f };
 		static const math::vec3 mieAbs = (mieExtinction - mieScattering);
 
-		inAtmosphere.mieAbsLength = math::length(mieAbs);
-		inAtmosphere.mieAbsColor = mieAbs / inAtmosphere.mieAbsLength;
+		inAtmosphere.mieAbsLength = 0.000444f;// math::length(mieAbs);
+		inAtmosphere.mieAbsColor = math::vec3(1.0f, 1.0f, 1.0f);// mieAbs / inAtmosphere.mieAbsLength;
 
 		inAtmosphere.miePhaseFunctionG = 0.8f;
 
 		static const math::vec3 absorptionExtinction = { 0.000650f, 0.001881f, 0.000085f };
 
-		inAtmosphere.absorptionColor = math::normalize(absorptionExtinction);
-		inAtmosphere.absorptionLength = math::length(absorptionExtinction);
+		inAtmosphere.absorptionColor = math::vec3(0.345561f, 1.0f, 0.045189f);// math::normalize(absorptionExtinction);
+		inAtmosphere.absorptionLength = 0.001881; // math::length(absorptionExtinction);
 
 		inAtmosphere.multipleScatteringFactor = 1.0f;
 		inAtmosphere.atmospherePreExposure = 1.0f;
@@ -148,39 +148,39 @@ namespace engine
 	{
 		auto& inAtmosphere = *this;
 
-		inAtmosphere.cloudAreaStartHeight = inAtmosphere.bottomRadius + 5.0f; // km
-		inAtmosphere.cloudAreaThickness = 10.0f; // km
+		inAtmosphere.cloudAreaStartHeight = inAtmosphere.bottomRadius + 3.0f; // km
+		inAtmosphere.cloudAreaThickness = 10.f; // km
 
-		inAtmosphere.cloudWeatherUVScale = { 0.0125f, 0.0125f }; // vec2(0.005)
-		inAtmosphere.cloudCoverage = 1.0f; // 0.50
-		inAtmosphere.cloudDensity = 0.1f;  // 0.10
+		inAtmosphere.cloudWeatherUVScale = { 0.005f, 0.005f }; // vec2(0.005)
+		inAtmosphere.cloudCoverage = 0.5f; // 0.50
+		inAtmosphere.cloudDensity = 1.0f;  // 0.10
 
 		inAtmosphere.cloudShadingSunLightScale = 1.0f; // 5.0
-		inAtmosphere.cloudFogFade = 10.0f; // 0.005
+		inAtmosphere.cloudFogFade = 1.0f; // 0.005
 		inAtmosphere.cloudMaxTraceingDistance = 50.0f; // 50.0 km
 		inAtmosphere.cloudTracingStartMaxDistance = 350.0f; // 350.0 km
 
-		inAtmosphere.cloudDirection = glm::normalize(glm::vec3{ 0.8f, 0.01f, 0.4f });
+		inAtmosphere.cloudDirection = glm::normalize(glm::vec3{ 0.8f, 0.22f, 0.4f });
 		inAtmosphere.cloudSpeed = 0.1f;
 
-		inAtmosphere.cloudMultiScatterExtinction = 0.5f;
+		inAtmosphere.cloudMultiScatterExtinction = 0.40f;
 		inAtmosphere.cloudMultiScatterScatter = 1.0f;
 
-		inAtmosphere.cloudBasicNoiseScale = 0.12f;
-		inAtmosphere.cloudDetailNoiseScale = 0.8f;
+		inAtmosphere.cloudBasicNoiseScale = 0.15f;
+		inAtmosphere.cloudDetailNoiseScale = 0.3f;
 
 		inAtmosphere.cloudAlbedo = { 1.0f , 1.0f, 1.0f };
-		inAtmosphere.cloudPhaseForward = 0.5f;
+		inAtmosphere.cloudPhaseForward = 0.8f;
 
 		inAtmosphere.cloudPhaseBackward = -0.5f;
-		inAtmosphere.cloudPhaseMixFactor = 0.2f;
+		inAtmosphere.cloudPhaseMixFactor = 0.5f;
 		inAtmosphere.cloudPowderScale = 1.0f;
 		inAtmosphere.cloudPowderPow = 1.0f;
 
 		inAtmosphere.cloudLightStepMul = 1.5f;
 		inAtmosphere.cloudLightBasicStep = 0.025f;
 		inAtmosphere.cloudLightStepNum = 12;
-		inAtmosphere.cloudEnableGroundContribution = 0;
+		inAtmosphere.cloudEnableGroundContribution = 1;
 
 
 		inAtmosphere.cloudMarchingStepNum = 128;

@@ -46,6 +46,7 @@ namespace engine
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, kCommonShaderStage, 24) // inDepth
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, kCommonShaderStage, 25) // inDepth
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, kCommonShaderStage, 26) // inDepth
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, kCommonShaderStage, 27) // inSkylight
                 .buildNoInfoPush(setLayout);
 
 
@@ -196,6 +197,7 @@ namespace engine
             .addUAV(newCloudFogReconstruction)
             .addSRV(newCloudFogReconstruction)
             .addSRV(m_cloudFogReconstruction)
+            .addSRV(m_skylightRadiance, buildBasicImageSubresourceCube(), VK_IMAGE_VIEW_TYPE_CUBE)
             .push(pass->computeCloudPipeline.get());
 
         std::vector<VkDescriptorSet> additionalSets =

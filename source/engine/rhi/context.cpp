@@ -505,9 +505,9 @@ namespace engine
 
         m_uploader->addTask(RawAssetTextureLoadTask::buildEngineTexture(
             this,
-            "./image/T_CloudWetherMap.png",
+            "./image/T_WeatherTexture.tga",
             getBuiltEngineAssetUUID(EBuiltinEngineAsset::Texture_CloudWeather),
-            VK_FORMAT_R8G8B8A8_SRGB,
+            VK_FORMAT_R8G8B8A8_UNORM,
             false
         ));
 
@@ -522,7 +522,7 @@ namespace engine
             this,
             "./image/T_Noise.png",
             getBuiltEngineAssetUUID(EBuiltinEngineAsset::Texture_Noise),
-            VK_FORMAT_R8G8B8A8_SRGB,
+            VK_FORMAT_R8G8B8A8_UNORM,
             false
         ));
 
