@@ -74,6 +74,19 @@ namespace engine
     {
         if (!scene->isSkyExist())
         {
+            m_cloudReconstruction = nullptr;
+            m_cloudFogReconstruction = nullptr;
+            m_cloudReconstructionDepth = nullptr;
+            return;
+        }
+
+        if (
+            scene->getSky()->getAtmosphereConfig().cloudCoverage <= 0.0f || 
+            scene->getSky()->getAtmosphereConfig().cloudDensity <= 0.0f)
+        {
+            m_cloudReconstruction = nullptr;
+            m_cloudFogReconstruction = nullptr;
+            m_cloudReconstructionDepth = nullptr;
             return;
         }
 
@@ -143,6 +156,7 @@ namespace engine
                 VK_FORMAT_R16G16B16A16_SFLOAT,
                 VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
             m_cloudReconstruction->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_bCameraCut = true;
         }
         if (!m_cloudFogReconstruction)
         {
@@ -153,6 +167,7 @@ namespace engine
                 VK_FORMAT_R16G16B16A16_SFLOAT,
                 VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
             m_cloudFogReconstruction->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_bCameraCut = true;
         }
         if (!m_cloudReconstructionDepth)
         {
@@ -163,6 +178,7 @@ namespace engine
                 VK_FORMAT_R32_SFLOAT,
                 VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
             m_cloudReconstructionDepth->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_bCameraCut = true;
         }
 
         auto weatherTexture = std::dynamic_pointer_cast<GPUImageAsset>(getContext()->getEngineAsset(EBuiltinEngineAsset::Texture_CloudWeather));

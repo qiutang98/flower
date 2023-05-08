@@ -7,7 +7,8 @@
 #include "../common/shared_functions.glsl"
 #include "../common/shared_atmosphere.glsl"
 
-#define kSkyMsExition   0.5
+// #define kSkyMsExition 0.5
+#define kSkyMsExition frameData.sky.atmosphereConfig.cloudMultiScatterExtinction
 #define kGroundOcc 0.5
 
 
@@ -133,15 +134,13 @@ float cloudMap(vec3 posMeter, float normalizeHeight)  // Meter
 
     float coverage = saturate(kCoverage * (localCoverage + weatherValue.x));
 	float gradienShape = remap(normalizeHeight, 0.00, 0.10, 0.1, 1.0) * remap(normalizeHeight, 0.10, 0.80, 1.0, 0.2);
-	float gradienShape2 = remap(normalizeHeight, 0.0, 0.2, 0.0, 1.0) * remap(normalizeHeight, 0.8, 1.0, 1.0, 0.0);
 
-    gradienShape = mix(gradienShape, gradienShape2, weatherValue.y * 0.25);
     float basicNoise = texture(sampler3D(inBasicNoise, linearRepeatSampler), (posKm + windOffset) * vec3(frameData.sky.atmosphereConfig.cloudBasicNoiseScale)).r;
     float basicCloudNoise = gradienShape * basicNoise;
 
 	float basicCloudWithCoverage = coverage * remap(basicCloudNoise, 1.0 - coverage, 1, 0, 1);
 
-    vec3 sampleDetailNoise = posKm - windOffset * 0.15 + vec3(basicNoise.x, 0.0, basicCloudNoise) * normalizeHeight;
+    vec3 sampleDetailNoise = posKm - windOffset * 0.15;
     float detailNoiseComposite = texture(sampler3D(inDetailNoise, linearRepeatSampler), sampleDetailNoise * frameData.sky.atmosphereConfig.cloudDetailNoiseScale).r;
 	float detailNoiseMixByHeight = 0.2 * mix(detailNoiseComposite, 1 - detailNoiseComposite, saturate(normalizeHeight * 10.0));
     
@@ -434,7 +433,9 @@ vec4 cloudColorCompute(
         lutTransmittanceParamsToUv(atmosphere, viewHeight, viewZenithCosAngle, sampleUv);
         atmosphereTransmittance1 = texture(sampler2D(inTransmittanceLut, linearClampEdgeSampler), sampleUv).rgb;
     }
-	const vec3 groundToCloudTransfertIsoScatter = texture(samplerCube(inSkyIrradiance, linearClampEdgeSampler), vec3(0, -1, 0)).rgb;
+	vec3 groundToCloudTransfertIsoScatter =  texture(samplerCube(inSkyIrradiance, linearClampEdgeSampler), worldDir).rgb;
+
+    // groundToCloudTransfertIsoScatter = skyBackgroundColor;// mix(groundToCloudTransfertIsoScatter, skyBackgroundColor, sunDirection.y);
     const vec3 upScaleColor = texture(samplerCube(inSkyIrradiance, linearClampEdgeSampler), vec3(0, 1, 0)).rgb;
 
     for(uint i = 0; i < stepCountUnit; i ++)
@@ -476,28 +477,18 @@ vec4 cloudColorCompute(
             {
                 float depthProbability = pow(clamp(stepCloudDensity * 8.0 * frameData.sky.atmosphereConfig.cloudPowderPow, 0.0, 1.0), remap(normalizeHeight, 0.3, 0.85, 0.5, 2.0));
                 depthProbability += 0.05;
-
                 float verticalProbability = pow(remap(normalizeHeight, 0.07, 0.22, 0.1, 1.0), 0.8);
                 powderEffect =  powderEffectNew(depthProbability, verticalProbability, VoL);
-            }
-
-            float powderEffectAmbient;
-            {
-                float depthProbability = pow(clamp(stepCloudDensity * 1000.0, 0.0, 1.0), remap(normalizeHeight, 0.3, 0.85, 0.5, 2.0));
-                depthProbability += 0.05;
-                float verticalProbability = pow(remap(normalizeHeight, 0.07, 0.25, 0.1, 1.0), 0.8);
-                powderEffectAmbient =  powderEffectNew(depthProbability, verticalProbability, -abs(VoL));
             }
 
             // Amount of sunlight that reaches the sample point through the cloud 
             // is the combination of ambient light and attenuated direct light.
             vec3 sunlightTerm = atmosphereTransmittance * frameData.sky.atmosphereConfig.cloudShadingSunLightScale * sunColor; 
 
-            vec3 groundLit = groundToCloudTransfertIsoScatter * saturate(1.0 - kGroundOcc + normalizeHeight);
-            groundLit *= 1.0 - sunDirection.y * 0.25;
+            vec3 groundLit = groundToCloudTransfertIsoScatter * saturate(1.0 - kGroundOcc + normalizeHeight) * frameData.sky.atmosphereConfig.cloudFogFade;
 
-            vec3 ambientLit = upScaleColor * powderEffectAmbient * (1.0 - sunDirection.y)
-                * atmosphereTransmittance;// mix(atmosphereTransmittance, vec3(1.0), saturate(1.0 - transmittance));// ;
+            vec3 ambientLit = upScaleColor * powderEffect * (1.0 - sunDirection.y)
+               * atmosphereTransmittance;// mix(atmosphereTransmittance, vec3(1.0), saturate(1.0 - transmittance));// ;
 
             float sigmaS = stepCloudDensity;
             float sigmaE = max(sigmaS, 1e-8f);

@@ -87,7 +87,7 @@ namespace engine
 		perframe.skySDSMValid = getRenderer()->getScene()->shouldRenderSDSM();
 
 		const bool bCameraCut =
-			(m_tickCount == 0);
+			m_bCameraCut || (m_tickCount == 0);
 
 		perframe.bCameraCut = bCameraCut ? 1U : 0U;
 		perframe.bAutoExposure = getRenderer()->getScene()->getPostprocessVolumeSetting().bAutoExposure ? 1U : 0U;
@@ -122,6 +122,8 @@ namespace engine
 			}
 			m_renderIndex = m_tickCount % m_context->getSwapchain().getBackbufferCount();
 		}
+
+		m_bCameraCut = false;
 	}
 
 	void RendererInterface::release()

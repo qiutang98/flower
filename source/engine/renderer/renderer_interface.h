@@ -68,6 +68,7 @@ namespace engine
 		class Renderer* m_renderer;
 
 		// Inner counter.
+		bool m_bCameraCut = false;
 		uint32_t m_tickCount = 0;
 		uint32_t m_renderIndex = 0;
 

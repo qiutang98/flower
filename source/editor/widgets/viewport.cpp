@@ -454,6 +454,8 @@ void ViewportCamera::processMouseScroll(float yoffset)
 {
 	m_moveSpeed += (float)yoffset;
 	m_moveSpeed = math::clamp(m_moveSpeed, m_minMouseMoveSpeed, m_maxMouseMoveSpeed);
+
+	m_maxMouseMoveSpeed = 2000.0f;
 }
 
 ViewportCamera::ViewportCamera(ViewportWidget* inViewport)
