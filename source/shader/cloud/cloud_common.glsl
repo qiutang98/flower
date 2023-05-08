@@ -7,6 +7,9 @@
 #include "../common/shared_functions.glsl"
 #include "../common/shared_atmosphere.glsl"
 
+#define kSkyMsExition   0.5
+#define kGoundMsExition 0.1
+
 
 layout (set = 0, binding = 0, rgba16f) uniform image2D imageHdrSceneColor;
 layout (set = 0, binding = 1) uniform texture2D inHdrSceneColor;
@@ -126,9 +129,10 @@ float cloudMap(vec3 posMeter, float normalizeHeight)  // Meter
     vec4 weatherValue = texture(sampler2D(inWeatherTexture, linearRepeatSampler), sampleUv);
 
     float coverage = saturate(kCoverage * (weatherValue.x + weatherValue.y * 0.25));
-	float gradienShape = remap(normalizeHeight, 0.00, 0.10, 0.1, 1.0) * remap(normalizeHeight, 0.10, 0.80, 1.0, 0.2);
+	float gradienShape = remap(normalizeHeight, 0.00, 0.10, 0.1, 1.0) * remap(normalizeHeight, 0.10, 0.70, 1.0, 0.15);
 
-    float basicNoise = texture(sampler3D(inBasicNoise, linearRepeatSampler), (posKm + windOffset) * frameData.sky.atmosphereConfig.cloudBasicNoiseScale).r;
+    float basicNoise = texture(sampler3D(inBasicNoise, linearRepeatSampler), (posKm + windOffset) * 
+        frameData.sky.atmosphereConfig.cloudBasicNoiseScale).r;
     float basicCloudNoise = gradienShape * basicNoise;
 
 	float basicCloudWithCoverage = coverage * remap(basicCloudNoise, 1.0 - coverage, 1, 0, 1);
@@ -219,7 +223,7 @@ vec3 lookupSkylight(vec3 worldDir, vec3 worldPos, float viewHeight, vec3 upVecto
     return luminance;
 }
 
-ParticipatingMedia volumetricShadow(vec3 posKm, vec3 sunDirection, in const AtmosphereParameters atmosphere, int fixNum)
+ParticipatingMedia volumetricShadow(vec3 posKm, vec3 sunDirection, in const AtmosphereParameters atmosphere, int fixNum, float msExtinctionFactor)
 {
     ParticipatingMedia participatingMedia;
 
@@ -254,7 +258,7 @@ ParticipatingMedia volumetricShadow(vec3 posKm, vec3 sunDirection, in const Atmo
         extinctionCoefficients[0] = cloudMap(samplePosMeter, normalizeHeight);
         extinctionAccumulation[0] += extinctionCoefficients[0] * stepL;
 
-        float MsExtinctionFactor = frameData.sky.atmosphereConfig.cloudMultiScatterExtinction;
+        float MsExtinctionFactor = msExtinctionFactor;// ;
         for (ms = 1; ms < kMsCount; ms++)
 		{
             extinctionCoefficients[ms] = extinctionCoefficients[ms - 1] * MsExtinctionFactor;
@@ -457,31 +461,45 @@ vec4 cloudColorCompute(
             // Siggraph 2017's new step transmittance formula.
             float stepTransmittance = max(exp(-opticalDepth), exp(-opticalDepth * 0.25) * 0.7); 
 
-            ParticipatingMedia participatingMedia = volumetricShadow(samplePos, sunDirection, atmosphere, -1);
+            ParticipatingMedia participatingMedia = volumetricShadow(samplePos, sunDirection, atmosphere, -1, frameData.sky.atmosphereConfig.cloudMultiScatterExtinction);
             ParticipatingMedia participatingMediaAmbient;
             if(frameData.sky.atmosphereConfig.cloudEnableGroundContribution != 0)
             {
-                participatingMediaAmbient = volumetricShadow(samplePos, vec3(0, 1, 0), atmosphere, -1);
+                participatingMediaAmbient = volumetricShadow(samplePos, vec3(0, 1, 0), atmosphere, -1, kSkyMsExition);
             }
 
             // Compute powder term.
             float powderEffect;
             {
-                float depthProbability = pow(clamp(stepCloudDensity * 1000.0, 0.0, frameData.sky.atmosphereConfig.cloudPowderPow), remap(normalizeHeight, 0.3, 0.85, 0.5, 2.0));
+                float depthProbability = pow(clamp(stepCloudDensity * 8.0 * frameData.sky.atmosphereConfig.cloudPowderPow, 0.0, 1.0), remap(normalizeHeight, 0.3, 0.85, 0.5, 2.0));
                 depthProbability += 0.05;
 
+                float verticalProbability = pow(remap(normalizeHeight, 0.07, 0.22, 0.1, 1.0), 0.8);
+                powderEffect =  powderEffectNew(depthProbability, verticalProbability, VoL);
+            }
+
+            float powderEffectAmbient;
+            {
+                float depthProbability = pow(clamp(stepCloudDensity * 1000.0, 0.0, 1.0), remap(normalizeHeight, 0.3, 0.85, 0.5, 2.0));
+                depthProbability += 0.05;
                 float verticalProbability = pow(remap(normalizeHeight, 0.07, 0.25, 0.1, 1.0), 0.8);
-                powderEffect = powderEffectNew(depthProbability, verticalProbability, -abs(VoL)) * frameData.sky.atmosphereConfig.cloudPowderScale;
+                powderEffectAmbient =  powderEffectNew(depthProbability, verticalProbability, -abs(VoL));
             }
 
             // Amount of sunlight that reaches the sample point through the cloud 
             // is the combination of ambient light and attenuated direct light.
             vec3 sunlightTerm = atmosphereTransmittance * frameData.sky.atmosphereConfig.cloudShadingSunLightScale * sunColor; 
-            vec3 groundLit = groundToCloudTransfertIsoScatter  * powderEffect * frameData.sky.atmosphereConfig.cloudFogFade *
-                mix(atmosphereTransmittance, vec3(1.0), saturate(1.0 - transmittance));
 
-            vec3 ambientLit = texture(samplerCube(inSkyIrradiance, linearClampEdgeSampler), -worldDir).rgb * powderEffect *
-                mix(atmosphereTransmittance, vec3(1.0), saturate(1.0 - transmittance));// ;
+            float heightAtt = saturate(1.0 - normalizeHeight);
+            vec3 groundLit = vec3(0.0075) * heightAtt  + groundToCloudTransfertIsoScatter *
+                heightAtt * transmittance * 
+                frameData.sky.atmosphereConfig.cloudFogFade *
+                atmosphereTransmittance; // mix(atmosphereTransmittance, vec3(1.0), saturate(1.0 - transmittance));
+            groundLit *= 1.0 - sunDirection.y * 0.25;
+            groundLit *= powderEffectAmbient;
+
+            vec3 ambientLit = texture(samplerCube(inSkyIrradiance, linearClampEdgeSampler), vec3(0, 1, 0)).rgb * powderEffectAmbient * (1.0 - sunDirection.y)
+                * atmosphereTransmittance;// mix(atmosphereTransmittance, vec3(1.0), saturate(1.0 - transmittance));// ;
 
             float sigmaS = stepCloudDensity;
             float sigmaE = max(sigmaS, 1e-8f);
@@ -492,7 +510,7 @@ vec4 cloudColorCompute(
             vec3 albedo = frameData.sky.atmosphereConfig.cloudAlbedo;
 
             scatteringCoefficients[0] = sigmaS * albedo;
-            extinctionCoefficients[0] = sigmaE;
+            extinctionCoefficients[0] = sigmaE * frameData.sky.atmosphereConfig.cloudPowderScale;
 
             float MsExtinctionFactor = frameData.sky.atmosphereConfig.cloudMultiScatterExtinction;
             float MsScatterFactor    = frameData.sky.atmosphereConfig.cloudMultiScatterScatter;
@@ -506,7 +524,7 @@ vec4 cloudColorCompute(
                 MsScatterFactor    *= MsScatterFactor;
             }
 
-            const float groundMsE = 0.1;
+            const float groundMsE = kGoundMsExition;
             float groundMsF = pow(groundMsE, kMsCount - 1);
             for (ms = kMsCount - 1; ms >= 0; ms--) // Should terminate at 0
             {

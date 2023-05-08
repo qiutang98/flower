@@ -136,7 +136,7 @@ namespace engine
 		static const math::vec3 absorptionExtinction = { 0.000650f, 0.001881f, 0.000085f };
 
 		inAtmosphere.absorptionColor = math::vec3(0.345561f, 1.0f, 0.045189f);// math::normalize(absorptionExtinction);
-		inAtmosphere.absorptionLength = 0.001881; // math::length(absorptionExtinction);
+		inAtmosphere.absorptionLength = 0.001881f; // math::length(absorptionExtinction);
 
 		inAtmosphere.multipleScatteringFactor = 1.0f;
 		inAtmosphere.atmospherePreExposure = 1.0f;
@@ -163,11 +163,11 @@ namespace engine
 		inAtmosphere.cloudDirection = glm::normalize(glm::vec3{ 0.8f, 0.22f, 0.4f });
 		inAtmosphere.cloudSpeed = 0.1f;
 
-		inAtmosphere.cloudMultiScatterExtinction = 0.40f;
+		inAtmosphere.cloudMultiScatterExtinction = 0.10f;
 		inAtmosphere.cloudMultiScatterScatter = 1.0f;
 
-		inAtmosphere.cloudBasicNoiseScale = 0.15f;
-		inAtmosphere.cloudDetailNoiseScale = 0.3f;
+		inAtmosphere.cloudBasicNoiseScale = 0.125f;
+		inAtmosphere.cloudDetailNoiseScale = 0.5f;
 
 		inAtmosphere.cloudAlbedo = { 1.0f , 1.0f, 1.0f };
 		inAtmosphere.cloudPhaseForward = 0.8f;
