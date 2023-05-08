@@ -24,6 +24,7 @@ add_subdirectory("dependency/nativefiledialogs")
 add_subdirectory("dependency/entt")
 add_subdirectory("dependency/tinyexr")
 add_subdirectory("dependency/lz4/build/cmake")  
+add_subdirectory("dependency/bullet3")  
 
 SET(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
 SET(ASSIMP_BUILD_TESTS OFF CACHE BOOL "Assimp build tests" FORCE)

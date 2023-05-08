@@ -25,7 +25,11 @@ add_executable(flower ${flower_SRC} "${CMAKE_CURRENT_SOURCE_DIR}/icon.rc")
 
 SOURCE_GROUP_BY_FOLDER(flower)
 
-target_include_directories(flower PRIVATE ${CEREAL_DIR} ${PROJECT_SOURCE_DIR}/dependency/assimp/include)
+target_include_directories(flower PRIVATE 
+${CEREAL_DIR} 
+${PROJECT_SOURCE_DIR}/dependency/assimp/include
+${BULLET_INCLUDE_DIR}
+)
  
 target_precompile_headers(flower PRIVATE
     "engine/asset/asset.h"
@@ -35,11 +39,15 @@ target_precompile_headers(flower PRIVATE
     "engine/scene/scene.h" 
     "engine/util/util.h"
     "editor/editor.h") 
+
+
  
 if(MSVC)
   target_compile_options(flower PUBLIC "/ZI")
   target_link_options(flower PUBLIC "/INCREMENTAL")   
 endif()  
+
+add_definitions(${BULLET_DEFINITIONS})
   
 target_link_libraries(flower PUBLIC 
     Vulkan::Vulkan 
@@ -60,6 +68,7 @@ target_link_libraries(flower PUBLIC
     ffx_fsr2_api_x64 
     ffx_fsr2_api_vk_x64
     tinyexr
+    ${BULLET_LIBRARY_DIRS}
 )
 
 set_target_properties(flower PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/install") 

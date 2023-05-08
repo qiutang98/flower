@@ -52,3 +52,6 @@
 [submodule "dependency/entt"]
 	path = dependency/entt
 	url = https://github.com/skypjack/entt
+[submodule "dependency/bullet3"]
+	path = dependency/bullet3
+	url = https://github.com/bulletphysics/bullet3

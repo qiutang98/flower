@@ -8,7 +8,7 @@
 #include "../common/shared_atmosphere.glsl"
 
 #define kSkyMsExition   0.5
-#define kGoundMsExition 0.1
+#define kGroundOcc 0.5
 
 
 layout (set = 0, binding = 0, rgba16f) uniform image2D imageHdrSceneColor;
@@ -128,11 +128,15 @@ float cloudMap(vec3 posMeter, float normalizeHeight)  // Meter
     vec2 sampleUv = posKm.xz * frameData.sky.atmosphereConfig.cloudWeatherUVScale;
     vec4 weatherValue = texture(sampler2D(inWeatherTexture, linearRepeatSampler), sampleUv);
 
-    float coverage = saturate(kCoverage * (weatherValue.x + weatherValue.y * 0.25));
-	float gradienShape = remap(normalizeHeight, 0.00, 0.10, 0.1, 1.0) * remap(normalizeHeight, 0.10, 0.70, 1.0, 0.15);
+    float localCoverage = texture(sampler2D(inCloudCurlNoise, linearRepeatSampler), (frameData.appTime.x * cloudSpeed * 50.0 + posMeter.xz) * 0.000001 + 0.5).x;
+    localCoverage = saturate(localCoverage * 3.0 - 0.75) * 0.2;
 
-    float basicNoise = texture(sampler3D(inBasicNoise, linearRepeatSampler), (posKm + windOffset) * 
-        frameData.sky.atmosphereConfig.cloudBasicNoiseScale).r;
+    float coverage = saturate(kCoverage * (localCoverage + weatherValue.x));
+	float gradienShape = remap(normalizeHeight, 0.00, 0.10, 0.1, 1.0) * remap(normalizeHeight, 0.10, 0.80, 1.0, 0.2);
+	float gradienShape2 = remap(normalizeHeight, 0.0, 0.2, 0.0, 1.0) * remap(normalizeHeight, 0.8, 1.0, 1.0, 0.0);
+
+    gradienShape = mix(gradienShape, gradienShape2, weatherValue.y * 0.25);
+    float basicNoise = texture(sampler3D(inBasicNoise, linearRepeatSampler), (posKm + windOffset) * vec3(frameData.sky.atmosphereConfig.cloudBasicNoiseScale)).r;
     float basicCloudNoise = gradienShape * basicNoise;
 
 	float basicCloudWithCoverage = coverage * remap(basicCloudNoise, 1.0 - coverage, 1, 0, 1);
@@ -145,10 +149,8 @@ float cloudMap(vec3 posMeter, float normalizeHeight)  // Meter
         remap(normalizeHeight, 0.0, 0.1, 0.0, 1.0) * 
         remap(normalizeHeight, 0.8, 1.0, 1.0, 0.0);
 
-    float cloudDensity = saturate(densityShape * remap(basicCloudWithCoverage, detailNoiseMixByHeight, 1.0, 0.0, 1.0));
-
-    cloudDensity = smoothstep(0.0, 0.3, cloudDensity);
-	return cloudDensity;
+    float cloudDensity = remap(basicCloudWithCoverage, detailNoiseMixByHeight, 1.0, 0.0, 1.0);
+	return cloudDensity * densityShape;
 #else
     float wind = frameData.appTime.x * cloudSpeed *  -0.006125;
     vec3  windOffset = vec3(wind, 0.0, wind);
@@ -433,6 +435,7 @@ vec4 cloudColorCompute(
         atmosphereTransmittance1 = texture(sampler2D(inTransmittanceLut, linearClampEdgeSampler), sampleUv).rgb;
     }
 	const vec3 groundToCloudTransfertIsoScatter = texture(samplerCube(inSkyIrradiance, linearClampEdgeSampler), vec3(0, -1, 0)).rgb;
+    const vec3 upScaleColor = texture(samplerCube(inSkyIrradiance, linearClampEdgeSampler), vec3(0, 1, 0)).rgb;
 
     for(uint i = 0; i < stepCountUnit; i ++)
     {
@@ -490,15 +493,10 @@ vec4 cloudColorCompute(
             // is the combination of ambient light and attenuated direct light.
             vec3 sunlightTerm = atmosphereTransmittance * frameData.sky.atmosphereConfig.cloudShadingSunLightScale * sunColor; 
 
-            float heightAtt = saturate(1.0 - normalizeHeight);
-            vec3 groundLit = vec3(0.0075) * heightAtt  + groundToCloudTransfertIsoScatter *
-                heightAtt * transmittance * 
-                frameData.sky.atmosphereConfig.cloudFogFade *
-                atmosphereTransmittance; // mix(atmosphereTransmittance, vec3(1.0), saturate(1.0 - transmittance));
+            vec3 groundLit = groundToCloudTransfertIsoScatter * saturate(1.0 - kGroundOcc + normalizeHeight);
             groundLit *= 1.0 - sunDirection.y * 0.25;
-            groundLit *= powderEffectAmbient;
 
-            vec3 ambientLit = texture(samplerCube(inSkyIrradiance, linearClampEdgeSampler), vec3(0, 1, 0)).rgb * powderEffectAmbient * (1.0 - sunDirection.y)
+            vec3 ambientLit = upScaleColor * powderEffectAmbient * (1.0 - sunDirection.y)
                 * atmosphereTransmittance;// mix(atmosphereTransmittance, vec3(1.0), saturate(1.0 - transmittance));// ;
 
             float sigmaS = stepCloudDensity;
@@ -524,8 +522,6 @@ vec4 cloudColorCompute(
                 MsScatterFactor    *= MsScatterFactor;
             }
 
-            const float groundMsE = kGoundMsExition;
-            float groundMsF = pow(groundMsE, kMsCount - 1);
             for (ms = kMsCount - 1; ms >= 0; ms--) // Should terminate at 0
             {
                 float sunVisibilityTerm = participatingMedia.transmittanceToLight[ms];
@@ -537,8 +533,10 @@ vec4 cloudColorCompute(
                     sunSkyLuminance += skyVisibilityTerm * ambientLit;
                 }
 
-                sunSkyLuminance += groundLit * groundMsF;
-                groundMsF /= groundMsE;
+                if(ms == 0)
+                {
+                    sunSkyLuminance += groundLit;
+                }
 
                 vec3 sactterLitStep = sunSkyLuminance * scatteringCoefficients[ms];
 
