@@ -47,14 +47,14 @@ layout (set = 0, binding = 27) uniform textureCube inSkyIrradiance;
 #define BLUE_NOISE_BUFFER_SET 2
 #include "../common/shared_bluenoise.glsl"
 
-float getDensity(vec3 worldPosition)
+float getDensity(vec3 worldPosition, float distanceToCam)
 {
     const float fogStartHeight = 0.0;
 	const float falloff = 0.001;
     const float constFog = 0.0;
 
-    const float fogFinalScale = 0.00001 * frameData.sky.atmosphereConfig.cloudFogFade;
-    return (constFog + exp(-(worldPosition.y - fogStartHeight) * falloff)) * fogFinalScale;
+    const float fogFinalScale = 0.001 * 0.001 * 50.0;
+    return (constFog + exp(-min(distanceToCam, abs(worldPosition.y - fogStartHeight)) * falloff)) * fogFinalScale;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -154,7 +154,7 @@ float cloudMap(vec3 posMeter, float normalizeHeight)  // Meter
     float wind = frameData.appTime.x * cloudSpeed *  -0.006125;
     vec3  windOffset = vec3(wind, 0.0, wind);
 
-    vec3  cloudPos = posMeter * 0.00045 * frameData.sky.atmosphereConfig.cloudNoiseScale;
+    vec3  cloudPos = posMeter * 0.00045;
     float clouds = calculateCloudFBM(cloudPos, windOffset, 5);
     
     float localCoverage = texture(sampler2D(inCloudCurlNoise, linearRepeatSampler), (frameData.appTime.x * cloudSpeed * 50.0 + posMeter.xz) * 0.000001 + 0.5).x;
@@ -433,7 +433,7 @@ vec4 cloudColorCompute(
         lutTransmittanceParamsToUv(atmosphere, viewHeight, viewZenithCosAngle, sampleUv);
         atmosphereTransmittance1 = texture(sampler2D(inTransmittanceLut, linearClampEdgeSampler), sampleUv).rgb;
     }
-	vec3 groundToCloudTransfertIsoScatter =  texture(samplerCube(inSkyIrradiance, linearClampEdgeSampler), worldDir).rgb;
+	vec3 groundToCloudTransfertIsoScatter =  texture(samplerCube(inSkyIrradiance, linearClampEdgeSampler), vec3(0, -1, 0)).rgb;
 
     // groundToCloudTransfertIsoScatter = skyBackgroundColor;// mix(groundToCloudTransfertIsoScatter, skyBackgroundColor, sunDirection.y);
     const vec3 upScaleColor = texture(samplerCube(inSkyIrradiance, linearClampEdgeSampler), vec3(0, 1, 0)).rgb;
@@ -485,7 +485,8 @@ vec4 cloudColorCompute(
             // is the combination of ambient light and attenuated direct light.
             vec3 sunlightTerm = atmosphereTransmittance * frameData.sky.atmosphereConfig.cloudShadingSunLightScale * sunColor; 
 
-            vec3 groundLit = groundToCloudTransfertIsoScatter * saturate(1.0 - kGroundOcc + normalizeHeight) * frameData.sky.atmosphereConfig.cloudFogFade;
+            vec3 groundLit = mix(skyBackgroundColor, groundToCloudTransfertIsoScatter, saturate(frameData.sky.atmosphereConfig.cloudNoiseScale - normalizeHeight))
+                * saturate(1.0 - kGroundOcc + normalizeHeight) * frameData.sky.atmosphereConfig.cloudFogFade;
 
             vec3 ambientLit = upScaleColor * powderEffect * (1.0 - sunDirection.y)
                * atmosphereTransmittance;// mix(atmosphereTransmittance, vec3(1.0), saturate(1.0 - transmittance));// ;
@@ -592,6 +593,88 @@ vec4 cloudColorCompute(
         }
 
     }
+
+        // God ray for light.
+    if(bFog)
+    {
+        const uint  kGodRaySteps = 36;
+
+        // Meter.
+        float stepLength = 1000.0f * (atmosphere.cloudAreaStartHeight -  worldPos.y) / clamp(worldDir.y, 0.1, 1.0) / float(kGodRaySteps);
+        vec3 stepRay = worldDir * stepLength;
+        vec3 rayPosWP = frameData.camWorldPos.xyz + stepRay * (fogNoise + 0.5);
+
+        float transmittanceTotal  = 1.0;
+        vec3 scatteredLightTotal = vec3(0.0, 0.0, 0.0);
+
+        float miePhaseValue = hgPhase(atmosphere.miePhaseG, -VoL);
+        float rayleighPhaseValue = rayleighPhase(VoL);
+
+        for(uint i = 0; i < kGodRaySteps; i ++)
+        {
+            vec3 P0 = convertToAtmosphereUnit(rayPosWP, frameData) + vec3(0.0, atmosphere.bottomRadius, 0.0);  // meter -> kilometers.
+            float visibilityTerm = 1.0;
+            {
+                const uint kStepLight = 8;
+                float stepL = atmosphere.cloudAreaThickness / float(kStepLight); // km
+                stepL = stepL / abs(sunDirection.y);
+                vec3 position = P0;
+                position += P0.y <= atmosphere.cloudAreaStartHeight ? 
+                    sunDirection * (atmosphere.cloudAreaStartHeight - P0.y) / sunDirection.y : vec3(0.0);
+
+                float d = stepL * 0.01;
+                float transmittanceShadow = 0.0;
+                for(uint j = 0; j < kStepLight; j++)
+                {
+                    vec3 samplePosKm = position + sunDirection * d; // km
+                    float sampleHeightKm = samplePosKm.y;
+                    float sampleDt = sampleHeightKm - atmosphere.cloudAreaStartHeight;
+                    float normalizeHeight = sampleDt / atmosphere.cloudAreaThickness;
+                    vec3 samplePosMeter = samplePosKm * 1000.0f;
+
+                    transmittanceShadow += cloudMap(samplePosMeter, normalizeHeight);
+
+                    d += stepL;
+                }
+                visibilityTerm = exp(-transmittanceShadow * stepL * 1000.0);
+            }
+
+            visibilityTerm = mix(visibilityTerm, 1.0, saturate(1.0 - sunDirection.y * 5.0));
+
+            MediumSampleRGB medium = sampleMediumRGB(P0, atmosphere);
+            vec3 phaseTimesScattering = medium.scatteringMie * miePhaseValue + medium.scatteringRay * rayleighPhaseValue;
+
+            // Second evaluate transmittance due to participating media
+            vec3 atmosphereTransmittance;
+            {
+                float viewHeight = length(P0);
+                const vec3 upVector = P0 / viewHeight;
+                float viewZenithCosAngle = dot(sunDirection, upVector);
+                vec2 sampleUv;
+                lutTransmittanceParamsToUv(atmosphere, viewHeight, viewZenithCosAngle, sampleUv);
+                atmosphereTransmittance = texture(sampler2D(inTransmittanceLut, linearClampEdgeSampler), sampleUv).rgb;
+            }
+
+            float density = getDensity(rayPosWP, distance(rayPosWP, frameData.camWorldPos.xyz));
+
+            float sigmaS = density;
+            const float sigmaA = 0.0;
+            float sigmaE = max(1e-8f, sigmaA + sigmaS);
+
+            vec3 sactterLitStep = visibilityTerm * sunColor * phaseTimesScattering * sigmaS * 100.0;
+
+            float stepTransmittance = exp(-sigmaE * stepLength);
+            scatteredLightTotal += atmosphereTransmittance * transmittanceTotal * (sactterLitStep - sactterLitStep * stepTransmittance) / sigmaE; 
+            transmittanceTotal *= stepTransmittance;
+
+            // Step.
+            rayPosWP += stepRay;
+        }
+
+        lightingFog.w = transmittanceTotal;
+        lightingFog.xyz = scatteredLightTotal;
+    }
+
     // Dual mix transmittance.
     return vec4(scatteredLight, transmittance);
 }

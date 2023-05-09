@@ -40,9 +40,7 @@ layout (set = 0, binding = 14) buffer SSBOCascadeInfoBuffer{ CascadeInfo cascade
 #define BLUE_NOISE_BUFFER_SET 2
 #include "../common/shared_bluenoise.glsl"
 
-// NOTE: When offset height is big, this value should be more bigger.
-// TODO: Compute this by camera height.
-const float kPlanetRadiusOffset = 0.001f; // Offset 1 m.
+
 
 AtmosphereParameters getAtmosphereParameters()
 {
@@ -101,106 +99,6 @@ float getShadow(in const AtmosphereParameters atmospehre, vec3 p)
 #else
 	return 1.0f;
 #endif
-}
-
-// Participating media functions and struct.
-// From https://github.com/sebh/UnrealEngineSkyAtmosphere
-struct MediumSampleRGB
-{
-	vec3 scattering;
-	vec3 absorption;
-	vec3 extinction;
-
-	vec3 scatteringMie;
-	vec3 absorptionMie;
-	vec3 extinctionMie;
-
-	vec3 scatteringRay;
-	vec3 absorptionRay;
-	vec3 extinctionRay;
-
-	vec3 scatteringOzo;
-	vec3 absorptionOzo;
-	vec3 extinctionOzo;
-
-	vec3 albedo;
-};
-
-float getAlbedo(float scattering, float extinction)
-{
-	return scattering / max(0.001, extinction);
-}
-
-vec3 getAlbedo(vec3 scattering, vec3 extinction)
-{
-	return scattering / max(vec3(0.001), extinction);
-}
-
-float getViewHeight(vec3 worldPos, in const AtmosphereParameters atmosphere)
-{
-	// Current default set planet center is (0, 0, 0).
-    // And we start from horizontal plane which treat as 0 plane on height.
-	return length(worldPos) - atmosphere.bottomRadius;
-}
-
-bool moveToTopAtmosphere(inout vec3 worldPos, in const vec3 worldDir, in const float atmosphereTopRadius)
-{
-	float viewHeight = length(worldPos);
-	if (viewHeight > atmosphereTopRadius)
-	{
-		float tTop = raySphereIntersectNearest(worldPos, worldDir, vec3(0.0), atmosphereTopRadius);
-		if (tTop >= 0.0f)
-		{
-			vec3 upVector = worldPos / viewHeight;
-			vec3 upOffset = upVector * -kPlanetRadiusOffset;
-			worldPos = worldPos + worldDir * tTop + upOffset;
-		}
-		else
-		{
-			// Ray is not intersecting the atmosphere
-			return false;
-		}
-	}
-	return true; // ok to start tracing
-}
-
-MediumSampleRGB sampleMediumRGB(in vec3 worldPos, in const AtmosphereParameters atmosphere)
-{
-	const float viewHeight = getViewHeight(worldPos, atmosphere);
-
-    // Get mie and ray density.
-	const float densityMie = exp(atmosphere.mieDensityExpScale * viewHeight);
-	const float densityRay = exp(atmosphere.rayleighDensityExpScale * viewHeight);
-
-    // Get ozone density.
-	const float densityOzo = saturate(viewHeight < atmosphere.absorptionDensity0LayerWidth ?
-		atmosphere.absorptionDensity0LinearTerm * viewHeight + atmosphere.absorptionDensity0ConstantTerm :
-		atmosphere.absorptionDensity1LinearTerm * viewHeight + atmosphere.absorptionDensity1ConstantTerm);
-
-    // Build medium sample.
-	MediumSampleRGB s;
-
-    // Mie term.
-	s.scatteringMie = densityMie * atmosphere.mieScattering;
-	s.absorptionMie = densityMie * atmosphere.mieAbsorption;
-	s.extinctionMie = densityMie * atmosphere.mieExtinction;
-
-    // Ray term.
-	s.scatteringRay = densityRay * atmosphere.rayleighScattering;
-	s.absorptionRay = vec3(0.0);
-	s.extinctionRay = s.scatteringRay + s.absorptionRay;
-
-    // Ozone term.
-	s.scatteringOzo = vec3(0.0);
-	s.absorptionOzo = densityOzo * atmosphere.absorptionExtinction;
-	s.extinctionOzo = s.scatteringOzo + s.absorptionOzo;
-
-    // Composite.
-	s.scattering = s.scatteringMie + s.scatteringRay + s.scatteringOzo;
-	s.absorption = s.absorptionMie + s.absorptionRay + s.absorptionOzo;
-	s.extinction = s.extinctionMie + s.extinctionRay + s.extinctionOzo;
-	s.albedo = getAlbedo(s.scattering, s.extinction);
-	return s;
 }
 
 // Generate a sample (using importance sampling) along an infinitely long path with a given constant extinction.

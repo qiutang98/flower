@@ -55,7 +55,7 @@ void main()
 
     float depth = 0.0; // reverse z.
     vec4 fogLighting = vec4(0.0);
-    vec4 cloudColor = cloudColorCompute(atmosphere, uv, blueNoise, depth, workPos, worldDir, false, fogLighting, blueNoise2);
+    vec4 cloudColor = cloudColorCompute(atmosphere, uv, blueNoise, depth, workPos, worldDir, true, fogLighting, blueNoise2);
 
 	imageStore(imageCloudRenderTexture, workPos, cloudColor);
     imageStore(imageCloudDepthTexture, workPos, vec4(depth));

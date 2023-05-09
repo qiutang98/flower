@@ -146,8 +146,10 @@ void drawAtmosphereConfig(AtmosphereConfig& inout)
 
 #if 0
 		ImGui::DragInt("noise octaves", &copyValue.cloudSunLitMapOctave, 1, 2, 8);
-		ImGui::DragFloat("light noise scale", &copyValue.cloudNoiseScale, 0.01f, 0.01f, 5.0f);
+		
 #endif
+
+		ImGui::DragFloat("ground mix sky", &copyValue.cloudNoiseScale, 0.01f, 0.01f, 5.0f);
 
 		ImGui::DragFloat("max tracing distance", &copyValue.cloudMaxTraceingDistance, 1.0f, 10.0f, 100.0f);
 		ImGui::DragFloat("max tracing start distance", &copyValue.cloudTracingStartMaxDistance, 1.0f, 300.0f, 500.0f);
