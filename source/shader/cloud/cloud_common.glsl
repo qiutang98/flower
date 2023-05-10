@@ -604,7 +604,7 @@ vec4 cloudColorCompute(
         vec3 stepRay = worldDir * stepLength;
         vec3 rayPosWP = frameData.camWorldPos.xyz + stepRay * (fogNoise + 0.5);
 
-        float transmittanceTotal  = 1.0;
+        vec3 transmittanceTotal  = vec3(1.0);
         vec3 scatteredLightTotal = vec3(0.0, 0.0, 0.0);
 
         float miePhaseValue = hgPhase(atmosphere.miePhaseG, -VoL);
@@ -657,21 +657,20 @@ vec4 cloudColorCompute(
 
             float density = getDensity(rayPosWP, distance(rayPosWP, frameData.camWorldPos.xyz));
 
-            float sigmaS = density;
+            vec3 sigmaS = vec3(density) + medium.extinction * 0.001;
             const float sigmaA = 0.0;
-            float sigmaE = max(1e-8f, sigmaA + sigmaS);
+            vec3 sigmaE = max(vec3(1e-8f), sigmaA + sigmaS);
+            vec3 sactterLitStep = visibilityTerm * sunColor * phaseTimesScattering * sigmaS * atmosphereTransmittance * 50.0;
 
-            vec3 sactterLitStep = visibilityTerm * sunColor * phaseTimesScattering * sigmaS * 100.0;
-
-            float stepTransmittance = exp(-sigmaE * stepLength);
-            scatteredLightTotal += atmosphereTransmittance * transmittanceTotal * (sactterLitStep - sactterLitStep * stepTransmittance) / sigmaE; 
+            vec3 stepTransmittance = exp(-sigmaE * stepLength);
+            scatteredLightTotal += transmittanceTotal * (sactterLitStep - sactterLitStep * stepTransmittance) / sigmaE; 
             transmittanceTotal *= stepTransmittance;
 
             // Step.
             rayPosWP += stepRay;
         }
 
-        lightingFog.w = transmittanceTotal;
+        lightingFog.w = mean(transmittanceTotal);
         lightingFog.xyz = scatteredLightTotal;
     }
 
