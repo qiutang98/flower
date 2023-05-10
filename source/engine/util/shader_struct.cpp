@@ -152,7 +152,7 @@ namespace engine
 		inAtmosphere.cloudAreaThickness = 3.5f;// 3.4f; // km
 
 		inAtmosphere.cloudWeatherUVScale = { 0.02f, 0.02f }; // vec2(0.005)
-		inAtmosphere.cloudCoverage = 0.0f; // 0.50
+		inAtmosphere.cloudCoverage = 0.5f; // 0.50
 		inAtmosphere.cloudDensity = 1.0f;  // 0.10
 
 		inAtmosphere.cloudShadingSunLightScale = 1.0f; // 5.0
