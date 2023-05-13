@@ -65,6 +65,7 @@ void ComponentDrawer::drawPostprocess(std::shared_ptr<engine::SceneNode> node)
 		ImGui::PopID();
 	}
 
+#if 0
 	if (ImGui::CollapsingHeader("GTAO Setting"))
 	{
 		ImGui::PushID("GTAO");
@@ -88,6 +89,30 @@ void ComponentDrawer::drawPostprocess(std::shared_ptr<engine::SceneNode> node)
 
 		ImGui::DragFloat("ao power", &copySetting.gtaoPower, 0.1f, 0.1f, 3.0f);
 		ImGui::DragFloat("ao intensity", &copySetting.gtaoIntensity, 0.01f, 0.0f, 1.0f);
+
+		ImGui::PopItemWidth();
+		ImGui::Unindent();
+		ImGui::Spacing();
+		ImGui::PopID();
+	}
+#endif
+
+	if (ImGui::CollapsingHeader("SSGI Setting"))
+	{
+		ImGui::PushID("SSGI");
+		ImGui::Spacing();
+		ImGui::Indent();
+		ImGui::PushItemWidth(100.0f);
+
+		ImGui::DragInt("slice num", &copySetting.ssgiSliceCount, 1, 1, 8);
+
+		ImGui::DragInt("step times", &copySetting.ssgiStepCount, 1, 1, 12);
+		ImGui::DragFloat("radius", &copySetting.ssgiViewRadius, 0.1f, 0.5f, 4.0f);
+
+		ImGui::DragFloat("falloff", &copySetting.ssgiFalloff, 0.1f, 0.1f, 1.0f);
+
+		ImGui::DragFloat("ao power", &copySetting.ssgiPower, 0.1f, 0.1f, 3.0f);
+		ImGui::DragFloat("ao intensity", &copySetting.ssgiIntensity, 0.01f, 0.0f, 1.0f);
 
 		ImGui::PopItemWidth();
 		ImGui::Unindent();

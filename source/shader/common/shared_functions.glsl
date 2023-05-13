@@ -920,4 +920,48 @@ float reinhard(in float hdr)
     return hdr / (hdr + 1.0f);
 }
 
+float intersectDirPlaneOneSided(vec3 dir, vec3 normal, vec3 pt)
+{
+    float d = -dot(pt, normal);
+    float t = d / max(1e-5f, -dot(dir, normal));
+    return t;
+}
+
+// From Open Asset Import Library
+// https://github.com/assimp/assimp/blob/master/include/assimp/matrix3x3.inl
+mat3 rotFromToMatrix(vec3 from, vec3 to)
+{
+    float e = dot(from, to);
+    float f = abs(e);
+
+    if (f > 1.0f - 0.0003f)
+        return mat3(
+            1.f, 0.f, 0.f, 
+            0.f, 1.f, 0.f, 
+            0.f, 0.f, 1.f);
+
+    vec3 v   = cross(from, to);
+    float h    = 1.f / (1.f + e);      /* optimization by Gottfried Chen */
+    float hvx  = h * v.x;
+    float hvz  = h * v.z;
+    float hvxy = hvx * v.y;
+    float hvxz = hvx * v.z;
+    float hvyz = hvz * v.y;
+
+    mat3 mtx;
+    mtx[0][0] = e + hvx * v.x;
+    mtx[0][1] = hvxy - v.z;
+    mtx[0][2] = hvxz + v.y;
+
+    mtx[1][0] = hvxy + v.z;
+    mtx[1][1] = e + h * v.y * v.y;
+    mtx[1][2] = hvyz - v.x;
+
+    mtx[2][0] = hvxz - v.y;
+    mtx[2][1] = hvyz + v.x;
+    mtx[2][2] = e + hvz * v.z;
+
+    return transpose(mtx);
+}
+
 #endif

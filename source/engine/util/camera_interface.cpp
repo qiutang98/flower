@@ -128,6 +128,8 @@ namespace engine
 			getZFar()
 		};
 
+		outPerframe.camForward = { math::normalize(m_front), 0.0f };
+
 		outPerframe.camView = getViewMatrix();
 		outPerframe.camProjNoJitter = getProjectMatrix();
 

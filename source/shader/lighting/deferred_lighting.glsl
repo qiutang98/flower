@@ -15,7 +15,7 @@ layout (set = 0, binding = 5)  uniform texture2D inShadowMask;
 layout (set = 0, binding = 6) uniform UniformFrameData { PerFrameData frameData; };
 layout (set = 0, binding = 7)  uniform texture2D inBRDFLut;
 layout (set = 0, binding = 8)  uniform texture2D inTransmittanceLut;
-layout (set = 0, binding = 9)  uniform texture2D inGTAO;
+layout (set = 0, binding = 9)  uniform texture2D inSSAO;
 layout (set = 0, binding = 10) uniform textureCube inSkyIrradiance;
 
 #define SHARED_SAMPLER_SET 1
@@ -111,18 +111,18 @@ void main()
     }
     color += directColor;
 
-    // Global illumination.
-    float ao = texture(sampler2D(inGTAO, linearClampEdgeSampler), uv).r * inGbufferSValue.b;
+    vec4 bentNormalAo = texture(sampler2D(inSSAO, linearClampEdgeSampler), uv);
+    vec3 bentNormal = bentNormalAo.xyz * 2.0 - 1.0;
+
+    float ao = min(bentNormalAo.a, inGbufferSValue.b);
     vec3 multiBounceAO = AoMultiBounce(ao, baseColor);
 
     vec3 indirectDiffuseLit = vec3(0.0f);
     {
-        vec3 skylight = texture(samplerCube(inSkyIrradiance, linearClampEdgeSampler), normal).rgb;// ;
-        indirectDiffuseLit += skylight * diffuseColor;
-
-
+        vec3 skylight = texture(samplerCube(inSkyIrradiance, linearClampEdgeSampler), bentNormal).rgb;// ;
+        indirectDiffuseLit += skylight * diffuseColor * multiBounceAO;
     }
-    color += multiBounceAO * indirectDiffuseLit; 
+    color += indirectDiffuseLit; 
 
     // Emissive color.
     color += emissiveColor;

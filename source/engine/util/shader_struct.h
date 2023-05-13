@@ -219,6 +219,8 @@ namespace engine
         // Camera world space position.
         math::vec4 camWorldPos;
 
+        math::vec4 camForward;
+
         // .x fovy, .y aspectRatio, .z nearZ, .w farZ
         math::vec4 camInfo;
 

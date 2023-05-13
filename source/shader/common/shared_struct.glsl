@@ -141,6 +141,9 @@ struct PerFrameData
     // Camera world space position.
     vec4 camWorldPos;
 
+    // .xyz is camera forward.
+    vec4 camForward;
+
     // .x fovy, .y aspectRatio, .z nearZ, .w farZ
     vec4 camInfo;
     

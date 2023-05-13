@@ -111,7 +111,7 @@ void ViewportWidget::onVisibleTick(const engine::RuntimeModuleTickData& tickData
 
 			m_descriptorSet = ImGui_ImplVulkan_AddTexture(
 				m_viewportImageSampler,
-				m_viewportRenderer->getDisplayOutput().getOrCreateView(buildBasicImageSubresource()),
+				m_viewportRenderer->getDisplayOrDebugOutput().getOrCreateView(buildBasicImageSubresource()),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 		}

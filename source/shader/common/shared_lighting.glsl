@@ -298,4 +298,28 @@ vec3 importanceSampleCosine(vec2 xi, vec3 N)
     return sampleWorld;
 }
 
+
+vec3 sphericalToCartesian(float phi, float cosTheta)
+{
+    float sinPhi = sin(phi);
+    float cosPhi = cos(phi);
+
+    float sinTheta = sqrt(saturate(1.0 - cosTheta * cosTheta));
+    return vec3(sinTheta * cosPhi, sinTheta * sinPhi, cosTheta);
+}
+
+vec3 sampleSphereUniform(float u1, float u2)
+{
+    float phi = 6.28318530718f * u2;
+    float cosTheta = 1.0 - 2.0 * u1;
+
+    return sphericalToCartesian(phi, cosTheta);
+}
+
+vec3 sampleHemisphereCosine(float u1, float u2, vec3 normal)
+{
+    vec3 pointOnSphere = sampleSphereUniform(u1, u2);
+    return normalize(normal + pointOnSphere);
+}
+
 #endif

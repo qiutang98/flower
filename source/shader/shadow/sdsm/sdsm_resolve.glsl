@@ -172,7 +172,7 @@ void main()
     }
 
     // Offset retarget for new seeds each frame
-    uvec2 offset = uvec2(vec2(0.754877669, 0.569840296) * (frameData.frameIndex.x % frameData.jitterPeriod) * uvec2(depthSize));
+    uvec2 offset = uvec2(vec2(0.754877669, 0.569840296) * (frameData.frameIndex.x) * uvec2(depthSize));
     uvec2 offsetId = uvec2(workPos) + offset;
     offsetId.x = offsetId.x % depthSize.x;
     offsetId.y = offsetId.y % depthSize.y;

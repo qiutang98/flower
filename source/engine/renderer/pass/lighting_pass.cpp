@@ -45,7 +45,7 @@ namespace engine
         BufferParameterHandle perFrameGPU, 
         PoolImageSharedRef inSDSMMask,
         AtmosphereTextures& atmosphere,
-        PoolImageSharedRef inGTAO)
+        PoolImageSharedRef inBentNormalSSAO)
     {
         auto& hdrSceneColor = inGBuffers->hdrSceneColor->getImage();
         auto& gbufferA = inGBuffers->gbufferA->getImage();
@@ -80,7 +80,7 @@ namespace engine
                 .addBuffer(perFrameGPU)
                 .addSRV(*m_renderer->getSharedTextures().brdfLut)
                 .addSRV(atmosphere.transmittance ? atmosphere.transmittance : inGBuffers->gbufferA)
-                .addSRV(inGTAO)
+                .addSRV(inBentNormalSSAO)
                 .addSRV(m_skylightRadiance, buildBasicImageSubresourceCube(), VK_IMAGE_VIEW_TYPE_CUBE)
                 .push(pass->pipe.get());
 

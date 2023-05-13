@@ -64,7 +64,7 @@ layout (set = 0, binding = 12) buffer SSRDenoiseTileListSSBO
 layout (set = 0, binding = 13, rgba16f) uniform image2D HDRSceneColorImage; // HDR output.
 
 layout (set = 0, binding = 14) uniform textureCube inCubeGlobalPrefilter; // SSR fallback env ibl.
-layout (set = 0, binding = 15)  uniform texture2D inGTAO; // GTAO for ssr occlusion. current just reuse ao term, looks no diff with GTSO.
+layout (set = 0, binding = 15)  uniform texture2D inSSAO; // GTAO for ssr occlusion. current just reuse ao term, looks no diff with GTSO.
 
 layout (set = 0, binding = 16) buffer SSRIntersectCmdSSBO
 { 

@@ -55,10 +55,14 @@ void main()
     vec3 worldPos = getWorldPos(uv, deviceZ, frameData);
     vec3 v = normalize(frameData.camWorldPos.xyz - worldPos);
 
-    float ao = texture(sampler2D(inGTAO, linearClampEdgeSampler), uv).r * inGbufferSValue.b;
-    
+    vec4 bentNormalAo = texture(sampler2D(inSSAO, linearClampEdgeSampler), uv);
+    vec3 bentNormal = bentNormalAo.xyz * 2.0 - 1.0;
+
+    float ao = min(bentNormalAo.a, inGbufferSValue.b);
+    vec3 multiBounceAO = AoMultiBounce(ao, baseColor);
+
     vec4 ssrResult = texelFetch(inSSRIntersection, workPos, 0);
-    ssrResult.xyz =  computeIBLContribution(perceptualRoughness, specularColor, ssrResult.xyz, n, v) * ao;
+    ssrResult.xyz =  computeIBLContribution(perceptualRoughness, specularColor, ssrResult.xyz, bentNormal, v) * multiBounceAO;
 
     vec4 resultColor;
     vec4 srcHdrSceneColor = imageLoad(HDRSceneColorImage, workPos);

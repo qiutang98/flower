@@ -71,7 +71,7 @@ namespace engine
 
 
 
-		PoolImageSharedRef gtaoImage = renderGTAO(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, hzbClosest);
+		auto ssaoBentNormal = renderSSGI(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, hzbClosest);
 
 		SDSMInfos sdsmInfos{};
 		renderSDSM(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, sdsmInfos);
@@ -84,14 +84,23 @@ namespace engine
 			renderSkylight(graphicsCmd, atmosphereTextures);
 		}
 
-		deferredLighting(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, sdsmInfos.mainViewMask, atmosphereTextures, gtaoImage);
+		
+
+		deferredLighting(
+			graphicsCmd, 
+			&gbuffers, 
+			m_renderer->getScene(), 
+			perFrameGPU, 
+			sdsmInfos.mainViewMask, 
+			atmosphereTextures, 
+			ssaoBentNormal);
 
 		renderAtmosphere(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, atmosphereTextures, &sdsmInfos, true);
 		renderVolumetricCloud(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, atmosphereTextures);
 
 
-		renderSSGI(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, hzbClosest, gtaoImage);
-		renderSSSR(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, hzbClosest, gtaoImage);
+
+		renderSSSR(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, hzbClosest, ssaoBentNormal);
 
 
 		renderFSR2(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, tickData);

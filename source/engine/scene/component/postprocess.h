@@ -27,6 +27,13 @@ namespace engine
 		float gtaoPower          = 1.0f;
 		float gtaoIntensity      = 1.0f;
 
+		int ssgiSliceCount = 2;
+		int ssgiStepCount = 8;
+		float ssgiViewRadius = 0.2f;
+		float ssgiFalloff = 0.05f;
+		float ssgiPower = 1.0f;
+		float ssgiIntensity = 1.0f;
+
 		auto operator<=>(const PostprocessVolumeSetting&) const = default;
 		template<class Archive> void serialize(Archive& archive, std::uint32_t const version)
 		{
@@ -44,6 +51,8 @@ namespace engine
 				autoExposureExposureCompensation);
 
 			archive(bloomIntensity, bloomRadius, bloomThreshold, bloomThresholdSoft);
+
+			archive(ssgiSliceCount, ssgiStepCount, ssgiViewRadius, ssgiFalloff, ssgiPower, ssgiIntensity);
 		}
 	};
 

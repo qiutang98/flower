@@ -121,8 +121,6 @@ namespace engine
 
 		PoolImageSharedRef m_averageLum = nullptr;
 
-
-
 	private:
 		std::unique_ptr<FSR2Context> m_fsr2 = nullptr;
 
@@ -188,15 +186,14 @@ namespace engine
 			class RenderScene* scene,
 			BufferParameterHandle perFrameGPU,
 			PoolImageSharedRef inHiz,
-			PoolImageSharedRef inGTAO);
+			PoolImageSharedRef inSSAO);
 
-		void renderSSGI(
+		PoolImageSharedRef renderSSGI(
 			VkCommandBuffer cmd,
 			class GBufferTextures* inGBuffers,
 			class RenderScene* scene,
 			BufferParameterHandle perFrameGPU,
-			PoolImageSharedRef inHiz,
-			PoolImageSharedRef inGTAO);
+			PoolImageSharedRef inHiz);
 
 		void renderSkylight(
 			VkCommandBuffer cmd, 
@@ -230,7 +227,7 @@ namespace engine
 			BufferParameterHandle perFrameGPU,
 			PoolImageSharedRef inSDSMMask,
 			AtmosphereTextures& atmosphere,
-			PoolImageSharedRef inGTAO);
+			PoolImageSharedRef inSSAO);
 
 		void adaptiveExposure(
 			VkCommandBuffer cmd,
