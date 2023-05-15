@@ -5,8 +5,9 @@
 #define kShadingModelRangeCheck        0.005
 
 // Shading model count is 50, Step value is 0.02
-#define kShadingModelUnvalid           0.0
+#define kShadingModelUnvalid           0.00
 #define kShadingModelStandardPBR       0.02
+#define kShadingModelPMXBasic          0.04
 
 bool isInShadingModelRange(float v, float shadingModel)
 {
@@ -16,6 +17,11 @@ bool isInShadingModelRange(float v, float shadingModel)
 bool isShadingModelValid(float v)
 {
     return v > (kShadingModelUnvalid + kShadingModelRangeCheck);
+}
+
+bool isPMXMeshShadingModelCharacter(float v)
+{
+    return isInShadingModelRange(v, kShadingModelPMXBasic);
 }
 
 #endif

@@ -39,7 +39,10 @@ namespace engine
 
     VulkanImage& TerrainComponent::getHeightfiledImage()
     {
-        return m_renderContext.heightFieldImage->getImage();
+        if(m_renderContext.heightFieldImage) return m_renderContext.heightFieldImage->getImage();
+
+
+        return getContext()->getEngineTextureTranslucent()->getImage();
     }
 
 }

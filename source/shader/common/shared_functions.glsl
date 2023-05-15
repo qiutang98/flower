@@ -707,8 +707,8 @@ vec3 acesFilmFit(vec3 x)
 // Gamma curve encode to srgb.
 vec3 encodeSRGB(vec3 linearRGB)
 {
-    // Most PC Monitor is 2.2 Gamma, this function is enough.
-    return pow(linearRGB, vec3(1.0 / 2.2));
+    // Most PC Monitor is 2.2 Gamma, maybe this function is enough.
+    // return pow(linearRGB, vec3(1.0 / 2.2));
 
     // TV encode Rec709 encode.
     vec3 a = 12.92 * linearRGB;

@@ -8,6 +8,10 @@
 #include <asset/asset_common.h>
 #include <nfd.h>
 
+#if _WIN32
+	#include <Windows.h>
+#endif
+
 using namespace engine;
 using namespace engine::ui;
 
@@ -107,7 +111,7 @@ void Editor::saveDirtyAssetActions()
 	const auto& typeNameMap = EditorAsset::get()->getTypeNameMap();
 	const auto& assetMap = EditorAsset::get()->getRegisterMap();
 
-	std::vector<UUID> saveSets;
+	std::vector<engine::UUID> saveSets; 
 
 	// Save dirty asset to disk.
 	for (auto& assetPair : m_dirtyAssets)
@@ -277,6 +281,10 @@ VkDescriptorSet Editor::getClampToTransparentBorderSet(engine::VulkanImage* imag
 
 void Editor::init()
 {
+#if _WIN32
+	SetConsoleOutputCP(CP_UTF8);
+#endif // _WIN32
+
 	m_engine = Framework::get()->getEnginePtr();
 
 	m_context = m_engine->getRuntimeModule<VulkanContext>();

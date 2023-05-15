@@ -53,7 +53,6 @@ void main()
         if(bUpdateEvaluate)
         {
             depthZ = curDepthZ;
-            fog = curFog;
         #if 1
             // Just update color is good enough.
             color = curColor;
@@ -98,6 +97,52 @@ void main()
                 }
 
                 color  = mix(clampColorHistory,  curColor, 0.5);
+            }
+        #endif
+
+        #if 1
+            fog = curFog;
+        #else
+            if(abs(preDepthZ - curDepthZ) > 0.1)
+            {
+                fog = curFog;
+            }
+            else
+            {
+                vec4 preColor = texture(sampler2D(inCloudFogReconstructionTextureHistory,  linearClampEdgeSampler), uvPrev); 
+
+                // variance clamp.
+                vec4 clampColorHistory;
+                {
+                    float wsum = 0.0f;
+                    vec4 vsum  = vec4(0.0f);
+                    vec4 vsum2 = vec4(0.0f);
+
+                    for (int y = -1; y <= 1; ++y)
+                    {
+                        for (int x = -1; x <= 1; ++x)
+                        {
+                            const vec4 neigh = texture(sampler2D(inCloudFogRenderTexture, pointClampEdgeSampler), uv + curEvaluateCloudTexelSize * ivec2(x, y));
+                            const float w = exp(-0.75f * (x * x + y * y));
+                            vsum2 += neigh * neigh * w;
+                            vsum  += neigh * w;
+                            wsum  += w;
+                        }
+                    }
+
+                    const vec4 ex  = vsum / wsum;
+                    const vec4 ex2 = vsum2 / wsum;
+                    const vec4 dev = sqrt(max(ex2 - ex * ex, 0.0f));
+
+                    const float boxSize = 2.5f;
+
+                    vec4 nmin = ex - dev * boxSize;
+                    vec4 nmax = ex + dev * boxSize;
+
+                    clampColorHistory = clamp(preColor, nmin, nmax);
+                }
+
+                fog  = mix(clampColorHistory,  curFog, 0.5);
             }
         #endif
         }

@@ -68,7 +68,7 @@ target_link_libraries(flower PUBLIC
     ffx_fsr2_api_x64 
     ffx_fsr2_api_vk_x64
     tinyexr
-    ${BULLET_LIBRARY_DIRS}
+    BulletDynamics BulletCollision LinearMath 
 )
 
 set_target_properties(flower PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/install") 

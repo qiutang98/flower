@@ -7,6 +7,48 @@ namespace engine
     constexpr int32_t kMaxCascadeDimSize = 4096;
     constexpr int32_t kMaxCascadeNum = 8;
 
+    // For 8-bit unorm texture, float error range = 1.0 / 255.0 = 0.004
+    #define kShadingModelRangeCheck        0.005f
+
+    // Shading model count is 50, Step value is 0.02
+    #define kShadingModelUnvalid           0.00f
+    #define kShadingModelStandardPBR       0.02f
+    #define kShadingModelPMXBasic          0.04f
+
+    enum class EShadingModelType
+    {
+        StandardPBR,
+        PMXCharacterBasic,
+    };
+
+    inline float shadingModelConvert(EShadingModelType type)
+    {
+        switch (type)
+        {
+            case EShadingModelType::StandardPBR: return kShadingModelStandardPBR;
+            case EShadingModelType::PMXCharacterBasic: return kShadingModelPMXBasic;
+        }
+
+        CHECK_ENTRY();
+        return kShadingModelUnvalid;
+    }
+
+    inline bool isInShadingModelRange(float v, float shadingModel)
+    {
+        return (v > (shadingModel - kShadingModelRangeCheck)) && (v < (shadingModel + kShadingModelRangeCheck));
+    }
+
+    inline bool isShadingModelValid(float v)
+    {
+        return v > (kShadingModelUnvalid + kShadingModelRangeCheck);
+    }
+
+    inline bool isPMXMeshShadingModelCharacter(float v)
+    {
+        return isInShadingModelRange(v, kShadingModelPMXBasic);
+    }
+
+
     struct CascadeShadowConfig
     {
         int32_t cascadeCount = 4;

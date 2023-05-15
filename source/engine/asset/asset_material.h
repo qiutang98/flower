@@ -12,6 +12,7 @@ namespace engine
 		enum class EMaterialType
 		{
 			StandardPBR,
+			PMX,
 		};
 
 		AssetMaterial() = default;
@@ -49,10 +50,10 @@ namespace engine
 		{
 			// Material keep image shared reference avoid release.
 			std::shared_ptr<GPUImageAsset> baseColor = nullptr;
-			std::shared_ptr<GPUImageAsset> normal = nullptr;
-			std::shared_ptr<GPUImageAsset> specular = nullptr;
+			std::shared_ptr<GPUImageAsset> normal    = nullptr;
+			std::shared_ptr<GPUImageAsset> specular  = nullptr;
 			std::shared_ptr<GPUImageAsset> occlusion = nullptr;
-			std::shared_ptr<GPUImageAsset> emissive = nullptr;
+			std::shared_ptr<GPUImageAsset> emissive  = nullptr;
 		};
 
 		const GPUMaterialStandardPBR& getAndTryBuildGPU();

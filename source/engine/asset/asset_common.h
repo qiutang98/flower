@@ -22,6 +22,7 @@ namespace engine
 		StaticMesh,  // StaticMesh asset.
 		Material,    // Material asset.
 		Scene,       // Scene.
+		PMX,         // Pmx file.
 
 		Max,
 	};

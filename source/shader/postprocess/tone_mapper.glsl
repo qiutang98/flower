@@ -59,7 +59,7 @@ void main()
     // Tone mapper.
     {
         // Film tone mapper in aces space.
-        vec3 colorAP0 = hdrColor.xyz * sRGB_2_AP0; ldrColor = acesFilm(colorAP0);
+           vec3 colorAP0 = hdrColor.xyz * sRGB_2_AP0; ldrColor = acesFilm(colorAP0);
         // ldrColor = acesFilmFit(hdrColor.xyz);
 
         // Aces tone mapper.
