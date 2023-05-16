@@ -11,6 +11,7 @@ const std::string kIconStaticMesh = ICON_FA_BUILDING + std::string("   StaticMes
 const std::string kIconSky = ICON_FA_SUN + std::string("  Sky");
 const std::string kIconPostprocess = ICON_FA_STAR + std::string("  Postprocess");
 const std::string kIconTerrain = ICON_FA_MOUNTAIN_SUN + std::string("  Terrain");
+const std::string kIconPMX = std::string("     PMX");
 
 std::unordered_map<std::string, ComponentDrawer> kDrawComponentMap =
 {
@@ -18,6 +19,7 @@ std::unordered_map<std::string, ComponentDrawer> kDrawComponentMap =
 	{ kIconSky, { typeid(SkyComponent).name(), &ComponentDrawer::drawSky }},
 	{ kIconPostprocess, { typeid(PostprocessVolumeComponent).name(), &ComponentDrawer::drawPostprocess }},
 	{ kIconTerrain, { typeid(TerrainComponent).name(), &ComponentDrawer::drawTerrain }},
+	{ kIconPMX, {typeid(PMXComponent).name(), &ComponentDrawer::drawPMX }}
 };
 
 

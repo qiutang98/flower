@@ -6,6 +6,7 @@
 #include <asset/asset_texture.h>
 #include <asset/asset_system.h>
 #include <asset/asset_staticmesh.h>
+#include <asset/asset_pmx.h>
 
 class ProjectAssetTree;
 class ProjectAssetTreeEntry;
@@ -163,6 +164,7 @@ private:
 	void drawAssetImportModal();
 	void drawImageImportModalContent();
 	void drawStaticMeshImportModalContent();
+	void drawPMXImportModalContent();
 	void executeImport();
 
 public:
@@ -216,8 +218,9 @@ private:
 		bool bConfigInit = false;
 
 		// Image import configs.
-		std::vector<engine::AssetTexture::ImportConfig> imageConfigs;
+		std::vector<engine::AssetTexture::ImportConfig> imageConfigs; // TODO: Reconstruct me with inherited type.
 		std::vector<engine::AssetStaticMesh::ImportConfig> staticmeshConfigs;
+		std::vector<engine::AssetPMX::ImportConfig> pmxConfigs;
 
 		void cleanState()
 		{

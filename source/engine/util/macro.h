@@ -31,4 +31,33 @@
 	#define ASSERT(x, ...) { if(!(x)) { LOG_FATAL("Assert failed: {0}.", __VA_ARGS__); } }
 #endif
 
-#define CHECK_ENTRY() ASSERT(false, "No entry implement here, fix me!")
+#define  CHECK_ENTRY() ASSERT(false, "No entry implement here, fix me!")
+#define UN_IMPLEMENT() ASSERT(false, "Un-implement yet, fix me!")
+
+struct __flower_ConstructOnceObject_Warn
+{
+	explicit __flower_ConstructOnceObject_Warn(const std::string& in)
+	{
+		LOG_WARN(in);
+#if APP_DEBUG
+		__debugbreak();
+#endif
+	}
+};
+
+struct __flower_ConstructOnceObject_Error
+{
+	explicit __flower_ConstructOnceObject_Error(const std::string& in)
+	{
+		LOG_ERROR(in);
+
+#if APP_DEBUG
+		__debugbreak();
+#endif
+	}
+};
+
+#define LOG_WARN_ONCE(str) { static __flower_ConstructOnceObject_Warn __local_warn(str); }
+#define LOG_ERROR_ONCE(str) { static __flower_ConstructOnceObject_Error __local_error(str); }
+
+#define UN_IMPLEMENT_WARN() LOG_ERROR_ONCE("Logic still un-implement!")

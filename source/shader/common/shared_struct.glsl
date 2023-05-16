@@ -71,7 +71,7 @@ struct AtmosphereConfig
     // Clout infos.
     float cloudAreaStartHeight; // km
     float cloudAreaThickness;
-    float pad3;
+    float cloudGodRayScale;
     float cloudShadowExtent; // x4
 
     vec3 camWorldPos; // cameraworld Position, in atmosphere space unit.
@@ -115,7 +115,7 @@ struct AtmosphereConfig
     int cloudMarchingStepNum;
     int cloudSunLitMapOctave;
     float cloudNoiseScale;
-    float pad4;
+    int cloudGodRay;
 };
 
 struct SkyInfo

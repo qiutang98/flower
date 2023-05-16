@@ -257,8 +257,13 @@ namespace engine
 		temp = math::clamp(temp, 1000.0f, 15000.0f);
 
 		// Approximate Planckian locus in CIE 1960 UCS
-		float u = (0.860117757f + 1.54118254e-4f * temp + 1.28641212e-7f * temp * temp) / (1.0f + 8.42420235e-4f * temp + 7.08145163e-7f * temp * temp);
-		float v = (0.317398726f + 4.22806245e-5f * temp + 4.20481691e-8f * temp * temp) / (1.0f - 2.89741816e-5f * temp + 1.61456053e-7f * temp * temp);
+		float u = 
+			(0.860117757f + 1.54118254e-4f * temp + 1.28641212e-7f * temp * temp) / 
+			(1.0f + 8.42420235e-4f * temp + 7.08145163e-7f * temp * temp);
+
+		float v = 
+			(0.317398726f + 4.22806245e-5f * temp + 4.20481691e-8f * temp * temp) / 
+			(1.0f - 2.89741816e-5f * temp + 1.61456053e-7f * temp * temp);
 
 		float x = 3.0f * u / (2.0f * u - 8.0f * v + 4.0f);
 		float y = 2.0f * v / (2.0f * u - 8.0f * v + 4.0f);
@@ -276,3 +281,16 @@ namespace engine
 		return math::vec3(R, G, B);
 	}
 }
+
+
+// https://github.com/qiutang98/flower/issues/2 fix from @c52e.
+#if (!_WIN32) || (_MSC_VER < 1930)
+namespace std 
+{
+	template <>
+	struct hash<std::filesystem::path> 
+	{
+		std::size_t operator()(const std::filesystem::path& path) const { return hash_value(path); }
+	};
+}
+#endif

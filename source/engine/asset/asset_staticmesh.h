@@ -44,8 +44,7 @@ namespace engine
 			const ImportConfig& config,
 			const std::filesystem::path& projectRootPath,
 			const std::filesystem::path& savePath,
-			const std::filesystem::path& srcPath,
-			AssetStaticMesh& meta
+			const std::filesystem::path& srcPath
 		);
 	protected:
 		// Serialize field.

@@ -9,6 +9,7 @@
 #include "component/sky.h"
 #include "component/postprocess.h"
 #include "component/terrain.h"
+#include "component/pmx.h"
 
 ASSET_ARCHIVE_IMPL(Component)
 {
@@ -38,6 +39,12 @@ ASSET_ARCHIVE_IMPL_INHERIT(StaticMeshComponent, Component)
     ARCHIVE_NVP_DEFAULT(m_bEngineAsset);
     ARCHIVE_NVP_DEFAULT(m_staticMeshUUID);
     ARCHIVE_NVP_DEFAULT(m_staticMeshAssetRelativeRoot);
+}
+ASSET_ARCHIVE_END
+
+ASSET_ARCHIVE_IMPL_INHERIT(PMXComponent, Component)
+{
+    ARCHIVE_NVP_DEFAULT(m_pmxUUID);
 }
 ASSET_ARCHIVE_END
 

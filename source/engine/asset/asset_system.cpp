@@ -73,17 +73,14 @@ namespace engine
             const auto extension = path.extension().string();
             if (isEngineMetaAsset(extension))
             {
-                if (isAssetTextureMeta(extension)) { insertAsset<AssetTexture>(path); }
+                if (isAssetTextureMeta(extension))         { insertAsset<AssetTexture>(path); }
                 else if (isAssetStaticMeshMeta(extension)) { insertAsset<AssetStaticMesh>(path); }
-                else if (isAssetMaterialMeta(extension)) { insertAsset<AssetMaterial>(path); }
-                else if (isAssetSceneMeta(extension))
-                { 
-                    // Skip scene store.
-                    insertAsset<Scene>(path); 
-                }
+                else if (isAssetMaterialMeta(extension))   { insertAsset<AssetMaterial>(path); }
+                else if (isAssetPMXMeta(extension))        { insertAsset<AssetPMX>(path); }
+                else if (isAssetSceneMeta(extension))      { insertAsset<Scene>(path);  }
                 else
                 {
-                    CHECK_ENTRY();
+                    UN_IMPLEMENT();
                 }
             }
         }

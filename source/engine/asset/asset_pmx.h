@@ -43,11 +43,15 @@ namespace engine
 		virtual EAssetType getType() const override { return EAssetType::PMX; }
 		virtual const char* getSuffix() const { return ".assetpmx"; }
 
+		static bool buildFromConfigs(
+			const ImportConfig& config,
+			const std::filesystem::path& projectRootPath,
+			const std::filesystem::path& savePath,
+			const std::filesystem::path& srcPath
+		);
+
 	public:
 		ARCHIVE_DECLARE;
-
-		std::string m_pmxFilePath;
-
 	};
 }
 

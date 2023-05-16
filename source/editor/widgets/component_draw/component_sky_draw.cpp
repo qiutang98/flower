@@ -166,6 +166,12 @@ void drawAtmosphereConfig(AtmosphereConfig& inout)
 		ImGui::DragFloat("cloud powder scale", &copyValue.cloudPowderScale, 0.1f, 0.01f, 100.0f);
 		ImGui::DragFloat("cloud powder pow", &copyValue.cloudPowderPow, 0.1f, 0.01f, 10.0f);
 
+		bool bEnableGodRay = copyValue.cloudGodRay != 0;
+		ImGui::Checkbox("enable cloud godray", &bEnableGodRay);
+		copyValue.cloudGodRay = bEnableGodRay ? 1 : 0;
+
+		ImGui::DragFloat("cloud godray scale", &copyValue.cloudGodRayScale, 1.0f, 1.0f, 100.0f);
+
 		ImGui::Spacing();
 		ImGui::PopItemWidth();
 

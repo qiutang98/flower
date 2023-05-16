@@ -186,6 +186,9 @@ namespace engine
 		inAtmosphere.cloudMarchingStepNum = 128;
 		inAtmosphere.cloudSunLitMapOctave = 5;
 		inAtmosphere.cloudNoiseScale = 0.6f;
+
+		inAtmosphere.cloudGodRay = 1;
+		inAtmosphere.cloudGodRayScale = 50.0f;
 	}
 
 }

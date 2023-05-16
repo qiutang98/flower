@@ -4,13 +4,6 @@
 
 namespace engine
 {
-	struct AssetTypeRelativeMap
-	{
-		std::unordered_set<UUID> textures;
-		std::unordered_set<UUID> staticmeshes;
-		std::unordered_set<UUID> materials;
-	};
-
 	class AssetSystem final : public IRuntimeModule
 	{
 	public:

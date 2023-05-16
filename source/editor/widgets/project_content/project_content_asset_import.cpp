@@ -3,6 +3,7 @@
 #include "imgui/region_string.h"
 #include "../../editor.h"
 #include "../../editor_asset.h"
+#include <asset/asset_pmx.h>
 
 #include <nfd.h>
 #include <utfcpp/source/utf8/cpp17.h>
@@ -74,12 +75,12 @@ void ProjectContentWidget::drawImageImportModalContent()
 
 			if (ImGui::BeginTable("##ConfigTable", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_Borders))
 			{
-				ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::Text("Is sRGB"); ImGui::TableNextColumn(); ImGui::Checkbox("##SRGB", &config.bSRGB);
+				ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::Text("Is sRGB");      ImGui::TableNextColumn(); ImGui::Checkbox("##SRGB", &config.bSRGB);
 				ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::Text("Build Mipmap"); ImGui::TableNextColumn(); ImGui::Checkbox("##MipMap", &config.bGenerateMipmap);
-				ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::Text("Compressed"); ImGui::TableNextColumn(); ImGui::Checkbox("##Compressed", &config.bCompressed);
+				ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::Text("Compressed");   ImGui::TableNextColumn(); ImGui::Checkbox("##Compressed", &config.bCompressed);
 				ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::Text("Alpha Cutoff"); ImGui::TableNextColumn(); ImGui::DragFloat("##AlphaCutoff", &config.cutoffAlpha, 0.01f, 0.0f, 1.0f);
-				ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::Text("Half Fixed"); ImGui::TableNextColumn(); ImGui::Checkbox("##HalfFixed", &config.bHalfFixed);
-				ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::Text("Exr"); ImGui::TableNextColumn(); ImGui::Checkbox("##Exr", &config.bExr);
+				ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::Text("Half Fixed");   ImGui::TableNextColumn(); ImGui::Checkbox("##HalfFixed", &config.bHalfFixed);
+				ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::Text("Exr");          ImGui::TableNextColumn(); ImGui::Checkbox("##Exr", &config.bExr);
 
 				enum ChannelMode
 				{
@@ -92,11 +93,11 @@ void ProjectContentWidget::drawImageImportModalContent()
 				};
 				int mode = (int)config.channel;
 				if (ImGui::RadioButton("RGBA", mode == Mode_RGBA)) { mode = (int)Mode_RGBA; } ImGui::SameLine();
-				if (ImGui::RadioButton("RGB", mode == Mode_RGB)) { mode = (int)Mode_RGB; } ImGui::SameLine();
-				if (ImGui::RadioButton("R", mode == Mode_R)) { mode = (int)Mode_R; } ImGui::SameLine();
-				if (ImGui::RadioButton("G", mode == Mode_G)) { mode = (int)Mode_G; } ImGui::SameLine();
-				if (ImGui::RadioButton("B", mode == Mode_B)) { mode = (int)Mode_B; } ImGui::SameLine();
-				if (ImGui::RadioButton("A", mode == Mode_A)) { mode = (int)Mode_A; } ImGui::SameLine();
+				if (ImGui::RadioButton("RGB", mode == Mode_RGB))   { mode = (int)Mode_RGB;  } ImGui::SameLine();
+				if (ImGui::RadioButton("R", mode == Mode_R))       { mode = (int)Mode_R;    } ImGui::SameLine();
+				if (ImGui::RadioButton("G", mode == Mode_G))       { mode = (int)Mode_G;    } ImGui::SameLine();
+				if (ImGui::RadioButton("B", mode == Mode_B))       { mode = (int)Mode_B;    } ImGui::SameLine();
+				if (ImGui::RadioButton("A", mode == Mode_A))       { mode = (int)Mode_A;    } ImGui::SameLine();
 				config.channel = (engine::AssetTexture::ImportConfig::EChannel)mode;
 				ImGui::EndTable();
 			}
@@ -129,6 +130,48 @@ void ProjectContentWidget::drawStaticMeshImportModalContent()
 	for (size_t i = 0; i < m_assetImportPayload.srcPaths.size(); i++)
 	{
 		auto& config = m_assetImportPayload.staticmeshConfigs.at(i);
+
+		ImGui::Spacing();
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+		ImGui::PushID((int)i);
+		ImGui::Indent();
+		{
+			std::string utf8Name = utf8::utf16to8(m_assetImportPayload.srcPaths[i].u16string());
+			std::string saveUtf8 = utf8::utf16to8(m_assetImportPayload.savePaths[i].u16string());
+
+			ImGui::TextDisabled(std::format("Load from: {}", utf8Name).c_str());
+			ImGui::TextDisabled(std::format("Save to: {}", saveUtf8).c_str());
+			ImGui::Spacing();
+
+		}
+		ImGui::Unindent();
+		ImGui::PopStyleVar();
+		ImGui::PopID();
+
+		ImGui::Spacing();
+		ImGui::Spacing();
+		ImGui::Separator();
+	}
+}
+
+void ProjectContentWidget::drawPMXImportModalContent()
+{
+	if (m_assetImportPayload.srcPaths.empty())
+	{
+		return;
+	}
+
+	if (!m_assetImportPayload.bConfigInit)
+	{
+		m_assetImportPayload.pmxConfigs.clear();
+		m_assetImportPayload.pmxConfigs.resize(m_assetImportPayload.srcPaths.size());
+
+		m_assetImportPayload.bConfigInit = true;
+	}
+
+	for (size_t i = 0; i < m_assetImportPayload.srcPaths.size(); i++)
+	{
+		auto& config = m_assetImportPayload.pmxConfigs.at(i);
 
 		ImGui::Spacing();
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
@@ -205,8 +248,7 @@ void ProjectContentWidget::executeImport()
 					}
 					else if (pl.type == EAssetType::StaticMesh)
 					{
-						AssetStaticMesh meta{};
-						if (AssetStaticMesh::buildFromConfigs(pl.staticmeshConfigs[i], m_editor->getProjectRootPathUtf16(), pl.savePaths[i], pl.srcPaths[i], meta))
+						if (AssetStaticMesh::buildFromConfigs(pl.staticmeshConfigs[i], m_editor->getProjectRootPathUtf16(), pl.savePaths[i], pl.srcPaths[i]))
 						{
 							LOG_TRACE("Import static mesh from {} to {}.", utf8::utf16to8(pl.srcPaths[i].u16string()), utf8::utf16to8(pl.savePaths[i].u16string()));
 						}
@@ -215,9 +257,20 @@ void ProjectContentWidget::executeImport()
 							LOG_ERROR("Fail to import static mesh from {} to {}.", utf8::utf16to8(pl.srcPaths[i].u16string()), utf8::utf16to8(pl.savePaths[i].u16string()));
 						}
 					}
+					else if (pl.type == EAssetType::PMX)
+					{
+						if (AssetPMX::buildFromConfigs(pl.pmxConfigs[i], m_editor->getProjectRootPathUtf16(), pl.savePaths[i], pl.srcPaths[i]))
+						{
+							LOG_TRACE("Import pmx mesh from {} to {}.", utf8::utf16to8(pl.srcPaths[i].u16string()), utf8::utf16to8(pl.savePaths[i].u16string()));
+						}
+						else
+						{
+							LOG_ERROR("Fail to import pmx mesh from {} to {}.", utf8::utf16to8(pl.srcPaths[i].u16string()), utf8::utf16to8(pl.savePaths[i].u16string()));
+						}
+					}
 					else
 					{
-						CHECK_ENTRY();
+						UN_IMPLEMENT();
 					}
 				}
 			};
@@ -292,9 +345,13 @@ void ProjectContentWidget::drawAssetImportModal()
 		{
 			drawStaticMeshImportModalContent();
 		}
+		else if (m_assetImportPayload.type == EAssetType::PMX)
+		{
+			drawPMXImportModalContent();
+		}
 		else
 		{
-			CHECK_ENTRY();
+			UN_IMPLEMENT();
 		}
 
         if (ImGui::Button("OK", ImVec2(120, 0))) 

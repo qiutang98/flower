@@ -6,10 +6,11 @@ namespace engine
     bool isEngineMetaAsset(const std::string& extension)
     {
 		return
-			isAssetTextureMeta(extension) ||
+			isAssetTextureMeta(extension)    ||
 			isAssetStaticMeshMeta(extension) ||
-			isAssetMaterialMeta(extension) ||
-			isAssetSceneMeta(extension);
+			isAssetMaterialMeta(extension)   ||
+			isAssetSceneMeta(extension)      ||
+			isAssetPMXMeta(extension);
     }
 
 	bool isAssetTextureMeta(const std::string& extension)
@@ -24,10 +25,13 @@ namespace engine
 	{
 		return extension == ".material";
 	}
-
 	bool isAssetSceneMeta(const std::string& extension)
 	{
 		return extension == ".scene";
+	}
+	bool isAssetPMXMeta(const std::string& extension)
+	{
+		return extension == ".assetpmx";
 	}
 
 	bool AssetInterface::saveAction()

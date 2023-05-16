@@ -7,6 +7,7 @@ extern const std::string kIconStaticMesh;
 extern const std::string kIconSky;
 extern const std::string kIconPostprocess;
 extern const std::string kIconTerrain;
+extern const std::string kIconPMX;
 
 struct ComponentDrawer
 {
@@ -19,6 +20,7 @@ struct ComponentDrawer
 	static void drawSky(std::shared_ptr<engine::SceneNode> node);
 	static void drawPostprocess(std::shared_ptr<engine::SceneNode> node);
 	static void drawTerrain(std::shared_ptr<engine::SceneNode> node);
+	static void drawPMX(std::shared_ptr<engine::SceneNode> node);
 };
 
 extern std::unordered_map<std::string, ComponentDrawer> kDrawComponentMap;

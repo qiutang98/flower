@@ -14,6 +14,7 @@ namespace engine
 	extern bool isAssetStaticMeshMeta(const std::string& extension);
 	extern bool isAssetMaterialMeta(const std::string& extension);
 	extern bool isAssetSceneMeta(const std::string& extension);
+	extern bool isAssetPMXMeta(const std::string& extension);
 
 	// Engine asset type.
 	enum class EAssetType

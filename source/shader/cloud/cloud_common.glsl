@@ -660,7 +660,7 @@ vec4 cloudColorCompute(
             vec3 sigmaS = vec3(density) + medium.extinction * 0.001;
             const float sigmaA = 0.0;
             vec3 sigmaE = max(vec3(1e-8f), sigmaA + sigmaS);
-            vec3 sactterLitStep = visibilityTerm * sunColor * phaseTimesScattering * sigmaS * atmosphereTransmittance * 50.0;
+            vec3 sactterLitStep = visibilityTerm * sunColor * phaseTimesScattering * sigmaS * atmosphereTransmittance * frameData.sky.atmosphereConfig.cloudGodRayScale;
 
             vec3 stepTransmittance = exp(-sigmaE * stepLength);
             scatteredLightTotal += transmittanceTotal * (sactterLitStep - sactterLitStep * stepTransmittance) / sigmaE; 

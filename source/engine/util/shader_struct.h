@@ -130,7 +130,7 @@ namespace engine
         // Clout infos.
         float cloudAreaStartHeight; // km
         float cloudAreaThickness;
-        float pad3;
+        float cloudGodRayScale;
         float cloudShadowExtent; // x4
 
         math::vec3 camWorldPos; // cameraworld Position, in atmosphere space unit.
@@ -174,7 +174,7 @@ namespace engine
         int cloudMarchingStepNum;
         int cloudSunLitMapOctave;
         float cloudNoiseScale;
-        float pad4;
+        int cloudGodRay;
 
         auto operator<=>(const AtmosphereConfig&) const = default;
         template<class Archive> void serialize(Archive& archive)

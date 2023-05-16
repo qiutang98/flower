@@ -73,7 +73,15 @@ RegisteredStructForEditorAsset registerTexture2D(
 RegisteredStructForEditorAsset registerScene(
 	"Scene",
 	ICON_FA_CHESS_KING,
-	std::string("  ") + ICON_FA_CHESS_KING + std::string("    Scene"),
+	std::string("  ") + ICON_FA_CHESS_KING + std::string("     Scene"),
 	"scene",
 	EAssetType::Scene
+);
+
+RegisteredStructForEditorAsset registerPMX(
+	"PMX",
+	ICON_FA_CHESS_QUEEN,
+	std::string("  ") + ICON_FA_CHESS_QUEEN + std::string("    PMX"),
+	"pmx",
+	EAssetType::PMX
 );
