@@ -63,7 +63,7 @@ void main()
         result = srcColor.rgb * cloudColor.a + cloudColor.rgb;
         if(fogColor.a >= 0.0f)
         {
-            result.rgb = result.rgb * fogColor.a + fogColor.rgb;
+            result.rgb = result.rgb * fogColor.a + max(vec3(0.0f), fogColor.rgb);
         }
     }
     else

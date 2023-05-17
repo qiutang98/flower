@@ -583,15 +583,15 @@ vec4 cloudColorCompute(
         scatteredLight = scatteredLight * (1.0 - airPerspective.a) + airPerspective.rgb * (1.0 - transmittance);
 
         // Height fog apply.
+        if(false)
         {
             float worldDistance = distance(rayHitInRender, frameData.camWorldPos.xyz);
 
-            float fogAmount = 1.0 - exp( -worldDistance * 0.001f * 0.001);
+            float fogAmount = 1.0 - exp( -worldDistance * 0.001f * 0.005);
             vec3  fogColor  = vec3(0.5,0.6,0.7);
 
-            // scatteredLight = scatteredLight * fogAmount + fogColor * (1.0 - transmittance);
+            scatteredLight = mix(scatteredLight, fogColor, fogAmount);
         }
-
     }
 
         // God ray for light.

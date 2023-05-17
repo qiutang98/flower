@@ -24,6 +24,8 @@ add_subdirectory("dependency/nativefiledialogs")
 add_subdirectory("dependency/entt")
 add_subdirectory("dependency/tinyexr")
 add_subdirectory("dependency/lz4/build/cmake")  
+
+SET(USE_MSVC_RUNTIME_LIBRARY_DLL ON CACHE BOOL "Use MSVC Runtime Library DLL (/MD or /MDd)" FORCE)
 add_subdirectory("dependency/bullet3")  
 
 SET(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
