@@ -58,7 +58,7 @@ void main()
     {
         // Composite planar cloud.
         
-
+            
 
         result = srcColor.rgb * cloudColor.a + cloudColor.rgb;
         if(fogColor.a >= 0.0f)
@@ -68,7 +68,27 @@ void main()
     }
     else
     {
+        
+#if 0
+        // fog overlay.
+        const float fogFalloff = 1.0f;
+        
+        const vec3 kBetaR = atmosphere.rayleighScattering; 
+        const vec3 kBetaM = atmosphere.mieScattering;
 
+
+        vec3 miePhaseValue = kBetaM * hgPhase(atmosphere.miePhaseG, -VoL);
+        vec3 rayleighPhaseValue = kBetaR * rayleighPhase(VoL);
+
+
+        vec3 fogColor = sunColor * (miePhaseValue + rayleighPhaseValue);
+        fogColor /= (kBetaR + kBetaM);
+
+
+        float opticalDepth = rayHitHeight * fogFalloff;
+        vec3 transmittanceFog = exp(-opticalDepth * (kBetaR + kBetaM));
+#endif
+        // scatteredLight = mix(fogColor, scatteredLight, transmittanceFog);
     }
 
 

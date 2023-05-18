@@ -28,7 +28,7 @@ SOURCE_GROUP_BY_FOLDER(flower)
 target_include_directories(flower PRIVATE 
 ${CEREAL_DIR} 
 ${PROJECT_SOURCE_DIR}/dependency/assimp/include
-${BULLET_INCLUDE_DIR}
+${BULLET_PHYSICS_SOURCE_DIR}/src
 )
  
 target_precompile_headers(flower PRIVATE

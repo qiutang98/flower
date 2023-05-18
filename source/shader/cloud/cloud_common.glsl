@@ -61,6 +61,7 @@ float getDensity(vec3 worldPosition, float distanceToCam)
 //////////////// Paramters ///////////////////////////
 
 
+
 // NOTE: 0 is fbm cloud.
 //       1 is model based cloud.
 // 1 is cute shape and easy get beautiful image.
@@ -556,6 +557,7 @@ vec4 cloudColorCompute(
 
 
     // Apply some additional effect.
+    if(rayHitPosWeight > 0.0f)
     {
         // Get average hit pos.
         rayHitPos /= rayHitPosWeight;
@@ -568,33 +570,26 @@ vec4 cloudColorCompute(
         float rayHitHeight = length(rayHitPos);
 
         // Apply air perspective.
-        float slice = aerialPerspectiveDepthToSlice(rayHitHeight);
-        float weight = 1.0;
-        if (slice < 0.5)
         {
-            // We multiply by weight to fade to 0 at depth 0. That works for luminance and opacity.
-            weight = saturate(slice * 2.0);
-            slice = 0.5;
+            float slice = aerialPerspectiveDepthToSlice(rayHitHeight);
+            float weight = 1.0;
+            if (slice < 0.5)
+            {
+                // We multiply by weight to fade to 0 at depth 0. That works for luminance and opacity.
+                weight = saturate(slice * 2.0);
+                slice = 0.5;
+            }
+            ivec3 sliceLutSize = textureSize(inFroxelScatter, 0);
+            float w = sqrt(slice / float(sliceLutSize.z));	// squared distribution
+
+            vec4 airPerspective = weight * texture(sampler3D(inFroxelScatter, linearClampEdgeSampler), vec3(uv, w));
+            scatteredLight = scatteredLight * (1.0 - airPerspective.a) + airPerspective.rgb * (1.0 - transmittance);
         }
-        ivec3 sliceLutSize = textureSize(inFroxelScatter, 0);
-        float w = sqrt(slice / float(sliceLutSize.z));	// squared distribution
 
-        vec4 airPerspective = weight * texture(sampler3D(inFroxelScatter, linearClampEdgeSampler), vec3(uv, w));
-        scatteredLight = scatteredLight * (1.0 - airPerspective.a) + airPerspective.rgb * (1.0 - transmittance);
 
-        // Height fog apply.
-        if(false)
-        {
-            float worldDistance = distance(rayHitInRender, frameData.camWorldPos.xyz);
-
-            float fogAmount = 1.0 - exp( -worldDistance * 0.001f * 0.005);
-            vec3  fogColor  = vec3(0.5,0.6,0.7);
-
-            scatteredLight = mix(scatteredLight, fogColor, fogAmount);
-        }
     }
 
-        // God ray for light.
+    // God ray for light.
     if(bFog)
     {
         const uint  kGodRaySteps = 36;
