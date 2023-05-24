@@ -75,7 +75,8 @@ namespace engine
         bool bEnableDepthBias,
         const std::vector<VkVertexInputAttributeDescription>& inputAttributes,
         uint32_t vertexStrip,
-        VkPolygonMode polygonMode)
+        VkPolygonMode polygonMode,
+        bool bZWrite)
     {
         auto vertShader = getContext()->getShaderCache().getShader(vertShaderPath, true);
         auto fragShader = getContext()->getShaderCache().getShader(fragShaderPath, true);
@@ -132,7 +133,7 @@ namespace engine
         rasterState.depthBiasEnable = bEnableDepthBias ? VK_TRUE : VK_FALSE;
         rasterState.depthClampEnable = bEnableDepthClamp ? VK_TRUE : VK_FALSE;
         auto multiSampleState = RHIMultisamplingStateCreateInfo();
-        auto depthStencilState = RHIDepthStencilCreateInfo(true, true, zTestComp);
+        auto depthStencilState = RHIDepthStencilCreateInfo(true, bZWrite, zTestComp);
 
         VkPipelineLayoutCreateInfo plci = RHIPipelineLayoutCreateInfo();
 

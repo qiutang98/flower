@@ -41,7 +41,7 @@ namespace engine
 	}
 
 
-
+	// All dynamic, no cache yet, I don't want to make the logic too complex, keep simple make life easy.
 	void RenderScene::renderObjectCollect(const RuntimeModuleTickData& tickData, Scene* scene, VkCommandBuffer cmd)
 	{
 		// Clear instances before collect.
@@ -52,6 +52,15 @@ namespace engine
 		scene->loopComponents<TerrainComponent>([&](std::shared_ptr<TerrainComponent> comp) -> bool
 		{
 			m_terrainComponents.push_back(comp);
+			return false;
+		});
+
+		// Collect all pmx mesh object.
+		m_collectPMXes.clear();
+		scene->loopComponents<PMXComponent>([&](std::shared_ptr<PMXComponent> comp) -> bool
+		{
+			comp->onRenderTick(tickData, cmd);
+			m_collectPMXes.push_back(comp);
 			return false;
 		});
 

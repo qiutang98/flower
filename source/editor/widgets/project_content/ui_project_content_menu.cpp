@@ -68,7 +68,13 @@ void ProjectContentWidget::drawMenu()
 
 		if (ImGui::Button((CONTENTVIEWR_SaveIcon).c_str()))
 		{
-
+			const auto& assets = m_editor->getAssetSelected();
+			for (const auto& assetPath : assets)
+			{
+				auto pathCopy = assetPath;
+				const auto relativePath = buildRelativePathUtf8(m_editor->getProjectRootPathUtf16(), pathCopy.replace_extension());
+				getAssetSystem()->getAssetByRelativeMap(relativePath)->saveAction();
+			}
 		}
 		hoverTip("Save select asset.");
 		ImGui::TableNextColumn();

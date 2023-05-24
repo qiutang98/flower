@@ -31,6 +31,7 @@ private:
 	bool m_bRun;
 
 	std::string m_nameUTF8;
+	std::shared_ptr<class engine::AssetInterface> m_asset;
 };
 
 class AssetConfigWidgetManager

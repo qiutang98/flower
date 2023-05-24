@@ -148,6 +148,7 @@ namespace saba
 		virtual const MMDSubMesh* GetSubMeshes() const = 0;
 
 		virtual MMDPhysics* GetMMDPhysics() = 0;
+		virtual std::vector<glm::vec3> getUpdatePositions() const { return {}; }
 
 		// ノードを初期化する
 		virtual void InitializeAnimation() = 0;

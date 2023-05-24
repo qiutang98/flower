@@ -125,7 +125,8 @@ namespace engine
 			bool bEnableDepthBias = false,
 			const std::vector<VkVertexInputAttributeDescription>& inputAttributes = {},
 			uint32_t vertexStrip = 0,
-			VkPolygonMode polygonMode = VK_POLYGON_MODE_FILL);
+			VkPolygonMode polygonMode = VK_POLYGON_MODE_FILL,
+			bool bZWrite = true);
 
 		virtual VkPipelineBindPoint getBindPoint() const { return VK_PIPELINE_BIND_POINT_GRAPHICS; }
 

@@ -29,7 +29,7 @@ static inline void prepareAssetConfigWindow()
 WidgetAssetConfig::WidgetAssetConfig(Editor* editor, AssetConfigWidgetManager* manager, const std::filesystem::path& path)
 	: m_editor(editor), m_manager(manager), m_bRun(true), m_nameUTF8(utf8::utf16to8(path.u16string()))
 {
-
+	m_asset = getAssetSystem()->getAssetByRelativeMap(m_nameUTF8);
 }
 
 WidgetAssetConfig::~WidgetAssetConfig() noexcept
@@ -42,14 +42,63 @@ void WidgetAssetConfig::tick(const RuntimeModuleTickData& tickData, VulkanContex
 
 	prepareAssetConfigWindow();
 
+	auto drawPMXConfig = [&]()
+	{
+		auto pmx = std::dynamic_pointer_cast<AssetPMX>(m_asset);
+
+		// Draw Materials.
+		for (size_t i = 0; i < pmx->m_materials.size(); i++)
+		{
+			ImGui::PushID(i);
+			auto mat = pmx->m_materials.at(i);
+			if (ImGui::TreeNode(mat.material.m_name.c_str()))
+			{
+				ImGui::TextDisabled("English Name: %s.", mat.material.m_enName.c_str());
+
+				VkDescriptorSet set = m_editor->getClampToTransparentBorderSet(&getContext()->getEngineTextureWhite()->getImage());
+
+				ImGui::TextDisabled("Basic texture: %s.", mat.material.m_texture.c_str());
+				if (!mat.material.m_texture.empty())
+				{
+					
+				}
+				ImGui::Image(set, { 80 , 80 });
+
+				ImGui::TextDisabled("Toon texture: %s.", mat.material.m_toonTexture.c_str());
+				if (mat.mmdToonTex != ~0)
+				{
+				}
+
+				ImGui::TextDisabled("Sp texture: %s.", mat.material.m_spTexture.c_str());
+				if (mat.mmdSphereTex != ~0)
+				{
+				}
+
+				ImGui::Checkbox("Translucent", &mat.bTranslucent);
+				ImGui::Checkbox("Hide", &mat.bHide);
+
+				ImGui::DragFloat("Pixel depth offset", &mat.pixelDepthOffset);
+
+				ImGui::TreePop();
+				ImGui::Separator();
+			}
+			ImGui::PopID();
+
+			if (mat != pmx->m_materials[i])
+			{
+				pmx->m_materials[i] = mat;
+				pmx->setDirty();
+			}
+		}
+	};
+
 	// Default window size set to 400x300
 	ImGui::SetNextWindowSize(ImVec2(800, 400), ImGuiCond_FirstUseEver);
 	if (ImGui::Begin(m_nameUTF8.c_str(), &m_bRun, ImGuiWindowFlags_NoSavedSettings))
 	{
 		ImGui::PushID(m_nameUTF8.c_str());
 		{
-
-
+			if (m_asset->getType() == EAssetType::PMX) { drawPMXConfig(); }
 		}
 		ImGui::PopID();
 	}

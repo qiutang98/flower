@@ -228,7 +228,7 @@ void main()
         shadowResult = mix(shadowResult, lerpShadowValue, cascadeFadeEdge);
     }
 
-#if 1
+#if 0
     // TODO: Hiz heightmap accelerate.
     // Ray cast in world space, and sample height map to know current pixel is occluded or not.
     const bool bShouldRayTraceTerrainShadow = shadowResult > 1e-3f;

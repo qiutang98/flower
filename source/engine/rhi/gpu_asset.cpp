@@ -141,10 +141,22 @@ namespace engine
 		cacheBin = std::make_unique<AssetTextureBin>();
 	}
 
-	std::shared_ptr<RawAssetTextureLoadTask> RawAssetTextureLoadTask::buildEngineTexture(
+	std::shared_ptr<RawAssetTextureLoadTask> RawAssetTextureLoadTask::buildTexture(
+		bool bEngineTex,
 		VulkanContext* context, const std::filesystem::path& path, const UUID& uuid, VkFormat format, bool bSRGB, bool bMipmap)
 	{
-		ASSERT(!context->isEngineAssetExist(uuid), "Persistent asset has exist, don't register repeatly.");
+		if (bEngineTex)
+		{
+			ASSERT(!context->isEngineAssetExist(uuid), "Persistent asset has exist, don't register repeatly.");
+		}
+		else
+		{
+			if (context->isLRUAssetExist(uuid))
+			{
+				return nullptr;
+			}
+		}
+
 
 		int32_t texWidth, texHeight, texChannels;
 		stbi_uc* pixels = stbi_load(path.string().c_str(), &texWidth, &texHeight, &texChannels, 4);
@@ -169,7 +181,7 @@ namespace engine
 
 		auto newAsset = std::make_shared<GPUImageAsset>(
 			context,
-			nullptr,
+			bEngineTex ? nullptr : context->getEngineTextureWhite().get(),
 			format,
 			path.stem().string(), 
 			mipmapCount,
@@ -178,7 +190,15 @@ namespace engine
 			1);
 
 		// New engine asset.
-		context->insertEngineAsset(uuid, newAsset);
+		if (bEngineTex)
+		{
+			context->insertEngineAsset(uuid, newAsset);
+		}
+		else
+		{
+			context->insertLRUAsset(uuid, newAsset);
+		}
+
 		newTask->imageAssetGPU = newAsset;
 
 		stbi_image_free(pixels);

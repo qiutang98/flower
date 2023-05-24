@@ -99,11 +99,9 @@ namespace engine
 		std::filesystem::path getSavePath() const;
 
 	protected:
-
-
 		virtual bool saveActionImpl() 
 		{
-			LOG_ERROR("Unimplement save path for asset type, fix me!");
+			LOG_WARN("Unimplement save path for asset type, fix me!");
 			return false; 
 		}
 
@@ -334,14 +332,14 @@ namespace engine
 	}
 
 	template<typename T>
-	inline bool saveAssetMeta(const T& in, const std::filesystem::path& savePath, const char* suffix)
+	inline bool saveAssetMeta(const T& in, const std::filesystem::path& savePath, const char* suffix, bool bRequireNoExist = true)
 	{
 		// See insertAsset in asset system.
 		static_assert(std::is_base_of_v<AssetInterface, T>, "T must derived from AssetInterface.");
 
 		// Exist one copy?
 		std::shared_ptr<AssetInterface> save = std::make_shared<T>(in);
-		return saveAsset(save, savePath, suffix);
+		return saveAsset(save, savePath, suffix, bRequireNoExist);
 	}
 }
 

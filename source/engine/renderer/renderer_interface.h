@@ -153,7 +153,18 @@ namespace engine
 			BufferParameterHandle perFrameGPU
 		);
 
+		void renderPMXGbuffer(
+			VkCommandBuffer cmd,
+			class GBufferTextures* inGBuffers,
+			class RenderScene* scene,
+			BufferParameterHandle perFrameGPU
+		);
 
+		void renderPMXTranslucent(
+			VkCommandBuffer cmd,
+			class GBufferTextures* inGBuffers,
+			class RenderScene* scene,
+			BufferParameterHandle perFrameGPU);
 
 		// Hzb - after prepass.
 		void renderHzb(

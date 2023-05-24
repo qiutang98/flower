@@ -61,6 +61,8 @@ namespace engine
 
 		renderTerrainGBuffer(graphicsCmd, &gbuffers, perFrameGPU, m_renderer->getScene());
 
+		renderPMXGbuffer(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU);
+
 		//
 		PoolImageSharedRef hzbClosest;
 		PoolImageSharedRef hzbFurthest;
@@ -102,7 +104,7 @@ namespace engine
 
 		renderSSSR(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, hzbClosest, ssaoBentNormal);
 
-
+		renderPMXTranslucent(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU);
 		renderFSR2(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, tickData);
 
 		adaptiveExposure(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, tickData);

@@ -167,6 +167,7 @@ namespace engine
 
 		// Basic setBuilder.
 		auto& terrains = scene->getTerrains();
+		auto& pmxes = scene->getPMXes();
 
 		PushSetBuilder setBuilder(cmd);
 		setBuilder
@@ -294,17 +295,6 @@ namespace engine
 
 				ScopeRenderCmdObject renderCmdScope(cmd, "SDSMShadowDepth", sdsmDepth->getImage(), {}, depthAttachment);
 
-				pass->depthPipe->bind(cmd);
-				staticMeshSetBuilder.push(pass->depthPipe.get());
-
-				pass->depthPipe->bindSet(cmd, std::vector<VkDescriptorSet>{
-					m_context->getBindlessSSBOSet()
-						, m_context->getBindlessSSBOSet()
-						, m_context->getBindlessTextureSet()
-						, m_context->getBindlessSamplerSet()
-				}, 1);
-
-
 				vkCmdSetDepthBias(cmd, gpuInfo.cacsadeConfig.shadowBiasConst, 0, gpuInfo.cacsadeConfig.shadowBiasSlope);
 				{
 					// Set depth bias for shadow depth rendering to avoid shadow artifact.
@@ -325,20 +315,40 @@ namespace engine
 						vkCmdSetScissor(cmd, 0, 1, &scissor);
 						vkCmdSetViewport(cmd, 0, 1, &viewport);
 
-						pushConst.cascadeId = cascadeIndex;
-						pass->depthPipe->pushConst(cmd, &pushConst);
+						{
+							pass->depthPipe->bind(cmd);
+							staticMeshSetBuilder.push(pass->depthPipe.get());
 
+							pass->depthPipe->bindSet(cmd, std::vector<VkDescriptorSet>{
+								m_context->getBindlessSSBOSet()
+									, m_context->getBindlessSSBOSet()
+									, m_context->getBindlessTextureSet()
+									, m_context->getBindlessSamplerSet()
+							}, 1);
 
-						vkCmdDrawIndirectCount(cmd,
-							indirectDrawCommandBuffer->getBuffer()->getVkBuffer(),
-							cascadeIndex * sizeof(GPUStaticMeshDrawCommand) * staticMeshCount,
-							indirectDrawCountBuffer->getBuffer()->getVkBuffer(),
-							cascadeIndex * sizeof(uint32_t),
-							staticMeshCount,
-							sizeof(GPUStaticMeshDrawCommand)
-						);
+							pushConst.cascadeId = cascadeIndex;
+							pass->depthPipe->pushConst(cmd, &pushConst);
 
-					#if 0
+							vkCmdDrawIndirectCount(cmd,
+								indirectDrawCommandBuffer->getBuffer()->getVkBuffer(),
+								cascadeIndex * sizeof(GPUStaticMeshDrawCommand)* staticMeshCount,
+								indirectDrawCountBuffer->getBuffer()->getVkBuffer(),
+								cascadeIndex * sizeof(uint32_t),
+								staticMeshCount,
+								sizeof(GPUStaticMeshDrawCommand)
+							);
+						}
+
+						for (auto& pmx : pmxes)
+						{
+							if (auto comp = pmx.lock())
+							{
+								comp->onRenderSDSMDepthCollect(
+									cmd, perFrameGPU, inGBuffers, scene, 
+									this, sdsmInfos, cascadeIndex);
+							}
+						}
+
 						// Also render all terrain depth here.
 						for (auto& terrain : terrains)
 						{
@@ -347,7 +357,6 @@ namespace engine
 								comp->renderSDSMDepth(cmd, perFrameGPU, inGBuffers, scene, this, sdsmInfos, cascadeIndex);
 							}
 						}
-					#endif
 					}
 				}
 			}

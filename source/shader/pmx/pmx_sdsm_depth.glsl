@@ -15,16 +15,13 @@ layout (set = 0, binding = 1) buffer SSBOCascadeInfoBuffer { CascadeInfo cascade
 #define SHARED_SAMPLER_SET 1
 #include "../common/shared_sampler.glsl"
 
-#define BLUE_NOISE_BUFFER_SET 2
-#include "../common/shared_bluenoise.glsl"
-
-layout (set = 3, binding = 0) uniform  texture2D texture2DBindlessArray[];
-layout (set = 4, binding = 0) uniform UniformPMXParam { UniformPMX pmxParam; };
+layout (set = 2, binding = 0) uniform  texture2D texture2DBindlessArray[];
 
 layout(push_constant) uniform PushConsts
 {   
+    mat4 modelMatrix;
+    uint colorTexId;
     uint cascadeId;
-    uint perCascadeMaxCount;
 };
 
 #ifdef VERTEX_SHADER ///////////// vertex shader start 
@@ -43,7 +40,7 @@ void main()
 
     // Local vertex position.
     const vec4 localPosition = vec4(inPosition, 1.0f);
-    const vec4 worldPosition = pmxParam.modelMatrix * localPosition;
+    const vec4 worldPosition = modelMatrix * localPosition;
 
     // Convert to clip space.
     gl_Position = cascadeInfos[cascadeId].viewProj * worldPosition;
@@ -65,7 +62,7 @@ layout(location = 0) out vec4 outColor;
 
 void main()
 {
-    vec4 baseColor = tex(pmxParam.texID, vsIn.uv0);
+    vec4 baseColor = tex(colorTexId, vsIn.uv0);
     if(baseColor.a < 0.01f)
     {
         // Clip very small mask.

@@ -16,10 +16,11 @@ namespace engine
 		uint32_t texId;
 		uint32_t spTexID;
 		uint32_t toonTexID;
-		uint32_t pmxObjectID;
+		uint32_t sceneNodeId;
 
 		float pixelDepthOffset;
 		float shadingModel;
+		uint32_t  bSelected;
 	};
 
 	struct PerFrameMMDCamera
@@ -37,33 +38,65 @@ namespace engine
 		std::vector<std::string> vmdPath;
 	};
 
-	class PMXDrawMaterial
+
+
+	class PMXMeshProxy
 	{
 	public:
-		// Runtime build info.
-		uint32_t mmdTex;
-		uint32_t mmdSphereTex;
-		uint32_t mmdToonTex;
-
-	public:
-		saba::MMDMaterial material;
-
-		bool     bTranslucent = false;
-		bool     bHide = false;
-		float    pixelDepthOffset = 0.0f;
-		EShadingModelType pmxShadingModel = EShadingModelType::StandardPBR;
-
-		auto operator<=>(const PMXDrawMaterial&) const = default;
-		template<class Archive> void serialize(Archive& archive, std::uint32_t const version)
+		struct Vertex
 		{
-			archive(material);
+			glm::vec3 position;
+			glm::vec3 normal;
+			glm::vec2 uv;
+			glm::vec3 positionLast;
+		};
 
-			archive(bTranslucent, bHide, pixelDepthOffset);
+		inline static const auto kInputAttris = std::vector<VkVertexInputAttributeDescription>
+		{
+			{ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 0 }, // pos
+			{ 1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 3 }, // normal
+			{ 2, 0, VK_FORMAT_R32G32_SFLOAT,    sizeof(float) * 6 }, // uv0
+			{ 3, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 8 }, // pos prev.
+		};
 
-			uint32_t pmxShadingModelValue = uint32_t(pmxShadingModel);
-			archive(pmxShadingModelValue);
-			pmxShadingModel = EShadingModelType(pmxShadingModelValue);
-		}
+		 PMXMeshProxy(const UUID& uuid);
+		~PMXMeshProxy();
+
+		bool isInit() const { return m_bInit; }
+
+
+		void onRenderCollect(
+			class RendererInterface* renderer,
+			VkCommandBuffer cmd,
+			VkPipelineLayout pipelinelayout,
+			const glm::mat4& modelMatrix,
+			const glm::mat4& modelMatrixPrev,
+			bool bTranslucentPass,
+			uint32_t sceneNodeId,
+			bool bSelected);
+
+		void updateVertex(VkCommandBuffer cmd);
+
+		void onRenderSDSMDepthCollect(
+			VkCommandBuffer cmd,
+			BufferParameterHandle perFrameGPU,
+			class GBufferTextures* inGBuffers,
+			class RenderScene* scene,
+			class RendererInterface* renderer,
+			struct SDSMInfos& sdsmInfo,
+			uint32_t cascadeId,
+			const glm::mat4& modelMatrix);
+
+	private:
+		bool m_bInit = false;
+
+		VkIndexType m_indexType;
+		std::unique_ptr<VulkanBuffer> m_indexBuffer  = nullptr;
+		std::unique_ptr<VulkanBuffer> m_vertexBuffer = nullptr;
+		std::unique_ptr<VulkanBuffer> m_stageBuffer  = nullptr;
+
+		std::unique_ptr<saba::MMDModel>	m_mmdModel = nullptr;
+		std::shared_ptr<class AssetPMX> m_pmxAsset = nullptr;
 	};
 
 	class PMXComponent : public Component
@@ -78,8 +111,32 @@ namespace engine
 
 		}
 
+		virtual void tick(const RuntimeModuleTickData& tickData) override;
+
 		const UUID& getPmxUUID() const { return m_pmxUUID; }
 		bool setPMX(const UUID& in);
+
+
+		void onRenderCollect(
+			class RendererInterface* renderer,
+			VkCommandBuffer cmd,
+			VkPipelineLayout pipelinelayout,
+			bool bTranslucentPass);
+
+
+		void onRenderSDSMDepthCollect(
+			VkCommandBuffer cmd,
+			BufferParameterHandle perFrameGPU,
+			class GBufferTextures* inGBuffers,
+			class RenderScene* scene,
+			class RendererInterface* renderer,
+			struct SDSMInfos& sdsmInfo,
+			uint32_t cascadeId);
+
+		void onRenderTick(const RuntimeModuleTickData& tickData, VkCommandBuffer cmd);
+
+	private:
+		std::unique_ptr<PMXMeshProxy> m_proxy = nullptr;
 
 	public:
 		ARCHIVE_DECLARE;

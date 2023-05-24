@@ -503,7 +503,8 @@ namespace engine
             { 255, 255, 0, 0 }
         ));
 
-        m_uploader->addTask(RawAssetTextureLoadTask::buildEngineTexture(
+        m_uploader->addTask(RawAssetTextureLoadTask::buildTexture(
+            true,
             this,
             "./image/T_WeatherTexture.tga",
             getBuiltEngineAssetUUID(EBuiltinEngineAsset::Texture_CloudWeather),
@@ -511,14 +512,16 @@ namespace engine
             false
         ));
 
-        m_uploader->addTask(RawAssetTextureLoadTask::buildEngineTexture(
+        m_uploader->addTask(RawAssetTextureLoadTask::buildTexture(
+            true,
             this,
             "./image/T_CurlNoise.png",
             getBuiltEngineAssetUUID(EBuiltinEngineAsset::Texture_CurlNoise),
             VK_FORMAT_R8G8B8A8_UNORM,
             false
         ));
-        m_uploader->addTask(RawAssetTextureLoadTask::buildEngineTexture(
+        m_uploader->addTask(RawAssetTextureLoadTask::buildTexture(
+            true,
             this,
             "./image/T_Noise.png",
             getBuiltEngineAssetUUID(EBuiltinEngineAsset::Texture_Noise),

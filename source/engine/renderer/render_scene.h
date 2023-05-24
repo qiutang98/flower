@@ -39,6 +39,8 @@ namespace engine
         bool isTerrainExist() const { return !m_terrainComponents.empty(); }
         auto& getTerrains() { return m_terrainComponents; }
 
+        bool isPMXExist() const { return !m_collectPMXes.empty(); }
+        auto& getPMXes() { return m_collectPMXes; }
     private:
         void renderObjectCollect(const RuntimeModuleTickData& tickData, class Scene* scene, VkCommandBuffer cmd);
 
@@ -67,5 +69,8 @@ namespace engine
         std::unique_ptr<TLASBuilderRing> m_tlasRing;
 
         std::vector<std::weak_ptr<TerrainComponent>> m_terrainComponents;
+
+        // PMX collect components.
+        std::vector<std::weak_ptr<PMXComponent>> m_collectPMXes;
     };
 }

@@ -70,11 +70,20 @@ namespace engine
 			RHICommandBufferBase& commandBuffer, 
 			VulkanBuffer& stageBuffer) override;
 
-		// Build load task from file path for engine.
-		static std::shared_ptr<RawAssetTextureLoadTask> buildEngineTexture(
+		// Build load task from file path.
+		static std::shared_ptr<RawAssetTextureLoadTask> buildTexture(
+			bool bEngineTex,
 			VulkanContext* context, 
 			const std::filesystem::path& path, 
 			const UUID& uuid, 
+			VkFormat format,
+			bool bSRGB,
+			bool bMipmap = false);
+
+		static std::shared_ptr<RawAssetTextureLoadTask> buildAssetTexture(
+			VulkanContext* context,
+			const std::filesystem::path& path,
+			const UUID& uuid,
 			VkFormat format,
 			bool bSRGB,
 			bool bMipmap = false);

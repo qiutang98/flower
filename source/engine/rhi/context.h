@@ -183,6 +183,7 @@ namespace engine
 
 		static UUID getBuiltEngineAssetUUID(EBuiltinEngineAsset type);
 		bool isEngineAssetExist(const UUID& uuid) { return m_engineAssets.contains(uuid); }
+		bool isLRUAssetExist(const UUID& uuid) { return m_lru->contain(uuid); }
 		void insertEngineAsset(const UUID& uuid, std::shared_ptr<LRUAssetInterface> asset);
 		void insertLRUAsset(const UUID& uuid, std::shared_ptr<LRUAssetInterface> asset);
 		enum class EContextState

@@ -112,6 +112,19 @@ void main()
     // Z fighting avoid, use pixel depth export, will break out early z function. TODO: Use static macro to change is performance better.
     gl_FragDepth = gl_FragCoord.z + gl_FragCoord.z * pmxParam.pixelDepthOffset * intervalNoise;
 
+
+    // Select mask, don't need z test.
+    if(pmxParam.bSelected != 0)
+    {
+        vec3 projPosUnjitter = vsIn.posNDCCurNoJitter.xyz / vsIn.posNDCCurNoJitter.w;
+
+        projPosUnjitter.xy = 0.5 * projPosUnjitter.xy + 0.5;
+        projPosUnjitter.y  = 1.0 - projPosUnjitter.y;
+
+        ivec2 storeMaskPos = ivec2(projPosUnjitter.xy * imageSize(outSelectionMask));
+        imageStore(outSelectionMask, storeMaskPos, vec4(1.0));
+    }
+
 }
 
 #endif //////////////////////////// pixel shader end

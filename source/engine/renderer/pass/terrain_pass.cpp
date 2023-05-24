@@ -148,7 +148,7 @@ namespace engine
                 std::vector<VkPipelineColorBlendAttachmentState>{ },
                 GBufferTextures::depthTextureFormat(),
                 VK_CULL_MODE_FRONT_BIT,
-                VK_COMPARE_OP_GREATER, false, false,
+                VK_COMPARE_OP_GREATER, true, true,
                 std::vector<VkVertexInputAttributeDescription>
                 {
                     { 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 }, // i_VertexPos

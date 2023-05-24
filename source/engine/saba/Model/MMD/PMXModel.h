@@ -103,6 +103,8 @@ namespace saba
 
 		MMDPhysics* GetMMDPhysics() override { return m_physicsMan.GetMMDPhysics(); }
 
+		virtual std::vector<glm::vec3> getUpdatePositions() const override { return m_updatePositions; }
+
 		void InitializeAnimation() override;
 		// アニメーションの前後で呼ぶ (VMDアニメーションの前後)
 		void BeginAnimation() override;
