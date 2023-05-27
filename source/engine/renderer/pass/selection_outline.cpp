@@ -22,9 +22,10 @@ namespace engine
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0) // inColor
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1) // inId
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 2) // inId
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 3)
                 .buildNoInfoPush(setLayout);
 
-            pipe = std::make_unique<ComputePipeResources>("shader/selection_outline.comp.spv", 0, std::vector<VkDescriptorSetLayout>{ setLayout });
+            pipe = std::make_unique<ComputePipeResources>("shader/selection_outline.comp.spv", 0, std::vector<VkDescriptorSetLayout>{ setLayout, getContext()->getSamplerCache().getCommonDescriptorSetLayout() });
         }
 
         virtual void release() override
@@ -34,7 +35,7 @@ namespace engine
     };
 
 
-    void RendererInterface::renderSelectionOutline(VkCommandBuffer cmd, GBufferTextures* inGBuffers)
+    void RendererInterface::renderSelectionOutline(VkCommandBuffer cmd, GBufferTextures* inGBuffers, BufferParameterHandle perFrameGPU)
     {
         if (Editor::get()->getSceneNodeSelections().getNum() == 0)
         {
@@ -60,7 +61,10 @@ namespace engine
                 .addUAV(ldrSceneColor)
                 .addSRV(selectionOutlineMask)
                 .addSRV(idTexture)
+                .addBuffer(perFrameGPU)
                 .push(pass->pipe.get());
+
+            pass->pipe->bindSet(cmd, std::vector<VkDescriptorSet>{ getContext()->getSamplerCache().getCommonDescriptorSet() }, 1);
 
             vkCmdDispatch(cmd, getGroupCount(ldrSceneColor.getExtent().width, 8), getGroupCount(ldrSceneColor.getExtent().height, 8), 1);
 

@@ -36,7 +36,7 @@ namespace engine
 
 		// return camera fov y.
 		float getFovY() const { return m_fovy; }
-
+		void setFovY(float v) { m_fovy = v; }
 		// return camera z near plane.
 		float getZNear() const { return m_zNear; }
 

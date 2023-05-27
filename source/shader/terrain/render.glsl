@@ -59,7 +59,7 @@ void main()
 {
     float filterSize = 1.0f / float(textureSize(inHeightmap, 0).x);
 
-    vec4 terrainMask = texture(sampler2D(texture2DBindlessArray[nonuniformEXT(dynamicData.maskTexId)], linearClampEdgeMipFilterSampler), vsIn.uv);
+    vec4 terrainMask = texture(sampler2D(texture2DBindlessArray[nonuniformEXT(dynamicData.maskTexId)], linearClampEdgeMipFilterSampler), vsIn.uv, frameData.basicTextureLODBias);
 
     float sx0 = textureLod(sampler2D(inHeightmap, linearClampEdgeSampler), vsIn.uv - vec2(filterSize, 0.0), 0.0).r;
     float sx1 = textureLod(sampler2D(inHeightmap, linearClampEdgeSampler), vsIn.uv + vec2(filterSize, 0.0), 0.0).r;

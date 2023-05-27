@@ -50,14 +50,11 @@ namespace engine
 		{
 			const int32_t jitterPhaseCount = ffxFsr2GetJitterPhaseCount(m_renderWidth, m_displayWidth);
 			ffxFsr2GetJitterOffset(&perframe.jitterData.x, &perframe.jitterData.y, m_tickCount, jitterPhaseCount);
-
-			perframe.jitterData.x = 2.0f * perframe.jitterData.x / (float)m_renderWidth;
-			perframe.jitterData.y = -2.0f * perframe.jitterData.y / (float)m_renderHeight;
 			perframe.jitterPeriod = jitterPhaseCount;
 		}
 
 		perframe.sky = m_renderer->getScene()->getSkyGPU();
-
+		perframe.basicTextureLODBias = math::log2((float)m_renderWidth / (float)m_displayWidth) - 1.0f;
 		m_camera->fillPerframe(perframe);
 
 		// Update prev cam infos.
@@ -67,14 +64,20 @@ namespace engine
 			perframe.camViewProjPrevNoJitter = m_cacheGPUPerFrameData.camViewProjNoJitter;
 		}
 
+		perframe.renderWidth = m_renderWidth;
+		perframe.renderHeight = m_renderHeight;
+		perframe.displayWidth = m_displayWidth;
+		perframe.displayHeight = m_displayHeight;
+
 		perframe.camInvertView = math::inverse(perframe.camView);
 		perframe.camViewProjNoJitter = perframe.camProjNoJitter * perframe.camView;
 		perframe.camInvertProjNoJitter = math::inverse(perframe.camProjNoJitter);
 		perframe.camInvertViewProjNoJitter = math::inverse(perframe.camViewProjNoJitter);
 		{
 			glm::mat4 curJitterMatrix = glm::mat4(1.0f);
-			curJitterMatrix[3][0] += m_cacheGPUPerFrameData.jitterData.x;
-			curJitterMatrix[3][1] += m_cacheGPUPerFrameData.jitterData.y;
+
+			curJitterMatrix[3][0] +=  2.0f * perframe.jitterData.x / (float)m_renderWidth;
+			curJitterMatrix[3][1] += -2.0f * perframe.jitterData.y / (float)m_renderHeight;
 
 			perframe.camViewProj = curJitterMatrix * perframe.camViewProjNoJitter;
 			perframe.camProj = curJitterMatrix * perframe.camProjNoJitter;

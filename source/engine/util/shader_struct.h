@@ -307,6 +307,11 @@ namespace engine
         float fixExposure;
         uint32_t bAutoExposure;
 
+        float renderWidth;
+        float renderHeight;
+        float displayWidth;
+        float displayHeight;
+
         GPUSkyInfo sky;
     };
     static_assert(sizeof(GPUPerFrameData) % (4 * sizeof(float)) == 0);

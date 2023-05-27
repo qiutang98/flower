@@ -7,14 +7,17 @@
 layout (set = 0, binding = 0) buffer SSBOPickId { uint pickSceneNodeId; };
 layout (set = 0, binding = 1) uniform utexture2D inSceneNodeIdTexture; 
 
+#define SHARED_SAMPLER_SET 1
+#include "common/shared_sampler.glsl"
+
 layout(push_constant) uniform PushConsts
 {   
-    ivec2 pickPos;
+    vec2 pickUv;
 };
 
 void main()
 {
-    uint loadId = texelFetch(inSceneNodeIdTexture, pickPos, 0).r;
+    uint loadId = texture(usampler2D(inSceneNodeIdTexture, pointClampEdgeSampler), pickUv).r;
 
     pickSceneNodeId = unpackToSceneNodeId(loadId);
 }

@@ -56,6 +56,8 @@ namespace engine
 	public:
 		const GPUPerFrameData& getFrameData() const { return m_cacheGPUPerFrameData; }
 		void setCameraCut();
+
+		float getRenderPercentage() const { return m_renderScale; }
 	protected:
 		// Renderer name.
 		std::string m_name;
@@ -77,7 +79,7 @@ namespace engine
 		uint32_t m_nativeHeight = kMinRenderDim;
 
 		// Render dim before upscaling.
-		float m_renderScale = 1.0f;
+		float m_renderScale = 1.0f / 1.5f;
 		uint32_t m_renderWidth = kMinRenderDim;
 		uint32_t m_renderHeight = kMinRenderDim;
 
@@ -269,7 +271,8 @@ namespace engine
 
 		void renderSelectionOutline(
 			VkCommandBuffer cmd,
-			class GBufferTextures* inGBuffers);
+			class GBufferTextures* inGBuffers,
+			BufferParameterHandle perFrameGPU);
 
 		void renderGrid(
 			VkCommandBuffer cmd,

@@ -7,7 +7,7 @@ namespace engine
 {
     struct PickPushComposite
     {
-        glm::ivec2 pickPos;
+        glm::vec2 pickUv;
     };
 
     class PickPass : public PassInterface
@@ -25,7 +25,7 @@ namespace engine
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1) // inIdTexture
                 .buildNoInfoPush(setLayout);
 
-            pipe = std::make_unique<ComputePipeResources>("shader/pick.comp.spv", (uint32_t)sizeof(PickPushComposite), std::vector<VkDescriptorSetLayout>{ setLayout });
+            pipe = std::make_unique<ComputePipeResources>("shader/pick.comp.spv", (uint32_t)sizeof(PickPushComposite), std::vector<VkDescriptorSetLayout>{ setLayout, getContext()->getSamplerCache().getCommonDescriptorSetLayout() });
         }
 
         virtual void release() override
@@ -81,7 +81,7 @@ namespace engine
 
             PickPushComposite compositePush
             {
-                .pickPos = m_pickPosCurrentFrame,
+                .pickUv = { (m_pickPosCurrentFrame.x + 0.5f) / m_displayWidth, (m_pickPosCurrentFrame.y + 0.5f) / m_displayHeight},
             }; 
 
             auto idBuffer = m_context->getBufferParameters().getParameter("IdBuffer", sizeof(uint32_t), 
@@ -97,6 +97,8 @@ namespace engine
                 .addBuffer(idBuffer)
                 .addSRV(idTexture)
                 .push(pass->pipe.get());
+
+            pass->pipe->bindSet(cmd, std::vector<VkDescriptorSet>{ getContext()->getSamplerCache().getCommonDescriptorSet() }, 1);
 
             vkCmdDispatch(cmd, 1, 1, 1);
 

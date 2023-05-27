@@ -33,7 +33,8 @@ namespace engine
                 "shader/grid.frag.spv",
                 std::vector<VkDescriptorSetLayout>
                 {
-                    setLayout
+                    setLayout,
+                    getContext()->getSamplerCache().getCommonDescriptorSetLayout(),
                 },
                 0,
                 std::vector<VkFormat>
@@ -72,13 +73,19 @@ namespace engine
 
         auto* pass = m_context->getPasses().get<GridPass>();
         {
-            ScopeRenderCmdObject renderCmdScope(cmd, "Grid", sceneDepthZ, colorAttachments, {});
+            ScopeRenderCmdObject renderCmdScope(cmd, "Grid", sceneColor, colorAttachments, {});
 
             pass->pipe->bind(cmd);
             PushSetBuilder(cmd)
                 .addBuffer(perFrameGPU)
                 .addSRV(sceneDepthZ, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT))
                 .push(pass->pipe.get());
+
+
+            pass->pipe->bindSet(cmd,
+                std::vector<VkDescriptorSet>{
+                getContext()->getSamplerCache().getCommonDescriptorSet(),
+            }, 1);
 
             vkCmdDraw(cmd, 6, 1, 0, 0);
 

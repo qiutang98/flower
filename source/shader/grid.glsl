@@ -20,6 +20,9 @@ vec3 kNdcPoints[6] = vec3[](
 layout (set = 0, binding = 0) uniform UniformFrameData { PerFrameData frameData; };
 layout (set = 0, binding = 1) uniform  texture2D inDepth;
 
+#define SHARED_SAMPLER_SET 1
+#include "common/shared_sampler.glsl"
+
 #ifdef VERTEX_SHADER ///////////// vertex shader start 
 
 layout(location = 0) out vec3 nearPoint; 
@@ -136,7 +139,10 @@ float computeDepth(vec3 pos)
 vec4 getColor(vec3 fragPos3D, float t)
 {
     float deviceZ = computeDepth(fragPos3D);
-    float sceneZ = texelFetch(inDepth, ivec2(gl_FragCoord.xy), 0).r;
+
+    vec2 uv = vec2(gl_FragCoord.xy) / vec2(frameData.displayWidth, frameData.displayHeight);
+
+    float sceneZ = texture(sampler2D(inDepth, pointClampEdgeSampler), uv).r;
 
     float linearDepth = linearizeDepth(deviceZ, frameData);
     float fading = exp2(-linearDepth * 0.05);

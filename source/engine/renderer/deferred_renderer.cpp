@@ -105,14 +105,14 @@ namespace engine
 		renderSSSR(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, hzbClosest, ssaoBentNormal);
 
 		renderPMXTranslucent(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU);
-		renderFSR2(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, tickData);
 
 		adaptiveExposure(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, tickData);
 
+		renderFSR2(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, tickData);
 		auto bloomTex = renderBloom(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU);
 
 		renderTonemapper(graphicsCmd, &gbuffers, perFrameGPU, m_renderer->getScene(), bloomTex);
-		renderSelectionOutline(graphicsCmd, &gbuffers);
+		renderSelectionOutline(graphicsCmd, &gbuffers, perFrameGPU);
 		renderGrid(graphicsCmd, &gbuffers, perFrameGPU);
 
 		getPickPixelObject(graphicsCmd, &gbuffers);

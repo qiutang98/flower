@@ -53,7 +53,7 @@ void main()
 vec4 tex(uint texId, vec2 uv)
 {
     // PMX file use linear repeat to sample texture.
-    return texture(sampler2D(texture2DBindlessArray[nonuniformEXT(texId)], linearRepeatSampler), uv);
+    return texture(sampler2D(texture2DBindlessArray[nonuniformEXT(texId)], linearRepeatSampler), uv, frameData.basicTextureLODBias);
 }
 
 layout(location = 0) in VS2PS vsIn;

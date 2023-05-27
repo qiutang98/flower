@@ -91,7 +91,6 @@ namespace engine
 			m_initializationParameters.flags |= FFX_FSR2_ENABLE_DEPTH_INVERTED;
 		}
 
-		if (hdr)
 		{
 			m_initializationParameters.flags |= FFX_FSR2_ENABLE_HIGH_DYNAMIC_RANGE;
 		}
@@ -314,10 +313,10 @@ namespace engine
 			config.jitterY = m_cacheGPUPerFrameData.jitterData.y;
 			config.renderWidth = m_renderWidth;
 			config.renderHeight = m_renderHeight;
-			config.nearPlane = m_cacheGPUPerFrameData.camInfo.z;
+			config.nearPlane = m_cacheGPUPerFrameData.camInfo.z;  // We revert z.
 			config.farPlane = m_cacheGPUPerFrameData.camInfo.w;
 			config.fovV = m_cacheGPUPerFrameData.camInfo.x;
-			config.deltaTime = tickData.deltaTime;
+			config.deltaTime = tickData.deltaTime * 1000.0f; // second -> ms.
 
 			bool bForceCameraCut = false;
 			CVarCmdHandle(cVarFSRReset, [&]() { bForceCameraCut = true; });
@@ -347,11 +346,7 @@ namespace engine
 
 			// Translucency composition mask.
 			config.bCompositionMask = true;
-
-
-
-			// Test?
-			config.lodTextureBasicBias = 0.0f;
+			config.lodTextureBasicBias = m_cacheGPUPerFrameData.basicTextureLODBias;
 		}
 
 		ScopePerframeMarker marker(cmd, "FSR2.1", { 1.0f, 0.0f, 0.0f, 1.0f });

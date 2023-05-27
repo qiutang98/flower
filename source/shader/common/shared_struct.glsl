@@ -188,6 +188,11 @@ struct PerFrameData
     float fixExposure;
     uint bAutoExposure;
 
+    float renderWidth;
+    float renderHeight;
+    float displayWidth;
+    float displayHeight;
+
     SkyInfo sky;
 };
 

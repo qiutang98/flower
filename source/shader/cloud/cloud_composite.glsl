@@ -57,14 +57,29 @@ void main()
     if(sceneZ <= 0.0f) // reverse z.
     {
         // Composite planar cloud.
-        
-            
 
-        result = srcColor.rgb * cloudColor.a + cloudColor.rgb;
-        if(fogColor.a >= 0.0f)
+        if(any(isnan(cloudColor)) || any(isinf(cloudColor)))
         {
-            result.rgb = result.rgb * fogColor.a + max(vec3(0.0f), fogColor.rgb);
+
         }
+        else
+        {
+            result = srcColor.rgb * cloudColor.a + cloudColor.rgb;
+        }
+
+        if(any(isnan(cloudColor)) || any(isinf(cloudColor)))
+        {
+
+        }
+        else
+        {
+            if(fogColor.a >= 0.0f)
+            {
+                result.rgb = result.rgb * fogColor.a + max(vec3(0.0f), fogColor.rgb);
+            }
+        }
+
+
     }
     else
     {
