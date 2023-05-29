@@ -220,8 +220,8 @@ void ViewportWidget::onVisibleTick(const engine::RuntimeModuleTickData& tickData
 	ImGui::NewLine();
 	ImVec2 toolIconPos = ImGui::GetCursorPos();
 	ImGui::GetWindowDrawList()->AddRectFilled(
-		{ maxPos.x - 75.0f, toolIconPos.y + 50.0f },
-		{ maxPos.x -  5.0f, toolIconPos.y + 105.0f },
+		{ maxPos.x - 75.0f, toolIconPos.y + 50.00f },
+		{ maxPos.x - 5.00f, toolIconPos.y + 105.0f },
 		IM_COL32(0, 0, 0, 139), 2.0f);
 
 	ImGui::SetCursorPos({ maxPos.x - 70.0f, toolIconPos.y });
