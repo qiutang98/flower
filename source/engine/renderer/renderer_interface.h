@@ -185,12 +185,14 @@ namespace engine
 			BufferParameterHandle perFrameGPU,
 			PoolImageSharedRef inHiz);
 
-		void renderVolumetricCloud(
+		BufferParameterHandle renderVolumetricCloud(
 			VkCommandBuffer cmd,
 			class GBufferTextures* inGBuffers,
 			class RenderScene* scene,
 			BufferParameterHandle perFrameGPU,
-			AtmosphereTextures& inAtmosphere);
+			AtmosphereTextures& inAtmosphere,
+			SDSMInfos& sdsmInfo,
+			PoolImageSharedRef hiz);
 
 
 		void renderSSSR(
@@ -267,7 +269,8 @@ namespace engine
 			class GBufferTextures* inGBuffers,
 			BufferParameterHandle perFrameGPU,
 			class RenderScene* scene,
-			PoolImageSharedRef bloomTex);
+			PoolImageSharedRef bloomTex,
+			BufferParameterHandle lens);
 
 		void renderSelectionOutline(
 			VkCommandBuffer cmd,

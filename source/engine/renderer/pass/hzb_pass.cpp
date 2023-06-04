@@ -130,6 +130,9 @@ namespace engine
                     vkCmdDispatch(cmd, getGroupCount(loopWidth, 8), getGroupCount(loopHeight, 8), 1);
                 }
             }
+
+            hizMipChainCloest->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            hizMipChainFurthest->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
             m_gpuTimer.getTimeStamp(cmd, "Hzbuild");
         }
 

@@ -21,6 +21,15 @@ vec3 drawSun(vec3 rayDir, vec3 sunDir)
     return vec3(0.0);
 }
 
+float getDensity2(float heightMeter)
+{
+    const float fogHeight = 0.0f;
+    const float fogConst = 0.001f;
+
+    return getDensity(heightMeter)
+     + exp(-(frameData.camWorldPos.y - fogHeight) * 0.001) * 0.001 * 0.001 * 100.0 + fogConst;
+}
+
 
 
 layout (local_size_x = 8, local_size_y = 8) in;
@@ -54,57 +63,137 @@ void main()
     cloudDepth = max(1e-5f, cloudDepth); // very far cloud may be negative, use small value is enough.
 
     vec3 result = srcColor.rgb;
+
     if(sceneZ <= 0.0f) // reverse z.
     {
         // Composite planar cloud.
 
-        if(any(isnan(cloudColor)) || any(isinf(cloudColor)))
+        result = srcColor.rgb * cloudColor.a + cloudColor.rgb;  
+
+        if(fogColor.a >= 0.0f)
         {
-
+            result.rgb = result.rgb * fogColor.a + max(vec3(0.0f), fogColor.rgb);
         }
-        else
-        {
-            result = srcColor.rgb * cloudColor.a + cloudColor.rgb;
-        }
-
-        if(any(isnan(cloudColor)) || any(isinf(cloudColor)))
-        {
-
-        }
-        else
-        {
-            if(fogColor.a >= 0.0f)
-            {
-                result.rgb = result.rgb * fogColor.a + max(vec3(0.0f), fogColor.rgb);
-            }
-        }
-
-
     }
     else
     {
+        const uint  kGodRaySteps = 64;
+        const float kMaxMarchingDistance = 400.0f;
+
+        // We are revert z.
+        vec4 clipSpace = vec4(uv.x * 2.0f - 1.0f, 1.0f - uv.y * 2.0f, 0.0, 1.0);
+        vec4 viewPosH = frameData.camInvertProj * clipSpace;
+        vec3 viewSpaceDir = viewPosH.xyz / viewPosH.w;
+        vec3 worldDir = normalize((frameData.camInvertView * vec4(viewSpaceDir, 0.0)).xyz);
+
+
+        AtmosphereParameters atmosphere = getAtmosphereParameters(frameData);
+        const SkyInfo sky = frameData.sky;
+        vec3 worldPosWP      = getWorldPos(uv, sceneZ, frameData);
+        vec3 pixelToCameraWP = frameData.camWorldPos.xyz - worldPosWP;
+
+        float pixelToCameraDistanceWP = max(1e-5f, length(pixelToCameraWP));
+        vec3 rayDirWP = pixelToCameraWP / pixelToCameraDistanceWP;
+
+        float marchingDistance = min(kMaxMarchingDistance, pixelToCameraDistanceWP);
+        if(pixelToCameraDistanceWP > kMaxMarchingDistance)
+        {
+            worldPosWP = frameData.camWorldPos.xyz - rayDirWP * marchingDistance;
+        }
+
+        vec3 sunDirection = -normalize(frameData.sky.direction);
+        float VoL = dot(worldDir, sunDirection);
         
-#if 0
-        // fog overlay.
-        const float fogFalloff = 1.0f;
-        
-        const vec3 kBetaR = atmosphere.rayleighScattering; 
-        const vec3 kBetaM = atmosphere.mieScattering;
+        float stepLength = marchingDistance / float(kGodRaySteps);
+        vec3 stepRay = rayDirWP * stepLength;
+    
+        // Interval noise is better than blue noise here.
+        float taaOffset = interleavedGradientNoise(workPos, frameData.frameIndex.x % frameData.jitterPeriod);
+
+        vec3 rayPosWP = worldPosWP + stepRay * (taaOffset + 0.05);
+
+        float transmittance2  = 1.0;
+        vec3 scatteredLight2 = vec3(0.0, 0.0, 0.0);
+
+        float miePhaseValue = hgPhase(atmosphere.miePhaseG, -VoL);
+        float rayleighPhaseValue = rayleighPhase(VoL);
+        vec3 sunColor = frameData.sky.color * frameData.sky.intensity;
+        vec3 groundToCloudTransfertIsoScatter =  texture(samplerCube(inSkyIrradiance, linearClampEdgeSampler), vec3(0, 1, 0)).rgb;
+
+        for(uint i = 0; i < kGodRaySteps; i ++)
+        {
+            float visibilityTerm = 1.0;
+            {
+                // First find active cascade.
+                uint activeCascadeId = 0;
+                vec3 shadowCoord;
+
+                // Loop to find suitable cascade.
+                for(uint cascadeId = 0; cascadeId < sky.cacsadeConfig.cascadeCount; cascadeId ++)
+                {
+                    shadowCoord = projectPos(rayPosWP, cascadeInfos[cascadeId].viewProj);
+                    if(onRange(shadowCoord.xyz, vec3(sky.cacsadeConfig.cascadeBorderAdopt), vec3(1.0f - sky.cacsadeConfig.cascadeBorderAdopt)))
+                    {
+                        break;
+                    }
+                    activeCascadeId ++;
+                }
+
+                if(activeCascadeId < sky.cacsadeConfig.cascadeCount)
+                {
+                    const float perCascadeOffsetUV = 1.0f / sky.cacsadeConfig.cascadeCount;
+                    const float shadowTexelSize = 1.0f / float(sky.cacsadeConfig.percascadeDimXY);
+
+                    // Main cascsade shadow compute.
+                    {
+                        vec3 shadowPosOnAltas = shadowCoord;
+                        
+                        // Also add altas bias and z bias.
+                        shadowPosOnAltas.x = (shadowPosOnAltas.x + float(activeCascadeId)) * perCascadeOffsetUV;
+                        shadowPosOnAltas.z += 0.001 * (activeCascadeId + 1.0);
+
+                        float depthShadow = texture(sampler2D(inSDSMShadowDepth, pointClampEdgeSampler), shadowPosOnAltas.xy).r;
+                        visibilityTerm = shadowPosOnAltas.z > depthShadow ? 1.0 : 0.0;
+                    }
+                }
+
+            }
+
+            // Second evaluate transmittance due to participating media
+            vec3 atmosphereTransmittance;
+            {
+                vec3 P0 = rayPosWP * 0.001 + vec3(0.0, atmosphere.bottomRadius, 0.0); // meter -> kilometers.
+                float viewHeight = length(P0);
+                const vec3 upVector = P0 / viewHeight;
+
+                float viewZenithCosAngle = dot(sunDirection, upVector);
+                vec2 sampleUv;
+                lutTransmittanceParamsToUv(atmosphere, viewHeight, viewZenithCosAngle, sampleUv);
+                atmosphereTransmittance = texture(sampler2D(inTransmittanceLut, linearClampEdgeSampler), sampleUv).rgb;
+            }
+
+            float density = getDensity2(pixelToCameraWP.y);
+
+            float sigmaS = density;
+            float sigmaE = max(sigmaS, 1e-8f);
 
 
-        vec3 miePhaseValue = kBetaM * hgPhase(atmosphere.miePhaseG, -VoL);
-        vec3 rayleighPhaseValue = kBetaR * rayleighPhase(VoL);
+            vec3 phaseTimesScattering = vec3(miePhaseValue + rayleighPhaseValue);
+            vec3 sunSkyLuminance = groundToCloudTransfertIsoScatter + visibilityTerm * sunColor * phaseTimesScattering * atmosphereTransmittance;
 
+            vec3 sactterLitStep = sunSkyLuminance * sigmaS;
 
-        vec3 fogColor = sunColor * (miePhaseValue + rayleighPhaseValue);
-        fogColor /= (kBetaR + kBetaM);
+            float stepTransmittance = exp(-sigmaE * stepLength);
+            scatteredLight2 += transmittance2 * (sactterLitStep - sactterLitStep * stepTransmittance) / sigmaE; 
+            transmittance2 *= stepTransmittance;
 
+            // Step.
+            rayPosWP += stepRay;
+        }
 
-        float opticalDepth = rayHitHeight * fogFalloff;
-        vec3 transmittanceFog = exp(-opticalDepth * (kBetaR + kBetaM));
-#endif
-        // scatteredLight = mix(fogColor, scatteredLight, transmittanceFog);
+        result.rgb = result.rgb * transmittance2 + scatteredLight2;
     }
+
 
 
 

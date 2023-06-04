@@ -73,7 +73,7 @@ namespace engine
 
 
 
-		auto ssaoBentNormal = renderSSGI(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, hzbClosest);
+		auto ssaoBentNormal = renderSSGI(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, hzbFurthest);
 
 		SDSMInfos sdsmInfos{};
 		renderSDSM(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, sdsmInfos);
@@ -98,9 +98,7 @@ namespace engine
 			ssaoBentNormal);
 
 		renderAtmosphere(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, atmosphereTextures, &sdsmInfos, true);
-		renderVolumetricCloud(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, atmosphereTextures);
-
-
+		auto lensBuffer = renderVolumetricCloud(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, atmosphereTextures, sdsmInfos, hzbClosest);
 
 		renderSSSR(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, hzbClosest, ssaoBentNormal);
 
@@ -111,7 +109,7 @@ namespace engine
 		renderFSR2(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, tickData);
 		auto bloomTex = renderBloom(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU);
 
-		renderTonemapper(graphicsCmd, &gbuffers, perFrameGPU, m_renderer->getScene(), bloomTex);
+		renderTonemapper(graphicsCmd, &gbuffers, perFrameGPU, m_renderer->getScene(), bloomTex, lensBuffer);
 		renderSelectionOutline(graphicsCmd, &gbuffers, perFrameGPU);
 		renderGrid(graphicsCmd, &gbuffers, perFrameGPU);
 

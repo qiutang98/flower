@@ -28,6 +28,7 @@ namespace engine
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 2) // outLdr
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 3) // uniform
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 4) // inHdr
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 5)
                 .buildNoInfoPush(setLayout);
 
             std::vector<VkDescriptorSetLayout> setLayouts = {
@@ -46,7 +47,8 @@ namespace engine
     };
 
 
-    void RendererInterface::renderTonemapper(VkCommandBuffer cmd, GBufferTextures* inGBuffers, BufferParameterHandle perFrameGPU, RenderScene* scene, PoolImageSharedRef bloomTex)
+    void RendererInterface::renderTonemapper(VkCommandBuffer cmd, GBufferTextures* inGBuffers, BufferParameterHandle perFrameGPU, RenderScene* scene, PoolImageSharedRef bloomTex,
+        BufferParameterHandle lensBuffer)
     {
         auto& hdrSceneColor = inGBuffers->hdrSceneColorUpscale->getImage();
         auto& ldrSceneColor = getDisplayOutput();
@@ -69,13 +71,25 @@ namespace engine
             }; 
 
             pass->pipe->bindAndPushConst(cmd, &compositePush);
-            PushSetBuilder(cmd)
-                .addSRV(hdrSceneColor)
+            PushSetBuilder pusher(cmd);
+            pusher.addSRV(hdrSceneColor)
                 .addUAV(ldrSceneColor)
                 .addSRV(m_averageLum ? m_averageLum : inGBuffers->hdrSceneColorUpscale)
                 .addBuffer(perFrameGPU)
-                .addSRV(bloomTex)
-                .push(pass->pipe.get());
+                .addSRV(bloomTex);
+
+            if (lensBuffer)
+            {
+                pusher.addBuffer(lensBuffer);
+            }
+            else
+            {
+                auto lensSSBO = m_context->getBufferParameters().getStaticStorage(
+                    "lensSSBO", sizeof(float));
+                pusher.addBuffer(lensSSBO);
+            }
+
+            pusher.push(pass->pipe.get());
 
             pass->pipe->bindSet(cmd, std::vector<VkDescriptorSet>{
                 m_context->getSamplerCache().getCommonDescriptorSet()

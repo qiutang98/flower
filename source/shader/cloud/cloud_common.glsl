@@ -40,6 +40,9 @@ layout (set = 0, binding = 24, rgba16f) uniform image2D imageCloudFogReconstruct
 layout (set = 0, binding = 25) uniform texture2D inCloudFogReconstructionTexture;  // full resolution.
 layout (set = 0, binding = 26) uniform texture2D inCloudFogReconstructionTextureHistory;
 layout (set = 0, binding = 27) uniform textureCube inSkyIrradiance;
+layout (set = 0, binding = 28) uniform texture2D inSDSMShadowDepth;
+layout (set = 0, binding = 29) buffer SSBOCascadeInfoBuffer{ CascadeInfo cascadeInfos[]; };
+layout (set = 0, binding = 30) uniform texture2D inHiz;
 
 #define SHARED_SAMPLER_SET 1
 #include "../common/shared_sampler.glsl"
@@ -47,14 +50,9 @@ layout (set = 0, binding = 27) uniform textureCube inSkyIrradiance;
 #define BLUE_NOISE_BUFFER_SET 2
 #include "../common/shared_bluenoise.glsl"
 
-float getDensity(vec3 worldPosition, float distanceToCam)
+float getDensity(float heightMeter)
 {
-    const float fogStartHeight = 0.0;
-	const float falloff = 0.001;
-    const float constFog = 0.0;
-
-    const float fogFinalScale = 0.001 * 0.001 * 50.0;
-    return (constFog + exp(-min(distanceToCam, abs(worldPosition.y - fogStartHeight)) * falloff)) * fogFinalScale;
+    return exp(-heightMeter * 0.001) * 0.001 * 0.001 * frameData.sky.atmosphereConfig.cloudGodRayScale;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -300,6 +298,9 @@ vec4 cloudColorCompute(
     inout vec4 lightingFog,
     float fogNoise)
 {
+    float sceneZ = textureLod(sampler2D(inHiz, pointClampEdgeSampler), uv, 3).r;
+
+
     // Get camera in atmosphere unit position, it will treat as ray start position.
     vec3 worldPos = convertToAtmosphereUnit(frameData.camWorldPos.xyz, frameData) + vec3(0.0, atmosphere.bottomRadius, 0.0);
 
@@ -315,13 +316,14 @@ vec4 cloudColorCompute(
     // Find intersect position so we can do some ray marching.
     float tMin;
     float tMax;
+    bool bEarlyOutCloud = false;
     if(viewHeight < radiusCloudStart)
     {
         float tEarth = raySphereIntersectNearest(worldPos, worldDir, vec3(0.0), earthRadius);
         if(tEarth > 0.0)
         {
             // Intersect with earth, pre-return.
-            return vec4(0.0, 0.0, 0.0, 1.0);
+            bEarlyOutCloud = true;
         }
 
         tMin = raySphereIntersectInside(worldPos, worldDir, vec3(0.0), radiusCloudStart);
@@ -336,7 +338,7 @@ vec4 cloudColorCompute(
         if(!bIntersectionEnd)
         {
             // No intersection.
-            return vec4(0.0, 0.0, 0.0, 1.0);
+            bEarlyOutCloud = true;
         }
 
         vec2 t2t3 = vec2(0.0);
@@ -374,7 +376,7 @@ vec4 cloudColorCompute(
     // Pre-return if too far.
     if(tMax <= tMin || tMin > frameData.sky.atmosphereConfig.cloudTracingStartMaxDistance)
     {
-        return vec4(0.0, 0.0, 0.0, 1.0);
+        bEarlyOutCloud = true;
     }
 
     // Clamp marching distance by setting.    
@@ -395,282 +397,295 @@ vec4 cloudColorCompute(
 
     float VoL = dot(worldDir, sunDirection);
 
-    // Combine backward and forward scattering to have details in all directions.
-    float phase = 
-            dualLobPhase(frameData.sky.atmosphereConfig.cloudPhaseForward, frameData.sky.atmosphereConfig.cloudPhaseBackward, frameData.sky.atmosphereConfig.cloudPhaseMixFactor, -VoL);
-
-    ParticipatingMediaPhase participatingMediaPhase = getParticipatingMediaPhase(phase, 0.5);
+    // Cloud background sky color.
+    vec3 skyBackgroundColor = lookupSkylight(worldDir, worldPos, viewHeight, normalize(worldPos), workPos, atmosphere, inSkyViewLut);
 
     float transmittance  = 1.0;
     vec3 scatteredLight = vec3(0.0, 0.0, 0.0);
 
-    // Average ray hit pos to evaluate air perspective and height fog.
-    vec3 rayHitPos = vec3(0.0);
-    float rayHitPosWeight = 0.0;
+    vec3 groundToCloudTransfertIsoScatter =  texture(samplerCube(inSkyIrradiance, linearClampEdgeSampler), vec3(0, 1, 0)).rgb;
 
-    // Cloud background sky color.
-    vec3 skyBackgroundColor = lookupSkylight(worldDir, worldPos, viewHeight, normalize(worldPos), workPos, atmosphere, inSkyViewLut);
-
-    // Second evaluate transmittance due to participating media
-    vec3 atmosphereTransmittance0;
+    if(!bEarlyOutCloud)
     {
-        vec3 samplePos = sampleT * worldDir + worldPos;
-        float sampleHeight = length(samplePos);
+        // Combine backward and forward scattering to have details in all directions.
+        float phase = 
+                dualLobPhase(frameData.sky.atmosphereConfig.cloudPhaseForward, frameData.sky.atmosphereConfig.cloudPhaseBackward, frameData.sky.atmosphereConfig.cloudPhaseMixFactor, -VoL);
 
-        const vec3 upVector = samplePos / sampleHeight;
-        float viewZenithCosAngle = dot(sunDirection, upVector);
-        vec2 sampleUv;
-        lutTransmittanceParamsToUv(atmosphere, viewHeight, viewZenithCosAngle, sampleUv);
-        atmosphereTransmittance0 = texture(sampler2D(inTransmittanceLut, linearClampEdgeSampler), sampleUv).rgb;
-    }
-    vec3 atmosphereTransmittance1;
-    {
-        vec3 samplePos = tMax * worldDir + worldPos;
-        float sampleHeight = length(samplePos);
+        ParticipatingMediaPhase participatingMediaPhase = getParticipatingMediaPhase(phase, 0.5);
 
-        const vec3 upVector = samplePos / sampleHeight;
-        float viewZenithCosAngle = dot(sunDirection, upVector);
-        vec2 sampleUv;
-        lutTransmittanceParamsToUv(atmosphere, viewHeight, viewZenithCosAngle, sampleUv);
-        atmosphereTransmittance1 = texture(sampler2D(inTransmittanceLut, linearClampEdgeSampler), sampleUv).rgb;
-    }
-	vec3 groundToCloudTransfertIsoScatter =  texture(samplerCube(inSkyIrradiance, linearClampEdgeSampler), vec3(0, -1, 0)).rgb;
+        // Average ray hit pos to evaluate air perspective and height fog.
+        vec3 rayHitPos = vec3(0.0);
+        float rayHitPosWeight = 0.0;
 
-    // groundToCloudTransfertIsoScatter = skyBackgroundColor;// mix(groundToCloudTransfertIsoScatter, skyBackgroundColor, sunDirection.y);
-    const vec3 upScaleColor = texture(samplerCube(inSkyIrradiance, linearClampEdgeSampler), vec3(0, 1, 0)).rgb;
 
-    for(uint i = 0; i < stepCountUnit; i ++)
-    {
-        // World space sample pos, in km unit.
-        vec3 samplePos = sampleT * worldDir + worldPos;
-
-        float sampleHeight = length(samplePos);
-
-        vec3 atmosphereTransmittance = mix(atmosphereTransmittance0, atmosphereTransmittance1, saturate(sampleT / marchingDistance));
-
-        // Get sample normalize height [0.0, 1.0]
-        float normalizeHeight = (sampleHeight - atmosphere.cloudAreaStartHeight)  / atmosphere.cloudAreaThickness;
-
-        // Convert to meter.
-        vec3 samplePosMeter = samplePos * 1000.0f;
-        float stepCloudDensity = cloudMap(samplePosMeter, normalizeHeight);
-
-        // Add ray march pos, so we can do some average fading or atmosphere sample effect.
-        rayHitPos += samplePos * transmittance;
-        rayHitPosWeight += transmittance;
-
-        if(stepCloudDensity > 0.) 
+        // Second evaluate transmittance due to participating media
+        vec3 atmosphereTransmittance0;
         {
-            float opticalDepth = stepCloudDensity * stepT * 1000.0; // to meter unit.
-            // beer's lambert.
-            // Siggraph 2017's new step transmittance formula.
-            float stepTransmittance = max(exp(-opticalDepth), exp(-opticalDepth * 0.25) * 0.7); 
+            vec3 samplePos = sampleT * worldDir + worldPos;
+            float sampleHeight = length(samplePos);
 
-            ParticipatingMedia participatingMedia = volumetricShadow(samplePos, sunDirection, atmosphere, -1, frameData.sky.atmosphereConfig.cloudMultiScatterExtinction);
-            ParticipatingMedia participatingMediaAmbient;
-            if(frameData.sky.atmosphereConfig.cloudEnableGroundContribution != 0)
+            const vec3 upVector = samplePos / sampleHeight;
+            float viewZenithCosAngle = dot(sunDirection, upVector);
+            vec2 sampleUv;
+            lutTransmittanceParamsToUv(atmosphere, viewHeight, viewZenithCosAngle, sampleUv);
+            atmosphereTransmittance0 = texture(sampler2D(inTransmittanceLut, linearClampEdgeSampler), sampleUv).rgb;
+        }
+        vec3 atmosphereTransmittance1;
+        {
+            vec3 samplePos = tMax * worldDir + worldPos;
+            float sampleHeight = length(samplePos);
+
+            const vec3 upVector = samplePos / sampleHeight;
+            float viewZenithCosAngle = dot(sunDirection, upVector);
+            vec2 sampleUv;
+            lutTransmittanceParamsToUv(atmosphere, viewHeight, viewZenithCosAngle, sampleUv);
+            atmosphereTransmittance1 = texture(sampler2D(inTransmittanceLut, linearClampEdgeSampler), sampleUv).rgb;
+        }
+
+        // groundToCloudTransfertIsoScatter = skyBackgroundColor;// mix(groundToCloudTransfertIsoScatter, skyBackgroundColor, sunDirection.y);
+        const vec3 upScaleColor = texture(samplerCube(inSkyIrradiance, linearClampEdgeSampler), vec3(0, 1, 0)).rgb;
+
+        for(uint i = 0; i < stepCountUnit; i ++)
+        {
+            // World space sample pos, in km unit.
+            vec3 samplePos = sampleT * worldDir + worldPos;
+
+            float sampleHeight = length(samplePos);
+
+            vec3 atmosphereTransmittance = mix(atmosphereTransmittance0, atmosphereTransmittance1, saturate(sampleT / marchingDistance));
+
+            // Get sample normalize height [0.0, 1.0]
+            float normalizeHeight = (sampleHeight - atmosphere.cloudAreaStartHeight)  / atmosphere.cloudAreaThickness;
+
+            // Convert to meter.
+            vec3 samplePosMeter = samplePos * 1000.0f;
+            float stepCloudDensity = cloudMap(samplePosMeter, normalizeHeight);
+
+            // Add ray march pos, so we can do some average fading or atmosphere sample effect.
+            rayHitPos += samplePos * transmittance;
+            rayHitPosWeight += transmittance;
+
+            if(stepCloudDensity > 0.) 
             {
-                participatingMediaAmbient = volumetricShadow(samplePos, vec3(0, 1, 0), atmosphere, -1, kSkyMsExition);
-            }
+                float opticalDepth = stepCloudDensity * stepT * 1000.0; // to meter unit.
+                // beer's lambert.
+                // Siggraph 2017's new step transmittance formula.
+                float stepTransmittance = max(exp(-opticalDepth), exp(-opticalDepth * 0.25) * 0.7); 
 
-            // Compute powder term.
-            float powderEffect;
-            {
-                float depthProbability = pow(clamp(stepCloudDensity * 8.0 * frameData.sky.atmosphereConfig.cloudPowderPow, 0.0, 1.0), remap(normalizeHeight, 0.3, 0.85, 0.5, 2.0));
-                depthProbability += 0.05;
-                float verticalProbability = pow(remap(normalizeHeight, 0.07, 0.22, 0.1, 1.0), 0.8);
-                powderEffect =  powderEffectNew(depthProbability, verticalProbability, VoL);
-            }
-
-            // Amount of sunlight that reaches the sample point through the cloud 
-            // is the combination of ambient light and attenuated direct light.
-            vec3 sunlightTerm = atmosphereTransmittance * frameData.sky.atmosphereConfig.cloudShadingSunLightScale * sunColor; 
-
-            vec3 groundLit = mix(skyBackgroundColor, groundToCloudTransfertIsoScatter, saturate(frameData.sky.atmosphereConfig.cloudNoiseScale - normalizeHeight))
-                * saturate(1.0 - kGroundOcc + normalizeHeight) * frameData.sky.atmosphereConfig.cloudFogFade;
-
-            vec3 ambientLit = upScaleColor * powderEffect * (1.0 - sunDirection.y)
-               * atmosphereTransmittance;// mix(atmosphereTransmittance, vec3(1.0), saturate(1.0 - transmittance));// ;
-
-            float sigmaS = stepCloudDensity;
-            float sigmaE = max(sigmaS, 1e-8f);
-
-            vec3 scatteringCoefficients[kMsCount];
-            float extinctionCoefficients[kMsCount];
-
-            vec3 albedo = frameData.sky.atmosphereConfig.cloudAlbedo;
-
-            scatteringCoefficients[0] = sigmaS * albedo;
-            extinctionCoefficients[0] = sigmaE * frameData.sky.atmosphereConfig.cloudPowderScale;
-
-            float MsExtinctionFactor = frameData.sky.atmosphereConfig.cloudMultiScatterExtinction;
-            float MsScatterFactor    = frameData.sky.atmosphereConfig.cloudMultiScatterScatter;
-            int ms;
-            for (ms = 1; ms < kMsCount; ms++)
-            {
-                extinctionCoefficients[ms] = extinctionCoefficients[ms - 1] * MsExtinctionFactor;
-                scatteringCoefficients[ms] = scatteringCoefficients[ms - 1] * MsScatterFactor;
-                
-                MsExtinctionFactor *= MsExtinctionFactor;
-                MsScatterFactor    *= MsScatterFactor;
-            }
-
-            for (ms = kMsCount - 1; ms >= 0; ms--) // Should terminate at 0
-            {
-                float sunVisibilityTerm = participatingMedia.transmittanceToLight[ms];
-                vec3 sunSkyLuminance = sunVisibilityTerm * sunlightTerm * participatingMediaPhase.phase[ms] * powderEffect;
-
+                ParticipatingMedia participatingMedia = volumetricShadow(samplePos, sunDirection, atmosphere, -1, frameData.sky.atmosphereConfig.cloudMultiScatterExtinction);
+                ParticipatingMedia participatingMediaAmbient;
                 if(frameData.sky.atmosphereConfig.cloudEnableGroundContribution != 0)
                 {
-                    float skyVisibilityTerm = participatingMediaAmbient.transmittanceToLight[ms];
-                    sunSkyLuminance += skyVisibilityTerm * ambientLit;
+                    participatingMediaAmbient = volumetricShadow(samplePos, vec3(0, 1, 0), atmosphere, -1, kSkyMsExition);
                 }
 
-                if(ms == 0)
+                // Compute powder term.
+                float powderEffect;
                 {
-                    sunSkyLuminance += groundLit;
+                    float depthProbability = pow(clamp(stepCloudDensity * 8.0 * frameData.sky.atmosphereConfig.cloudPowderPow, 0.0, 1.0), remap(normalizeHeight, 0.3, 0.85, 0.5, 2.0));
+                    depthProbability += 0.05;
+                    float verticalProbability = pow(remap(normalizeHeight, 0.07, 0.22, 0.1, 1.0), 0.8);
+                    powderEffect =  powderEffectNew(depthProbability, verticalProbability, VoL);
                 }
 
-                vec3 sactterLitStep = sunSkyLuminance * scatteringCoefficients[ms];
+                // Amount of sunlight that reaches the sample point through the cloud 
+                // is the combination of ambient light and attenuated direct light.
+                vec3 sunlightTerm = atmosphereTransmittance * frameData.sky.atmosphereConfig.cloudShadingSunLightScale * sunColor; 
 
-            #if 0
-                scatteredLight += transmittance * sactterLitStep * stepT * 1000.0;
-            #else
-                // See slide 28 at http://www.frostbite.com/2015/08/physically-based-unified-volumetric-rendering-in-frostbite/
-                vec3 stepScatter = transmittance * (sactterLitStep - sactterLitStep * stepTransmittance) / max(1e-4f, extinctionCoefficients[ms]);
-                scatteredLight += stepScatter;
-            #endif
-                if(ms == 0)
+                vec3 groundLit = mix(skyBackgroundColor, groundToCloudTransfertIsoScatter, saturate(frameData.sky.atmosphereConfig.cloudNoiseScale - normalizeHeight))
+                    * saturate(1.0 - kGroundOcc + normalizeHeight) * frameData.sky.atmosphereConfig.cloudFogFade;
+
+                vec3 ambientLit = upScaleColor * powderEffect * (1.0 - sunDirection.y)
+                * atmosphereTransmittance;// mix(atmosphereTransmittance, vec3(1.0), saturate(1.0 - transmittance));// ;
+
+                float sigmaS = stepCloudDensity;
+                float sigmaE = max(sigmaS, 1e-8f);
+
+                vec3 scatteringCoefficients[kMsCount];
+                float extinctionCoefficients[kMsCount];
+
+                vec3 albedo = frameData.sky.atmosphereConfig.cloudAlbedo;
+
+                scatteringCoefficients[0] = sigmaS * albedo;
+                extinctionCoefficients[0] = sigmaE * frameData.sky.atmosphereConfig.cloudPowderScale;
+
+                float MsExtinctionFactor = frameData.sky.atmosphereConfig.cloudMultiScatterExtinction;
+                float MsScatterFactor    = frameData.sky.atmosphereConfig.cloudMultiScatterScatter;
+                int ms;
+                for (ms = 1; ms < kMsCount; ms++)
                 {
-                    // Beer's law.
-                    transmittance *= stepTransmittance;
+                    extinctionCoefficients[ms] = extinctionCoefficients[ms - 1] * MsExtinctionFactor;
+                    scatteringCoefficients[ms] = scatteringCoefficients[ms - 1] * MsScatterFactor;
+                    
+                    MsExtinctionFactor *= MsExtinctionFactor;
+                    MsScatterFactor    *= MsScatterFactor;
+                }
+
+                for (ms = kMsCount - 1; ms >= 0; ms--) // Should terminate at 0
+                {
+                    float sunVisibilityTerm = participatingMedia.transmittanceToLight[ms];
+                    vec3 sunSkyLuminance = sunVisibilityTerm * sunlightTerm * participatingMediaPhase.phase[ms] * powderEffect;
+
+                    if(frameData.sky.atmosphereConfig.cloudEnableGroundContribution != 0)
+                    {
+                        float skyVisibilityTerm = participatingMediaAmbient.transmittanceToLight[ms];
+                        sunSkyLuminance += skyVisibilityTerm * ambientLit;
+                    }
+
+                    if(ms == 0)
+                    {
+                        sunSkyLuminance += groundLit;
+                    }
+
+                    vec3 sactterLitStep = sunSkyLuminance * scatteringCoefficients[ms];
+
+                #if 0
+                    scatteredLight += transmittance * sactterLitStep * stepT * 1000.0;
+                #else
+                    // See slide 28 at http://www.frostbite.com/2015/08/physically-based-unified-volumetric-rendering-in-frostbite/
+                    vec3 stepScatter = transmittance * (sactterLitStep - sactterLitStep * stepTransmittance) / max(1e-4f, extinctionCoefficients[ms]);
+                    scatteredLight += stepScatter;
+                #endif
+                    if(ms == 0)
+                    {
+                        // Beer's law.
+                        transmittance *= stepTransmittance;
+                    }
                 }
             }
-        }
 
-        if(transmittance <= 0.001)
-        {
-            break;
-        }
-        sampleT += stepT;
-    }
-
-
-    // Apply some additional effect.
-    if(rayHitPosWeight > 0.0f)
-    {
-        // Get average hit pos.
-        rayHitPos /= rayHitPosWeight;
-
-        vec3 rayHitInRender = convertToCameraUnit(rayHitPos - vec3(0.0, atmosphere.bottomRadius, 0.0), frameData);
-        vec4 rayInH = frameData.camViewProj * vec4(rayHitInRender, 1.0);
-        cloudZ = rayInH.z / rayInH.w;
-
-        rayHitPos -= worldPos;
-        float rayHitHeight = length(rayHitPos);
-
-        // Apply air perspective.
-        {
-            float slice = aerialPerspectiveDepthToSlice(rayHitHeight);
-            float weight = 1.0;
-            if (slice < 0.5)
+            if(transmittance <= 0.001)
             {
-                // We multiply by weight to fade to 0 at depth 0. That works for luminance and opacity.
-                weight = saturate(slice * 2.0);
-                slice = 0.5;
+                break;
             }
-            ivec3 sliceLutSize = textureSize(inFroxelScatter, 0);
-            float w = sqrt(slice / float(sliceLutSize.z));	// squared distribution
-
-            vec4 airPerspective = weight * texture(sampler3D(inFroxelScatter, linearClampEdgeSampler), vec3(uv, w));
-            scatteredLight = scatteredLight * (1.0 - airPerspective.a) + airPerspective.rgb * (1.0 - transmittance);
+            sampleT += stepT;
         }
 
 
+        // Apply some additional effect.
+        if(rayHitPosWeight > 0.0f)
+        {
+            // Get average hit pos.
+            rayHitPos /= rayHitPosWeight;
+
+            vec3 rayHitInRender = convertToCameraUnit(rayHitPos - vec3(0.0, atmosphere.bottomRadius, 0.0), frameData);
+            vec4 rayInH = frameData.camViewProj * vec4(rayHitInRender, 1.0);
+            cloudZ = rayInH.z / rayInH.w;
+
+            rayHitPos -= worldPos;
+            float rayHitHeight = length(rayHitPos);
+
+            // Apply air perspective.
+            {
+                float slice = aerialPerspectiveDepthToSlice(rayHitHeight);
+                float weight = 1.0;
+                if (slice < 0.5)
+                {
+                    // We multiply by weight to fade to 0 at depth 0. That works for luminance and opacity.
+                    weight = saturate(slice * 2.0);
+                    slice = 0.5;
+                }
+                ivec3 sliceLutSize = textureSize(inFroxelScatter, 0);
+                float w = sqrt(slice / float(sliceLutSize.z));	// squared distribution
+
+                vec4 airPerspective = weight * texture(sampler3D(inFroxelScatter, linearClampEdgeSampler), vec3(uv, w));
+                scatteredLight = scatteredLight * (1.0 - airPerspective.a) + airPerspective.rgb * (1.0 - transmittance);
+            }
+
+
+        }
+
     }
+
 
     // God ray for light.
     if(bFog)
     {
-        const uint  kGodRaySteps = 36;
-
-        // Meter.
-        float stepLength = 1000.0f * (atmosphere.cloudAreaStartHeight -  worldPos.y) / clamp(worldDir.y, 0.1, 1.0) / float(kGodRaySteps);
-        vec3 stepRay = worldDir * stepLength;
-        vec3 rayPosWP = frameData.camWorldPos.xyz + stepRay * (fogNoise + 0.5);
-
-        vec3 transmittanceTotal  = vec3(1.0);
-        vec3 scatteredLightTotal = vec3(0.0, 0.0, 0.0);
-
-        float miePhaseValue = hgPhase(atmosphere.miePhaseG, -VoL);
-        float rayleighPhaseValue = rayleighPhase(VoL);
-
-        for(uint i = 0; i < kGodRaySteps; i ++)
         {
-            vec3 P0 = convertToAtmosphereUnit(rayPosWP, frameData) + vec3(0.0, atmosphere.bottomRadius, 0.0);  // meter -> kilometers.
-            float visibilityTerm = 1.0;
-            {
-                const uint kStepLight = 8;
-                float stepL = atmosphere.cloudAreaThickness / float(kStepLight); // km
-                stepL = stepL / abs(sunDirection.y);
-                vec3 position = P0;
-                position += P0.y <= atmosphere.cloudAreaStartHeight ? 
-                    sunDirection * (atmosphere.cloudAreaStartHeight - P0.y) / sunDirection.y : vec3(0.0);
+            const uint  kGodRaySteps = 36;
 
-                float d = stepL * 0.01;
-                float transmittanceShadow = 0.0;
-                for(uint j = 0; j < kStepLight; j++)
+            // Meter.
+            float stepLength = 1000.0f * (atmosphere.cloudAreaStartHeight -  worldPos.y) / clamp(worldDir.y, 0.1, 1.0) / float(kGodRaySteps);
+            vec3 stepRay = worldDir * stepLength;
+            vec3 rayPosWP = frameData.camWorldPos.xyz + stepRay * (fogNoise + 0.5);
+
+            vec3 transmittanceTotal  = vec3(1.0);
+            vec3 scatteredLightTotal = vec3(0.0, 0.0, 0.0);
+
+            float miePhaseValue = hgPhase(atmosphere.miePhaseG, -VoL);
+            float rayleighPhaseValue = rayleighPhase(VoL);
+
+            for(uint i = 0; i < kGodRaySteps; i ++)
+            {
+                vec3 P0 = convertToAtmosphereUnit(rayPosWP, frameData) + vec3(0.0, atmosphere.bottomRadius, 0.0);  // meter -> kilometers.
+                float visibilityTerm = 1.0;
                 {
-                    vec3 samplePosKm = position + sunDirection * d; // km
-                    float sampleHeightKm = samplePosKm.y;
-                    float sampleDt = sampleHeightKm - atmosphere.cloudAreaStartHeight;
-                    float normalizeHeight = sampleDt / atmosphere.cloudAreaThickness;
-                    vec3 samplePosMeter = samplePosKm * 1000.0f;
+                    const uint kStepLight = 8;
+                    float stepL = atmosphere.cloudAreaThickness / float(kStepLight); // km
+                    stepL = stepL / abs(sunDirection.y);
+                    vec3 position = P0;
+                    position += P0.y <= atmosphere.cloudAreaStartHeight ? 
+                        sunDirection * (atmosphere.cloudAreaStartHeight - P0.y) / sunDirection.y : vec3(0.0);
 
-                    transmittanceShadow += cloudMap(samplePosMeter, normalizeHeight);
+                    float d = stepL * 0.01;
+                    float transmittanceShadow = 0.0;
+                    for(uint j = 0; j < kStepLight; j++)
+                    {
+                        vec3 samplePosKm = position + sunDirection * d; // km
+                        float sampleHeightKm = samplePosKm.y;
+                        float sampleDt = sampleHeightKm - atmosphere.cloudAreaStartHeight;
+                        float normalizeHeight = sampleDt / atmosphere.cloudAreaThickness;
+                        vec3 samplePosMeter = samplePosKm * 1000.0f;
 
-                    d += stepL;
+                        transmittanceShadow += cloudMap(samplePosMeter, normalizeHeight);
+
+                        d += stepL;
+                    }
+                    visibilityTerm = exp(-transmittanceShadow * stepL * 1000.0);
                 }
-                visibilityTerm = exp(-transmittanceShadow * stepL * 1000.0);
+
+                visibilityTerm = mix(visibilityTerm, 1.0, saturate(1.0 - sunDirection.y * 5.0));
+
+                vec3 phaseTimesScattering = vec3(miePhaseValue + rayleighPhaseValue);
+
+                // Second evaluate transmittance due to participating media
+                vec3 atmosphereTransmittance;
+                {
+                    float viewHeight = length(P0);
+                    const vec3 upVector = P0 / viewHeight;
+                    float viewZenithCosAngle = dot(sunDirection, upVector);
+                    vec2 sampleUv;
+                    lutTransmittanceParamsToUv(atmosphere, viewHeight, viewZenithCosAngle, sampleUv);
+                    atmosphereTransmittance = texture(sampler2D(inTransmittanceLut, linearClampEdgeSampler), sampleUv).rgb;
+                }
+
+                float density = max(1e-8f, getDensity(bEarlyOutCloud ? distance(frameData.camWorldPos.xyz, rayPosWP) : rayPosWP.y));
+
+                vec3 sigmaS = vec3(density);
+                const float sigmaA = 0.0;
+                vec3 sigmaE = max(vec3(1e-6f), sigmaA + sigmaS);
+                vec3 sactterLitStep = (visibilityTerm * sunColor * phaseTimesScattering * atmosphereTransmittance  + skyBackgroundColor) * sigmaS;
+
+                vec3 stepTransmittance = exp(-sigmaS * stepLength);
+                scatteredLightTotal += transmittanceTotal * (sactterLitStep - sactterLitStep * stepTransmittance) / sigmaE; 
+                transmittanceTotal *= stepTransmittance;
+
+                // Step.
+                rayPosWP += stepRay;
             }
 
-            visibilityTerm = mix(visibilityTerm, 1.0, saturate(1.0 - sunDirection.y * 5.0));
-
-            MediumSampleRGB medium = sampleMediumRGB(P0, atmosphere);
-            vec3 phaseTimesScattering = medium.scatteringMie * miePhaseValue + medium.scatteringRay * rayleighPhaseValue;
-
-            // Second evaluate transmittance due to participating media
-            vec3 atmosphereTransmittance;
-            {
-                float viewHeight = length(P0);
-                const vec3 upVector = P0 / viewHeight;
-                float viewZenithCosAngle = dot(sunDirection, upVector);
-                vec2 sampleUv;
-                lutTransmittanceParamsToUv(atmosphere, viewHeight, viewZenithCosAngle, sampleUv);
-                atmosphereTransmittance = texture(sampler2D(inTransmittanceLut, linearClampEdgeSampler), sampleUv).rgb;
-            }
-
-            float density = getDensity(rayPosWP, distance(rayPosWP, frameData.camWorldPos.xyz));
-
-            vec3 sigmaS = vec3(density) + medium.extinction * 0.001;
-            const float sigmaA = 0.0;
-            vec3 sigmaE = max(vec3(1e-8f), sigmaA + sigmaS);
-            vec3 sactterLitStep = visibilityTerm * sunColor * phaseTimesScattering * sigmaS * atmosphereTransmittance * frameData.sky.atmosphereConfig.cloudGodRayScale;
-
-            vec3 stepTransmittance = exp(-sigmaE * stepLength);
-            scatteredLightTotal += transmittanceTotal * (sactterLitStep - sactterLitStep * stepTransmittance) / sigmaE; 
-            transmittanceTotal *= stepTransmittance;
-
-            // Step.
-            rayPosWP += stepRay;
+            lightingFog.w = mean(transmittanceTotal);
+            lightingFog.xyz = scatteredLightTotal;
         }
-
-        lightingFog.w = mean(transmittanceTotal);
-        lightingFog.xyz = scatteredLightTotal;
     }
 
     // Dual mix transmittance.
-    return vec4(scatteredLight, transmittance);
+    vec4 result = vec4(scatteredLight, transmittance);
+    if(any(isnan(result)) || any(isinf(result)))
+    {
+        result = vec4(0.0, 0.0, 0.0, 1.0);
+    }
+    return result;
 }
 
 #endif

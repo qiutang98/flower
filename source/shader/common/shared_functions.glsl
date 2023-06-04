@@ -964,4 +964,11 @@ mat3 rotFromToMatrix(vec3 from, vec3 to)
     return transpose(mtx);
 }
 
+float atan2(vec2 v)
+{
+	return v.x == 0.0 ?
+		(1.0 - step(abs(v.y), 0.0)) * sign(v.y) * kPI * 0.5 :
+		atan(v.y / v.x) + step(v.x, 0.0) * sign(v.y) * kPI;
+}
+
 #endif

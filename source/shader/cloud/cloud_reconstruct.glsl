@@ -100,7 +100,7 @@ void main()
             }
         #endif
 
-        #if 1
+        #if 0
             fog = curFog;
         #else
             if(abs(preDepthZ - curDepthZ) > 0.1)
