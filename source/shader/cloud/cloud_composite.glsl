@@ -23,8 +23,9 @@ vec3 drawSun(vec3 rayDir, vec3 sunDir)
 
 float getDensity2(float heightMeter)
 {
+    // TODO: 
     const float fogHeight = 0.0f;
-    const float fogConst = 0.001f;
+    const float fogConst = 0.000f;
 
     return getDensity(heightMeter)
      + exp(-(frameData.camWorldPos.y - fogHeight) * 0.001) * 0.001 * 0.001 * 100.0 + fogConst;
