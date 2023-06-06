@@ -91,7 +91,7 @@ void main()
     outGBufferB.rgb = worldNormal;
 
     outGBufferS.r = 0.0f; // metal
-    outGBufferS.g = 0.6f; // roughness
+    outGBufferS.g = 0.8f; // roughness
     outGBufferS.b = 1.0f; // ao
 
     outHDRSceneColor = vec4(0.0, 0.0, 0.0, 1.0);

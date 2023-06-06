@@ -305,7 +305,7 @@ void main()
 
     if(ssboLensFlareDatas[3] > 0.0f && -frameData.sky.direction.y > 0.0f)
     {
-        vec2 sunUv = projectPos(frameData.sky.direction * 65535.0f, frameData.camViewProj).xy;
+        vec2 sunUv = projectPos(frameData.sky.direction * 65535.0f, frameData.camViewProjNoJitter).xy;
         vec3 lensColor;
         vec3 ghostColor = lensFlare(uv, sunUv, lensColor);
 

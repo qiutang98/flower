@@ -21,17 +21,6 @@ vec3 drawSun(vec3 rayDir, vec3 sunDir)
     return vec3(0.0);
 }
 
-float getDensity2(float heightMeter)
-{
-    // TODO: 
-    const float fogHeight = 0.0f;
-    const float fogConst = 0.000f;
-
-    return getDensity(heightMeter)
-     + exp(-(frameData.camWorldPos.y - fogHeight) * 0.001) * 0.001 * 0.001 * 100.0 + fogConst;
-}
-
-
 
 layout (local_size_x = 8, local_size_y = 8) in;
 void main()
@@ -46,6 +35,13 @@ void main()
     }
 
     const vec2 uv = (vec2(workPos) + vec2(0.5f)) / vec2(texSize);
+
+    // Offset retarget for new seeds each frame
+    uvec2 offset = uvec2(vec2(0.754877669, 0.569840296) * (frameData.frameIndex.x) * uvec2(texSize));
+    uvec2 offsetId = workPos.xy + offset;
+    offsetId.x = offsetId.x % texSize.x;
+    offsetId.y = offsetId.y % texSize.y;
+    float blueNoise2 = samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d(offsetId.x, offsetId.y, 0, 0u); 
 
     vec4 clipSpace = vec4(uv.x * 2.0f - 1.0f, 1.0f - uv.y * 2.0f, 0.0, 1.0);
 	vec4 viewPosH = frameData.camInvertProj * clipSpace;
@@ -76,7 +72,7 @@ void main()
             result.rgb = result.rgb * fogColor.a + max(vec3(0.0f), fogColor.rgb);
         }
     }
-    else
+
     {
         const uint  kGodRaySteps = 64;
         const float kMaxMarchingDistance = 400.0f;
@@ -111,7 +107,7 @@ void main()
         // Interval noise is better than blue noise here.
         float taaOffset = interleavedGradientNoise(workPos, frameData.frameIndex.x % frameData.jitterPeriod);
 
-        vec3 rayPosWP = worldPosWP + stepRay * (taaOffset + 0.05);
+        vec3 rayPosWP = worldPosWP + stepRay * (blueNoise2 + 0.05);
 
         float transmittance2  = 1.0;
         vec3 scatteredLight2 = vec3(0.0, 0.0, 0.0);
@@ -173,7 +169,7 @@ void main()
                 atmosphereTransmittance = texture(sampler2D(inTransmittanceLut, linearClampEdgeSampler), sampleUv).rgb;
             }
 
-            float density = getDensity2(pixelToCameraWP.y);
+            float density = getDensity(distance(rayPosWP, frameData.camWorldPos.xyz));
 
             float sigmaS = density;
             float sigmaE = max(sigmaS, 1e-8f);

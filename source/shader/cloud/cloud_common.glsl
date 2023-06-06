@@ -659,7 +659,7 @@ vec4 cloudColorCompute(
                     atmosphereTransmittance = texture(sampler2D(inTransmittanceLut, linearClampEdgeSampler), sampleUv).rgb;
                 }
 
-                float density = max(1e-8f, getDensity(bEarlyOutCloud ? distance(frameData.camWorldPos.xyz, rayPosWP) : rayPosWP.y));
+                float density = getDensity(distance(rayPosWP, frameData.camWorldPos.xyz));
 
                 vec3 sigmaS = vec3(density);
                 const float sigmaA = 0.0;

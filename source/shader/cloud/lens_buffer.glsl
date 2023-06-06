@@ -24,7 +24,7 @@ layout(push_constant) uniform PushConsts
 layout (local_size_x = 1) in;
 void main()
 {
-    vec4 projectPos = frameData.camViewProj * vec4(frameData.sky.direction * 9999999.0f, 1.0);
+    vec4 projectPos = frameData.camViewProjNoJitter * vec4(frameData.sky.direction * 9999999.0f, 1.0);
     projectPos.xyz /= projectPos.w;
 
     projectPos.xy = 0.5 * projectPos.xy + 0.5;
