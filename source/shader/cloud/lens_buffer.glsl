@@ -31,7 +31,7 @@ void main()
     projectPos.y  = 1.0 - projectPos.y;
 
     vec2 sunUv = projectPos.xy;
-    if(!onRange(projectPos.xy, vec2(0.0), vec2(1.0)))
+    if(!onRange(projectPos.xy, vec2(0.0), vec2(1.0)) || projectPos.w > 0.0f)
     {
         ssboLensFlareDatas[3] = 0.0f;
         return;

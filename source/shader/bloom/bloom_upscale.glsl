@@ -19,8 +19,8 @@ layout (push_constant) uniform PushConsts
     float blurRadius;
 };
 
-const float kRadius = 16.;
-const float kSigma = 0.996416;
+const float kRadius = 16.0;
+const float kSigma = 7.0;
 float gaussianWeight(float x) 
 {
     const float mu = 0; // From center.

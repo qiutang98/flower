@@ -65,7 +65,6 @@ float getDensity(float heightMeter)
 // 1 is cute shape and easy get beautiful image.
 // 0 is radom shape hard to control shape, but can get a spectacular result in some times.
 #define CLOUD_SHAPE 1
-#define kGroundContributionSampleCount 5
 
 // Min max sample count define.
 #define kMsCount 2
@@ -161,7 +160,7 @@ float cloudMap(vec3 posMeter, float normalizeHeight)  // Meter
 
     float heightAttenuation = remap(normalizeHeight, 0.0, 0.2, 0.0, 1.0) * remap(normalizeHeight, 0.8, 1.0, 1.0, 0.0);
 
-    clouds  = clouds * heightAttenuation * localCoverage * kCoverage * 2.0 - (0.9 * heightAttenuation + normalizeHeight * 0.5 + 0.1);
+    clouds  = clouds * heightAttenuation * localCoverage * kCoverage * 4.0 - (0.9 * heightAttenuation + normalizeHeight * 0.5 + 0.1);
     clouds  = saturate(clouds);
 
     return clouds * kDensity;
@@ -482,7 +481,7 @@ vec4 cloudColorCompute(
                 // Compute powder term.
                 float powderEffect;
                 {
-                    float depthProbability = pow(clamp(stepCloudDensity * 8.0 * frameData.sky.atmosphereConfig.cloudPowderPow, 0.0, 1.0), remap(normalizeHeight, 0.3, 0.85, 0.5, 2.0));
+                    float depthProbability = pow(clamp(stepCloudDensity * 8.0 * frameData.sky.atmosphereConfig.cloudPowderPow, 0.0, frameData.sky.atmosphereConfig.cloudPowderScale), remap(normalizeHeight, 0.3, 0.85, 0.5, 2.0));
                     depthProbability += 0.05;
                     float verticalProbability = pow(remap(normalizeHeight, 0.07, 0.22, 0.1, 1.0), 0.8);
                     powderEffect =  powderEffectNew(depthProbability, verticalProbability, VoL);
@@ -507,7 +506,7 @@ vec4 cloudColorCompute(
                 vec3 albedo = frameData.sky.atmosphereConfig.cloudAlbedo;
 
                 scatteringCoefficients[0] = sigmaS * albedo;
-                extinctionCoefficients[0] = sigmaE * frameData.sky.atmosphereConfig.cloudPowderScale;
+                extinctionCoefficients[0] = sigmaE;
 
                 float MsExtinctionFactor = frameData.sky.atmosphereConfig.cloudMultiScatterExtinction;
                 float MsScatterFactor    = frameData.sky.atmosphereConfig.cloudMultiScatterScatter;

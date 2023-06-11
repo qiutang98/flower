@@ -7,8 +7,8 @@
 #include "../common/shared_functions.glsl"
 #include "../bloom/bloom_common.glsl"
 
-layout (set = 0, binding = 0) uniform texture2D inHDRSceneColor;
-layout (set = 0, binding = 1, rgba8)  uniform writeonly image2D outLdrColor;
+layout (set = 0, binding = 0) uniform texture2D HdrColor;
+layout (set = 0, binding = 1, rgba16f) uniform image2D combineColor;
 layout (set = 0, binding = 2) uniform texture2D inAdaptedLumTex;
 layout (set = 0, binding = 3) uniform UniformFrameData { PerFrameData frameData; };
 layout (set = 0, binding = 4) uniform texture2D inBloomTexture;
@@ -210,7 +210,6 @@ vec3 anflares2(vec2 uv, float intensity, float stretch, float brightness)
         r += vec3(smoothstep(0.009, 0.0, length(uv_2)))*brightness;
     }
 
-
     return r;
 }
 
@@ -277,7 +276,7 @@ vec3 lensFlare(vec2 texcoord, vec2 sunCoord, out vec3 ghostColor)
 layout (local_size_x = 8, local_size_y = 8) in;
 void main()
 {
-    ivec2 colorSize = imageSize(outLdrColor);
+    ivec2 colorSize = imageSize(combineColor);
 
     uvec2 groupThreadId = remap8x8(gl_LocalInvocationIndex);
     uvec2 dispatchId = groupThreadId + gl_WorkGroupID.xy * 8;
@@ -290,7 +289,7 @@ void main()
 
     // load color.
     // HDR color in linear srgb color space.
-    vec4 hdrColor = texelFetch(inHDRSceneColor, workPos, 0);
+    vec4 hdrColor = texture(sampler2D(HdrColor, pointClampEdgeSampler), uv);
     hdrColor.xyz *= getExposure(frameData, inAdaptedLumTex).r;
 
     // Composite bloom color.
@@ -315,42 +314,6 @@ void main()
             ssboLensFlareDatas[2])  * ssboLensFlareDatas[3] * getExposure(frameData, inAdaptedLumTex).r;
     }
 
-    vec3 ldrColor;
-    // Tone mapper.
-    {
-        // Film tone mapper in aces space.
-         vec3 colorAP0 = hdrColor.xyz * sRGB_2_AP0; ldrColor = acesFilm(colorAP0);
-        // ldrColor = acesFilmFit(hdrColor.xyz);
-
-        // Aces tone mapper.
-        // vec3 colorAP0 = hdrColor.xyz * sRGB_2_AP0; ldrColor = ACESOutputTransformsRGBD65(colorAP0);
-        // ldrColor = acesFit(hdrColor.xyz);
-    }
-
-
-    ldrColor = WhiteBalance(ldrColor);
-
-
-    
-    // Encode ldr srgb or hdr.
-    vec3 encodeColor;
-    encodeColor = encodeSRGB(ldrColor.xyz);
-
-    // Offset retarget for new seeds each frame
-    uvec2 offset = uvec2(vec2(0.754877669, 0.569840296) * frameData.frameIndex.x * uvec2(colorSize));
-    uvec2 offsetId = dispatchId.xy + offset;
-    offsetId.x = offsetId.x % colorSize.x;
-    offsetId.y = offsetId.y % colorSize.y;
-
-    // Display is 8bit, so jitter with blue noise with [-1, 1] / 255.0.
-    // Current also looks good in hdr display even it under 11bit.
-    encodeColor.x += 1.0 / 255.0 * (-1.0 + 2.0 * samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d(offsetId.x, offsetId.y, 0, 0u));
-    encodeColor.y += 1.0 / 255.0 * (-1.0 + 2.0 * samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d(offsetId.x, offsetId.y, 0, 1u));
-    encodeColor.z += 1.0 / 255.0 * (-1.0 + 2.0 * samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d(offsetId.x, offsetId.y, 0, 2u));
-    
-    // Safe color.
-    encodeColor.xyz = max(encodeColor.xyz, vec3(0.0));
-
     // Final store.
-    imageStore(outLdrColor, workPos, vec4(encodeColor, 1.0f));
+    imageStore(combineColor, workPos, hdrColor);
 }

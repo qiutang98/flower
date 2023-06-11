@@ -170,7 +170,7 @@ namespace engine
 		inAtmosphere.cloudDetailNoiseScale = 0.6f;
 
 		inAtmosphere.cloudAlbedo = { 1.0f , 1.0f, 1.0f };
-		inAtmosphere.cloudPhaseForward = 0.8f;
+		inAtmosphere.cloudPhaseForward = 0.5f;
 
 		inAtmosphere.cloudPhaseBackward = -0.5f;
 		inAtmosphere.cloudPhaseMixFactor = 0.5f;

@@ -46,6 +46,36 @@ void ComponentDrawer::drawPostprocess(std::shared_ptr<engine::SceneNode> node)
 		ImGui::PopID();
 	}
 
+	if (ImGui::CollapsingHeader("Exposure Fusioon"))
+	{
+		ImGui::PushID("ExposureFusioon");
+		ImGui::Spacing();
+		ImGui::Indent();
+		ImGui::PushItemWidth(100.0f);
+
+		ImGui::Checkbox("Exposure Fusioon", &copySetting.bEnableExposureFusion);
+		if (copySetting.bEnableExposureFusion)
+		{
+			ImGui::DragFloat("Black", &copySetting.exposureFusionBlack, 1e-3f, 1e-4f, 1.0f);
+			ImGui::DragFloat("Shadows", &copySetting.exposureFusionShadows, 1e-3f, 1e-4f, 1.0f);
+			ImGui::DragFloat("Highlights", &copySetting.exposureFusionHighlights, 1e-3f, 1.0f, 10.0f);
+
+			ImGui::Spacing();
+			ImGui::DragFloat("Sigma", &copySetting.exposureFusionSigma, 0.1f, 0.0f, 1.0f);
+			ImGui::DragFloat("Midtone", &copySetting.exposureFusionWellExposureValue, 0.1f, 0.0f, 1.0f);
+
+			ImGui::Spacing();
+			ImGui::DragFloat("Contrast", &copySetting.exposureFusionContrastPow, 0.1f, 0.0f);
+			ImGui::DragFloat("Saturation", &copySetting.exposureFusionSaturationPow, 0.1f, 0.0f);
+			ImGui::DragFloat("Exposure", &copySetting.exposureFusionExposurePow, 0.1f, 0.0f);
+		}
+
+		ImGui::PopItemWidth();
+		ImGui::Unindent();
+		ImGui::Spacing();
+		ImGui::PopID();
+	}
+
 	if (ImGui::CollapsingHeader("Bloom Setting"))
 	{
 		ImGui::PushID("BloomSetting");
@@ -119,6 +149,8 @@ void ComponentDrawer::drawPostprocess(std::shared_ptr<engine::SceneNode> node)
 		ImGui::Spacing();
 		ImGui::PopID();
 	}
+
+
 
 	comp->changeSetting(copySetting);
 }

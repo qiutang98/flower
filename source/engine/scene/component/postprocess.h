@@ -34,6 +34,17 @@ namespace engine
 		float ssgiPower = 1.0f;
 		float ssgiIntensity = 1.0f;
 
+
+		bool bEnableExposureFusion = false;
+		float exposureFusionBlack = 0.1f;
+		float exposureFusionShadows = 0.5f;
+		float exposureFusionHighlights = 2.0f;
+		float exposureFusionSigma = 0.2f;
+		float exposureFusionWellExposureValue = 0.5f; 
+		float exposureFusionContrastPow = 1.0f;
+		float exposureFusionSaturationPow = 1.0f;
+		float exposureFusionExposurePow = 1.0f;
+
 		auto operator<=>(const PostprocessVolumeSetting&) const = default;
 		template<class Archive> void serialize(Archive& archive, std::uint32_t const version)
 		{
@@ -53,6 +64,10 @@ namespace engine
 			archive(bloomIntensity, bloomRadius, bloomThreshold, bloomThresholdSoft);
 
 			archive(ssgiSliceCount, ssgiStepCount, ssgiViewRadius, ssgiFalloff, ssgiPower, ssgiIntensity);
+
+
+			archive(bEnableExposureFusion, exposureFusionBlack, exposureFusionShadows, exposureFusionHighlights, exposureFusionSigma,
+				exposureFusionWellExposureValue, exposureFusionContrastPow, exposureFusionSaturationPow, exposureFusionExposurePow);
 		}
 	};
 
