@@ -64,7 +64,7 @@ float getDensity(float heightMeter)
 //       1 is model based cloud.
 // 1 is cute shape and easy get beautiful image.
 // 0 is radom shape hard to control shape, but can get a spectacular result in some times.
-#define CLOUD_SHAPE 0
+#define CLOUD_SHAPE 1
 
 // Min max sample count define.
 #define kMsCount 2
