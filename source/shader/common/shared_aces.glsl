@@ -150,6 +150,45 @@ const mat3 AP1_2_AP0_MAT = mat3
 const vec3 AP1_RGB2Y = vec3(0.2722287168, 0.6740817658, 0.0536895174);
 const mat3 sRGB_2_AP0 = (sRGB_2_XYZ_MAT * D65_2_D60_CAT) * XYZ_2_AP0_MAT;
 
+// L*a*b*/CIELAB
+// CIELAB was developed in 1976 in an attempt to make a perceptually uniform color space.
+// While it doesn't always do a great job of this (especially in the deep blues), it is still frequently used.
+float XYZ_TO_LAB_F(float x) 
+{
+    //          (24/116)^3                         1/(3*(6/29)^2)     4/29
+    return x > 0.00885645167 ? pow(x, 0.333333333) : 7.78703703704 * x + 0.13793103448;
+}
+
+const vec3 D65_WHITE = vec3(0.95045592705, 1.0, 1.08905775076);
+//                          0.3457/0.3585  1.0  (1.0-0.3457-0.3585)/0.3585
+const vec3 D50_WHITE = vec3(0.96429567643, 1.0, 0.82510460251);
+
+
+
+vec3 XYZ_TO_LAB(vec3 xyz) 
+{
+	vec3 WHITE = D65_WHITE;
+	
+    vec3 xyz_scaled = xyz / WHITE;
+    xyz_scaled = vec3(
+        XYZ_TO_LAB_F(xyz_scaled.x),
+        XYZ_TO_LAB_F(xyz_scaled.y),
+        XYZ_TO_LAB_F(xyz_scaled.z)
+    );
+    return vec3(
+        (116.0 * xyz_scaled.y) - 16.0,
+        500.0 * (xyz_scaled.x - xyz_scaled.y),
+        200.0 * (xyz_scaled.y - xyz_scaled.z)
+    );
+}
+
+// Linear srgb to cie lab
+vec3 sRGB2LAB(vec3 c)
+{
+	vec3 xyz = c * sRGB_2_XYZ_MAT;
+	return XYZ_TO_LAB(xyz);
+}
+
 float log10(float x) 
 {
 	const float a = 1.0 / log(10.0);

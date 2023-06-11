@@ -37,15 +37,11 @@ void main()
 
     // load color.
     // HDR color in linear srgb color space.
-    vec3 ldrColor = texelFetch(inHDRSceneColor, workPos, 0).xyz;
+    vec3 encodeColor = texelFetch(inHDRSceneColor, workPos, 0).xyz;
     if(bExposureFusion == 0)
     {
-        ldrColor = toneMapperFunction(ldrColor);
+        encodeColor = toneMapperFunction(encodeColor);
     }
-    
-    // Encode ldr srgb or hdr.
-    vec3 encodeColor;
-    encodeColor = encodeSRGB(ldrColor.xyz);
 
     // Offset retarget for new seeds each frame
     uvec2 offset = uvec2(vec2(0.754877669, 0.569840296) * frameData.frameIndex.x * uvec2(colorSize));

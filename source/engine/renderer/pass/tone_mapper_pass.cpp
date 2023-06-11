@@ -59,14 +59,19 @@ namespace engine
         std::unique_ptr<ComputePipeResources> pipeFusionGaussian;
         std::unique_ptr<ComputePipeResources> pipeFusionDownsample;
 
-        VkDescriptorSetLayout setLayoutLaplace = VK_NULL_HANDLE;
-        std::unique_ptr<ComputePipeResources> pipeFusionLaplace;
+        VkDescriptorSetLayout setLayoutLaplace4 = VK_NULL_HANDLE;
+        std::unique_ptr<ComputePipeResources> pipeFusionLaplace4;
 
         VkDescriptorSetLayout setLayoutFusionBlend = VK_NULL_HANDLE;
         std::unique_ptr<ComputePipeResources> pipeFusionBlend;
 
         VkDescriptorSetLayout setLayoutFusion = VK_NULL_HANDLE;
         std::unique_ptr<ComputePipeResources> pipeFusion;
+
+        VkDescriptorSetLayout setLayoutG4 = VK_NULL_HANDLE;
+        std::unique_ptr<ComputePipeResources> pipeG4;
+
+        std::unique_ptr<ComputePipeResources> pipeD4;
 
     public:
         virtual void onInit() override
@@ -166,15 +171,24 @@ namespace engine
                 getContext()->descriptorFactoryBegin()
                     .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0)
                     .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1)
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 2)
-                    .buildNoInfoPush(setLayoutLaplace);
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 2)
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 3)
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 4)
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 5)
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 6)
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 7)
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 8)
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 9)
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 10)
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 11)
+                    .buildNoInfoPush(setLayoutLaplace4);
 
                 std::vector<VkDescriptorSetLayout> setLayouts =
                 {
-                    setLayoutLaplace,
+                    setLayoutLaplace4,
                     getContext()->getSamplerCache().getCommonDescriptorSetLayout()
                 };
-                pipeFusionLaplace = std::make_unique<ComputePipeResources>("shader/pp_fusion_laplace.comp.spv", 0, setLayouts);
+                pipeFusionLaplace4 = std::make_unique<ComputePipeResources>("shader/pp_fusion_laplace4.comp.spv", 0, setLayouts);
             }
 
             {
@@ -209,6 +223,35 @@ namespace engine
                 };
                 pipeFusion = std::make_unique<ComputePipeResources>("shader/pp_fusion.comp.spv", 0, setLayouts);
             }
+
+            {
+                getContext()->descriptorFactoryBegin()
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0)
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1)
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 2)
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 3)
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 4)
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 5)
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 6)
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 7)
+                    .buildNoInfoPush(setLayoutG4);
+
+                std::vector<VkDescriptorSetLayout> setLayouts =
+                {
+                    setLayoutG4,
+                    getContext()->getSamplerCache().getCommonDescriptorSetLayout()
+                };
+                pipeG4 = std::make_unique<ComputePipeResources>("shader/gaussian4.comp.spv", (uint32_t)sizeof(FusionGaussianPushConst), setLayouts);
+            }
+
+            {
+                std::vector<VkDescriptorSetLayout> setLayouts =
+                {
+                    setLayoutG4,
+                    getContext()->getSamplerCache().getCommonDescriptorSetLayout()
+                };
+                pipeD4 = std::make_unique<ComputePipeResources>("shader/down_point4.comp.spv", 0, setLayouts);
+            }
         }
 
         virtual void release() override
@@ -222,10 +265,12 @@ namespace engine
             pipeFusionGaussian.reset();
             pipeFusionDownsample.reset();
 
-            pipeFusionLaplace.reset();
+            pipeFusionLaplace4.reset();
             pipeFusionBlend.reset();
 
             pipeFusion.reset();
+            pipeG4.reset();
+            pipeD4.reset();
         }
     };
 
@@ -295,12 +340,17 @@ namespace engine
             ///////////////////
 
             combineResult->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+
+
+            m_gpuTimer.getTimeStamp(cmd, "Combine");
         }
 
 
         PoolImageSharedRef blendFusion = nullptr;
         if (postProcessVolumeSetting.bEnableExposureFusion)
         {
+            ScopePerframeMarker marker(cmd, "Exposure Fusion", { 1.0f, 1.0f, 0.0f, 1.0f });
+
             PoolImageSharedRef color0;
             PoolImageSharedRef color1;
             PoolImageSharedRef color2;
@@ -382,6 +432,8 @@ namespace engine
             }
 
             std::vector<VkDescriptorSet> setSample = { m_context->getSamplerCache().getCommonDescriptorSet() };
+
+            m_gpuTimer.getTimeStamp(cmd, "weight");
 
 
             // Gaussian pyramid for weight.
@@ -478,127 +530,343 @@ namespace engine
                     return gaussianBlurs;
                 };
 
-                auto buildLaplacePyramid = [&](std::vector<PoolImageSharedRef>& gaussianPyramid)
+                auto buidlGaussianPyramid4 = [&](
+                    PoolImageSharedRef inSrc0, PoolImageSharedRef inSrc1, PoolImageSharedRef inSrc2, PoolImageSharedRef inSrc3,
+                    std::vector<PoolImageSharedRef>& out0, std::vector<PoolImageSharedRef>& out1, std::vector<PoolImageSharedRef>& out2, std::vector<PoolImageSharedRef>& out3)
                 {
-                    ScopePerframeMarker marker(cmd, "buildLaplacePyramid", { 1.0f, 1.0f, 0.0f, 1.0f });
+                    ScopePerframeMarker marker(cmd, "buidlGaussianPyramid4", { 1.0f, 1.0f, 0.0f, 1.0f });
 
+                    out0.clear();
+                    out1.clear();
+                    out2.clear();
+                    out3.clear();
 
-                    std::vector<PoolImageSharedRef> laplacePyramid{ };
+                    out0.push_back(inSrc0);
+                    out1.push_back(inSrc1);
+                    out2.push_back(inSrc2);
+                    out3.push_back(inSrc3);
 
-                    for (size_t i = 0; i < gaussianPyramid.size() - 1; i++)
+                    // Create rts.
                     {
-                        auto& src = gaussianPyramid[i];
-                        auto& low = gaussianPyramid[i + 1];
-
-                        uint32_t w = src->getImage().getExtent().width;
-                        uint32_t h = src->getImage().getExtent().height;
-
-                        auto upscale = rtPool->createPoolImage("x", w, h, src->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
-                        upscale->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        uint32_t w = inSrc0->getImage().getExtent().width / 2;
+                        uint32_t h = inSrc0->getImage().getExtent().height / 2;
+                        while (w > 0 && h > 0)
                         {
-                            ScopePerframeMarker marker(cmd, "upscale", { 1.0f, 1.0f, 0.0f, 1.0f });
+                            out0.push_back(rtPool->createPoolImage("d0", w, h, inSrc0->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT));
+                            out1.push_back(rtPool->createPoolImage("d1", w, h, inSrc1->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT));
+                            out2.push_back(rtPool->createPoolImage("d2", w, h, inSrc2->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT));
+                            out3.push_back(rtPool->createPoolImage("d3", w, h, inSrc3->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT));
 
-                            pass->pipeFusionDownsample->bind(cmd);
-                            PushSetBuilder(cmd)
-                                .addSRV(low)
-                                .addUAV(upscale)
-                                .push(pass->pipeFusionDownsample.get());
-                            pass->pipeFusionDownsample->bindSet(cmd, setSample, 1);
-
-                            vkCmdDispatch(cmd, getGroupCount(upscale->getImage().getExtent().width, 8), getGroupCount(upscale->getImage().getExtent().height, 8), 1);
+                            w /= 2;
+                            h /= 2;
                         }
-                        upscale->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                    }
+
+                    std::vector<VkDescriptorSet> setSample = { m_context->getSamplerCache().getCommonDescriptorSet() };
+
+                    for (size_t i = 1; i < out0.size(); i++)
+                    {
+                        const auto& srcIn0 = out0[i - 1];
+                        const auto& srcIn1 = out1[i - 1];
+                        const auto& srcIn2 = out2[i - 1];
+                        const auto& srcIn3 = out3[i - 1];
+
+                        uint32_t w = srcIn0->getImage().getExtent().width;
+                        uint32_t h = srcIn0->getImage().getExtent().height;
 
                         // blur x.
-                        auto tempX = rtPool->createPoolImage("d", w, h, src->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
-                        tempX->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        auto tempX0 = rtPool->createPoolImage("d0", w, h, inSrc0->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        auto tempX1 = rtPool->createPoolImage("d1", w, h, inSrc1->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        auto tempX2 = rtPool->createPoolImage("d2", w, h, inSrc2->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        auto tempX3 = rtPool->createPoolImage("d3", w, h, inSrc3->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        tempX0->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        tempX1->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        tempX2->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        tempX3->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
                         {
-                            ScopePerframeMarker marker(cmd, "blur x", { 1.0f, 1.0f, 0.0f, 1.0f });
+                            ScopePerframeMarker marker(cmd, "blur x 4", { 1.0f, 1.0f, 0.0f, 1.0f });
 
                             FusionGaussianPushConst push{ .kDirection = {1.0f, 0.0f} };
 
-                            pass->pipeFusionGaussian->bindAndPushConst(cmd, &push);
+                            pass->pipeG4->bindAndPushConst(cmd, &push);
                             PushSetBuilder(cmd)
-                                .addSRV(upscale)
-                                .addUAV(tempX)
-                                .push(pass->pipeFusionGaussian.get());
-                            pass->pipeFusionGaussian->bindSet(cmd, setSample, 1);
+                                .addSRV(srcIn0)
+                                .addSRV(srcIn1)
+                                .addSRV(srcIn2)
+                                .addSRV(srcIn3)
+                                .addUAV(tempX0)
+                                .addUAV(tempX1)
+                                .addUAV(tempX2)
+                                .addUAV(tempX3)
+                                .push(pass->pipeG4.get());
+                            pass->pipeG4->bindSet(cmd, setSample, 1);
 
                             vkCmdDispatch(cmd, getGroupCount(w, 8), getGroupCount(h, 8), 1);
                         }
-                        tempX->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        tempX0->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        tempX1->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        tempX2->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        tempX3->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
 
                         // blur y.
-                        auto tempY = rtPool->createPoolImage("d", w, h, src->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
-                        tempY->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        auto tempY0 = rtPool->createPoolImage("d", w, h, inSrc0->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        auto tempY1 = rtPool->createPoolImage("d", w, h, inSrc1->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        auto tempY2 = rtPool->createPoolImage("d", w, h, inSrc2->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        auto tempY3 = rtPool->createPoolImage("d", w, h, inSrc3->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        tempY0->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        tempY1->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        tempY2->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        tempY3->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        {
+                            ScopePerframeMarker marker(cmd, "blur y 4", { 1.0f, 1.0f, 0.0f, 1.0f });
+
+                            FusionGaussianPushConst push{ .kDirection = {0.0f, 1.0f} };
+
+                            pass->pipeG4->bindAndPushConst(cmd, &push);
+                            PushSetBuilder(cmd)
+                                .addSRV(tempX0)
+                                .addSRV(tempX1)
+                                .addSRV(tempX2)
+                                .addSRV(tempX3)
+                                .addUAV(tempY0)
+                                .addUAV(tempY1)
+                                .addUAV(tempY2)
+                                .addUAV(tempY3)
+                                .push(pass->pipeG4.get());
+                            pass->pipeG4->bindSet(cmd, setSample, 1);
+
+                            vkCmdDispatch(cmd, getGroupCount(w, 8), getGroupCount(h, 8), 1);
+                        }
+                        tempY0->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        tempY1->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        tempY2->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        tempY3->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+
+                        // Down sample to out.
+                        out0[i]->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        out1[i]->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        out2[i]->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        out3[i]->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        {
+                            ScopePerframeMarker marker(cmd, "down 4", { 1.0f, 1.0f, 0.0f, 1.0f });
+
+                            pass->pipeD4->bind(cmd);
+                            PushSetBuilder(cmd)
+                                .addSRV(tempY0)
+                                .addSRV(tempY1)
+                                .addSRV(tempY2)
+                                .addSRV(tempY3)
+                                .addUAV(out0[i])
+                                .addUAV(out1[i])
+                                .addUAV(out2[i])
+                                .addUAV(out3[i])
+                                .push(pass->pipeD4.get());
+                            pass->pipeD4->bindSet(cmd, setSample, 1);
+
+                            vkCmdDispatch(cmd, getGroupCount(out0[i]->getImage().getExtent().width, 8), getGroupCount(out0[i]->getImage().getExtent().height, 8), 1);
+                        }
+                        out0[i]->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        out1[i]->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        out2[i]->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        out3[i]->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                    }
+                };
+
+
+                auto buildLaplacePyramid4 = [&](
+                    std::vector<PoolImageSharedRef>& gaussianPyramid0, std::vector<PoolImageSharedRef>& gaussianPyramid1, std::vector<PoolImageSharedRef>& gaussianPyramid2, std::vector<PoolImageSharedRef>& gaussianPyramid3,
+                    std::vector<PoolImageSharedRef>& laplacePyramid0, std::vector<PoolImageSharedRef>& laplacePyramid1, std::vector<PoolImageSharedRef>& laplacePyramid2, std::vector<PoolImageSharedRef>& laplacePyramid3)
+                {
+                    ScopePerframeMarker marker(cmd, "buildLaplacePyramid 4", { 1.0f, 1.0f, 0.0f, 1.0f });
+
+                    laplacePyramid0.clear();
+                    laplacePyramid1.clear();
+                    laplacePyramid2.clear();
+                    laplacePyramid3.clear();
+
+                    for (size_t i = 0; i < gaussianPyramid0.size() - 1; i++)
+                    {
+                        auto& src0 = gaussianPyramid0[i];
+                        auto& src1 = gaussianPyramid1[i];
+                        auto& src2 = gaussianPyramid2[i];
+                        auto& src3 = gaussianPyramid3[i];
+                        auto& low0 = gaussianPyramid0[i + 1];
+                        auto& low1 = gaussianPyramid1[i + 1];
+                        auto& low2 = gaussianPyramid2[i + 1];
+                        auto& low3 = gaussianPyramid3[i + 1];
+
+                        uint32_t w = src0->getImage().getExtent().width;
+                        uint32_t h = src0->getImage().getExtent().height;
+
+                        auto upscale0 = rtPool->createPoolImage("x0", w, h, src0->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        auto upscale1 = rtPool->createPoolImage("x1", w, h, src1->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        auto upscale2 = rtPool->createPoolImage("x2", w, h, src2->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        auto upscale3 = rtPool->createPoolImage("x3", w, h, src3->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        upscale0->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        upscale1->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        upscale2->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        upscale3->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        {
+                            ScopePerframeMarker marker(cmd, "upscale 4", { 1.0f, 1.0f, 0.0f, 1.0f });
+
+                            pass->pipeD4->bind(cmd);
+                            PushSetBuilder(cmd)
+                                .addSRV(low0)
+                                .addSRV(low1)
+                                .addSRV(low2)
+                                .addSRV(low3)
+                                .addUAV(upscale0)
+                                .addUAV(upscale1)
+                                .addUAV(upscale2)
+                                .addUAV(upscale3)
+                                .push(pass->pipeD4.get());
+                            pass->pipeD4->bindSet(cmd, setSample, 1);
+
+                            vkCmdDispatch(cmd, getGroupCount(upscale0->getImage().getExtent().width, 8), getGroupCount(upscale0->getImage().getExtent().height, 8), 1);
+                        }
+                        upscale0->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        upscale1->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        upscale2->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        upscale3->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+
+                        // blur x.
+                        auto tempX0 = rtPool->createPoolImage("d 0", w, h, src0->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        auto tempX1 = rtPool->createPoolImage("d 1", w, h, src1->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        auto tempX2 = rtPool->createPoolImage("d 2", w, h, src2->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        auto tempX3 = rtPool->createPoolImage("d 3", w, h, src3->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        tempX0->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        tempX1->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        tempX2->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        tempX3->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        {
+                            ScopePerframeMarker marker(cmd, "blur x 4", { 1.0f, 1.0f, 0.0f, 1.0f });
+
+                            FusionGaussianPushConst push{ .kDirection = {1.0f, 0.0f} };
+
+                            pass->pipeG4->bindAndPushConst(cmd, &push);
+                            PushSetBuilder(cmd)
+                                .addSRV(upscale0)
+                                .addSRV(upscale1)
+                                .addSRV(upscale2)
+                                .addSRV(upscale3)
+                                .addUAV(tempX0)
+                                .addUAV(tempX1)
+                                .addUAV(tempX2)
+                                .addUAV(tempX3)
+                                .push(pass->pipeG4.get());
+                            pass->pipeG4->bindSet(cmd, setSample, 1);
+
+                            vkCmdDispatch(cmd, getGroupCount(w, 8), getGroupCount(h, 8), 1);
+                        }
+                        tempX0->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        tempX1->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        tempX2->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        tempX3->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+
+                        // blur y.
+                        auto tempY0 = rtPool->createPoolImage("d 0", w, h, src0->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        auto tempY1 = rtPool->createPoolImage("d 1", w, h, src1->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        auto tempY2 = rtPool->createPoolImage("d 2", w, h, src2->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        auto tempY3 = rtPool->createPoolImage("d 3", w, h, src3->getImage().getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        tempY0->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        tempY1->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        tempY2->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        tempY3->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
                         {
                             ScopePerframeMarker marker(cmd, "blur y", { 1.0f, 1.0f, 0.0f, 1.0f });
 
                             FusionGaussianPushConst push{ .kDirection = {0.0f, 1.0f} };
 
-                            pass->pipeFusionGaussian->bindAndPushConst(cmd, &push);
+                            pass->pipeG4->bindAndPushConst(cmd, &push);
                             PushSetBuilder(cmd)
-                                .addSRV(tempX)
-                                .addUAV(tempY)
-                                .push(pass->pipeFusionGaussian.get());
-                            pass->pipeFusionGaussian->bindSet(cmd, setSample, 1);
+                                .addSRV(tempX0)
+                                .addSRV(tempX1)
+                                .addSRV(tempX2)
+                                .addSRV(tempX3)
+                                .addUAV(tempY0)
+                                .addUAV(tempY1)
+                                .addUAV(tempY2)
+                                .addUAV(tempY3)
+                                .push(pass->pipeG4.get());
+                            pass->pipeG4->bindSet(cmd, setSample, 1);
 
                             vkCmdDispatch(cmd, getGroupCount(w, 8), getGroupCount(h, 8), 1);
                         }
-                        tempY->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        tempY0->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        tempY1->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        tempY2->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        tempY3->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
 
                         // Blur ready, then compute laplace.
-                        auto laplace = rtPool->createPoolImage("l", w, h, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
-                        laplace->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        auto laplace0 = rtPool->createPoolImage("l 0", w, h, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        auto laplace1 = rtPool->createPoolImage("l 1", w, h, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        auto laplace2 = rtPool->createPoolImage("l 2", w, h, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        auto laplace3 = rtPool->createPoolImage("l 3", w, h, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+                        laplace0->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        laplace1->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        laplace2->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+                        laplace3->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
                         {
                             ScopePerframeMarker marker(cmd, "laplace", { 1.0f, 1.0f, 0.0f, 1.0f });
 
-                            pass->pipeFusionLaplace->bind(cmd);
+                            pass->pipeFusionLaplace4->bind(cmd);
                             PushSetBuilder(cmd)
-                                .addSRV(tempY)
-                                .addSRV(src)
-                                .addUAV(laplace)
-                                .push(pass->pipeFusionLaplace.get());
-                            pass->pipeFusionLaplace->bindSet(cmd, setSample, 1);
+                                .addSRV(tempY0)
+                                .addSRV(tempY1)
+                                .addSRV(tempY2)
+                                .addSRV(tempY3)
+                                .addSRV(src0)
+                                .addSRV(src1)
+                                .addSRV(src2)
+                                .addSRV(src3)
+                                .addUAV(laplace0)
+                                .addUAV(laplace1)
+                                .addUAV(laplace2)
+                                .addUAV(laplace3)
+                                .push(pass->pipeFusionLaplace4.get());
+                            pass->pipeFusionLaplace4->bindSet(cmd, setSample, 1);
 
                             vkCmdDispatch(cmd, getGroupCount(w, 8), getGroupCount(h, 8), 1);
                         }
-                        laplace->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        laplace0->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        laplace1->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        laplace2->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                        laplace3->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
 
-                        laplacePyramid.push_back(laplace);
+                        laplacePyramid0.push_back(laplace0);
+                        laplacePyramid1.push_back(laplace1);
+                        laplacePyramid2.push_back(laplace2);
+                        laplacePyramid3.push_back(laplace3);
                     }
 
                     // Last of laplace pyramid just copy.
-                    laplacePyramid.push_back(gaussianPyramid.back());
-
-                    return laplacePyramid;
+                    laplacePyramid0.push_back(gaussianPyramid0.back());
+                    laplacePyramid1.push_back(gaussianPyramid1.back());
+                    laplacePyramid2.push_back(gaussianPyramid2.back());
+                    laplacePyramid3.push_back(gaussianPyramid3.back());
                 };
 
                 const int kDepth = 999;
                 auto weightPyraimd = buidlGaussianPyramid(weight, kDepth);
+
+                m_gpuTimer.getTimeStamp(cmd, "Weight Gaussian");
 
                 std::vector<PoolImageSharedRef> laplace0;
                 std::vector<PoolImageSharedRef> laplace1;
                 std::vector<PoolImageSharedRef> laplace2;
                 std::vector<PoolImageSharedRef> laplace3;
                 {
-                    {
-                        auto gaussian0 = buidlGaussianPyramid(color0, kDepth);
-                        laplace0 = buildLaplacePyramid(gaussian0);
-                    }
-                    {
-                        auto gaussian1 = buidlGaussianPyramid(color1, kDepth);
-                        laplace1 = buildLaplacePyramid(gaussian1);
-                    }
-                    {
-                        auto gaussian2 = buidlGaussianPyramid(color2, kDepth);
-                        laplace2 = buildLaplacePyramid(gaussian2);
-                    }
-                    {
-                        auto gaussian3 = buidlGaussianPyramid(color3, kDepth);
-                        laplace3 = buildLaplacePyramid(gaussian3);
-                    }
+                    std::vector<PoolImageSharedRef> g0;
+                    std::vector<PoolImageSharedRef> g1;
+                    std::vector<PoolImageSharedRef> g2;
+                    std::vector<PoolImageSharedRef> g3;
+
+                    buidlGaussianPyramid4(color0, color1, color2, color3, g0, g1, g2, g3);
+
+                    buildLaplacePyramid4(g0, g1, g2, g3, laplace0, laplace1, laplace2, laplace3);
                 }
+
+                m_gpuTimer.getTimeStamp(cmd, "laplace4");
 
                 std::vector<PoolImageSharedRef> fusionBlend;
                 for (size_t i = 0; i < laplace0.size(); i++)
@@ -628,6 +896,8 @@ namespace engine
 
                     fusionBlend.push_back(blend);
                 }
+
+                m_gpuTimer.getTimeStamp(cmd, "blend");
 
                 // Fusion
 
@@ -714,8 +984,10 @@ namespace engine
 
                     blendFusion = blendImage;
                 }
-            }
 
+
+                m_gpuTimer.getTimeStamp(cmd, "Fusion");
+            }
         }
         
         {

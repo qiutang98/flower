@@ -40,7 +40,7 @@ namespace engine
 		float exposureFusionShadows = 0.5f;
 		float exposureFusionHighlights = 2.0f;
 		float exposureFusionSigma = 0.2f;
-		float exposureFusionWellExposureValue = 0.5f; 
+		float exposureFusionWellExposureValue = 0.5f;
 		float exposureFusionContrastPow = 1.0f;
 		float exposureFusionSaturationPow = 1.0f;
 		float exposureFusionExposurePow = 1.0f;

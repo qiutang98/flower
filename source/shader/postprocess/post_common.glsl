@@ -6,7 +6,8 @@
 vec3 toneMapperFunction(vec3 inColor)
 {
     vec3 colorAP0 = inColor * sRGB_2_AP0;
-    return WhiteBalance(acesFilm(colorAP0));
+    vec3 toneColor = acesFilm(colorAP0);
+    return encodeSRGB(toneColor);
 }
 
 #define kFusionGaussianTapRadius 2.0

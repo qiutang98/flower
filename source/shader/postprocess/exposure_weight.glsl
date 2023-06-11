@@ -21,30 +21,43 @@ layout(push_constant) uniform PushConstants
     float kExposurePow; // 1.0
 };
 
+#define CIE_LAB_SPACE 0
 
-float saturationWeight(vec3 color)
+float saturationWeight(vec3 color, vec3 cieLabColor)
 {
+#if !CIE_LAB_SPACE
     float mu = (color.x + color.y + color.z) / 3.0;
     vec3 dis = color - vec3(mu);
     float disDot = dot(dis, dis);
-
     return sqrt(disDot / 3.0);
+#else
+    return sqrt(cieLabColor.y * cieLabColor.y + cieLabColor.z * cieLabColor.z);
+#endif
 }
 
-float exposureWeight(vec3 color)
+float exposureWeight(vec3 color, float gray)
 {
     float sigma2 = kSigma * kSigma;
 
-    vec3 colorMu = (color - kWellExposureValue);
-    vec3 expC = exp(-0.5 * colorMu * colorMu / sigma2);
+    vec3 colorMu = color - kWellExposureValue;
+    float grayMu = gray - kWellExposureValue;
 
+#if !CIE_LAB_SPACE
+    vec3 expC = exp(-0.5 * colorMu * colorMu / sigma2);
     return expC.r * expC.g * expC.b;
+#else
+    return exp(-0.5 * grayMu * grayMu / sigma2);
+#endif
 }
 
 float computeWeight(texture2D tex, vec2 uv, vec2 texelSize, vec3 param)
 {
     vec3 center = texture(sampler2D(tex, pointClampEdgeSampler), uv).xyz; 
     float weight = 1.0;
+
+    float centerGray = dot(vec3(0.2989, 0.5870, 0.1140), center);
+
+    vec3 centerLab = sRGB2LAB(center);
 
 #if 1
     // contrast, laplace filter.
@@ -55,26 +68,34 @@ float computeWeight(texture2D tex, vec2 uv, vec2 texelSize, vec3 param)
         vec3 left   = texture(sampler2D(tex, pointClampEdgeSampler), uv + texelSize * vec2(-1.0,  0.0)).xyz; 
         vec3 right  = texture(sampler2D(tex, pointClampEdgeSampler), uv + texelSize * vec2( 1.0,  0.0)).xyz; 
 
-        float centerGray = dot(vec3(0.1,0.7,0.2), center);
-        float upGray     = dot(vec3(0.1,0.7,0.2), up);
-        float downGray   = dot(vec3(0.1,0.7,0.2), down);
-        float leftGray   = dot(vec3(0.1,0.7,0.2), left);
-        float rightGray  = dot(vec3(0.1,0.7,0.2), right);
+        float upGray     = dot(vec3(0.2989, 0.5870, 0.1140), up);
+        float downGray   = dot(vec3(0.2989, 0.5870, 0.1140), down);
+        float leftGray   = dot(vec3(0.2989, 0.5870, 0.1140), left);
+        float rightGray  = dot(vec3(0.2989, 0.5870, 0.1140), right);
 
+        vec3 upLab     = sRGB2LAB(up);
+        vec3 downLab   = sRGB2LAB(down);
+        vec3 leftLab   = sRGB2LAB(left);
+        vec3 rightLab  = sRGB2LAB(right);
+
+    #if !CIE_LAB_SPACE
         weight *= pow(abs(-centerGray * 4.0 + upGray + downGray + leftGray + rightGray), param.x);
+    #else
+        weight *= pow(abs(-centerLab.x * 4.0 + upLab.x + downLab.x + leftLab.x + rightLab.x), param.x);
+    #endif
     } 
 #endif
     // saturation
     if(param.y > 0.0)
     {
-        weight *= pow(saturationWeight(center), param.y);
+        weight *= pow(saturationWeight(center, centerLab), param.y);
     }
 
 
     // exposedness
     if(param.z > 0.0)
     {
-        weight *= pow(exposureWeight(center), param.z);
+        weight *= pow(exposureWeight(center, centerGray), param.z);
     }
     return weight;
 }
@@ -104,6 +125,5 @@ void main()
     weights.w = computeWeight(exposureColor3, uv, texelSize, param);
 
     weights /= dot(weights, vec4(1.0)) + 1e-12f;
-
     imageStore(weightColor, workPos, weights);
 }

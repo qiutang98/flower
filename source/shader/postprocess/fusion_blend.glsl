@@ -28,6 +28,7 @@ void main()
     const vec2 uv = (vec2(workPos) + vec2(0.5f)) * texelSize;
 
     vec4 weights = texture(sampler2D(inWeight, pointClampEdgeSampler), uv);
+    weights /= dot(weights, vec4(1.0)) + 1e-12f;
 
     vec4 laplace0 = texture(sampler2D(inLaplace0, pointClampEdgeSampler), uv);
     vec4 laplace1 = texture(sampler2D(inLaplace1, pointClampEdgeSampler), uv);
