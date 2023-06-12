@@ -48,7 +48,7 @@ void main()
     for(float i = -kFusionGaussianTapRadius; i <= kFusionGaussianTapRadius; i++)
     {
         float sampleWeight = kFusionGaussianWeight[index];
-        sum += sampleWeight * texture(sampler2D(inA, pointClampEdgeSampler), uv + i * kDirection * texelSize);
+        sum += sampleWeight * texture(sampler2D(inA, linearClampEdgeSampler), uv + i * kDirection * texelSize);
 
         weight += sampleWeight;
         index ++;
@@ -57,7 +57,7 @@ void main()
     for(float i = -kFusionRadius; i <= kFusionRadius; i++)
     {
         float sampleWeight = gaussianWeight(i);
-        sum += sampleWeight * texture(sampler2D(inA, pointClampEdgeSampler), uv + i * kDirection * texelSize);
+        sum += sampleWeight * texture(sampler2D(inA, linearClampEdgeSampler), uv + i * kDirection * texelSize);
 
         weight += sampleWeight;
     }
