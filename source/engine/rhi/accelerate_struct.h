@@ -23,9 +23,11 @@ namespace engine
 		AccelKHR cleanupAS;
 	};
 
-	class TLASBuilder
+	class TLASBuilder : NonCopyable
 	{
 	public:
+		~TLASBuilder() { destroy(); }
+
 		void destroy();
 
 		// TLAS
@@ -35,8 +37,8 @@ namespace engine
 		void buildTlas(
 			VkCommandBuffer cmdBuf, 
 			const std::vector<VkAccelerationStructureInstanceKHR>& instances,
-			VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
-			bool update = false);
+			bool update,
+			VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
 
 	protected:
 		// Creating the TLAS, called by buildTlas 
@@ -52,46 +54,7 @@ namespace engine
 		std::unique_ptr<VulkanBuffer> m_scratchBuffer;
 	};
 
-	struct TLASBuilderRing : NonCopyable
-	{
-		~TLASBuilderRing()
-		{
-			clear();
-		}
-
-		void tickFrame()
-		{
-			tlasInstance.clear();
-			m_bBuildTLASThisFrame = false;
-		}
-
-		TLASBuilder& getActive();
-
-		void buildTlas(
-			VkCommandBuffer cmdBuf,
-			bool update = false,
-			VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
-	
-		std::vector<VkAccelerationStructureInstanceKHR> tlasInstance;
-
-		void clear()
-		{
-			m_builder.destroy();
-			m_fallback.destroy();
-		}
-
-	private:
-		bool shouldUseFallback() const;
-
-		bool m_bBuildTLASThisFrame = false;
-
-		TLASBuilder m_fallback;
-		TLASBuilder m_builder;
-
-		size_t m_index = 0;
-	};
-
-	class BLASBuilder
+	class BLASBuilder : NonCopyable
 	{
 	public:
 		struct BlasInput
@@ -100,6 +63,8 @@ namespace engine
 			std::vector<VkAccelerationStructureBuildRangeInfoKHR> asBuildOffsetInfo;
 			VkBuildAccelerationStructureFlagsKHR flags{ 0 };
 		};
+
+		~BLASBuilder() { destroy(); }
 
 		void destroy();
 

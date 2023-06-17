@@ -126,6 +126,11 @@ struct SkyInfo
     vec3  direction;
     int  shadowType; // Shadow type of this sky light.
 
+    int rayTraceShadow; // = 0 is false, = 1 is true;
+    int pad0;
+    int pad1;
+    int pad2;
+
     CascadeShadowConfig cacsadeConfig;
     AtmosphereConfig atmosphereConfig;
 };

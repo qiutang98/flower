@@ -64,4 +64,16 @@ namespace engine
 
 		return math::vec3(0.0f, 0.0f, 0.0f);
 	}
+
+	bool LightComponent::setRayTraceShadow(bool bState)
+	{
+		if (m_bRayTraceShadow != bState)
+		{
+			m_bRayTraceShadow = bState;
+			markDirty();
+			return true;
+		}
+
+		return false;
+	}
 }

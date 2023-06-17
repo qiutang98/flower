@@ -143,12 +143,15 @@ namespace engine
 			return;
 		}
 
+
+
 		const auto& gpuInfo = scene->getSkyGPU();
+		const bool bStaticMeshRenderSDSM = gpuInfo.rayTraceShadow == 0;
 
 		auto& sceneDepthZ = inGBuffers->depthTexture->getImage();
 		sceneDepthZ.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT));
 
-		const uint32_t staticMeshCount = (uint32_t)scene->getStaticMeshObjects().size();
+		const uint32_t staticMeshCount = bStaticMeshRenderSDSM ?(uint32_t)scene->getStaticMeshObjects().size() : 0;
 
 		auto& gBufferA = inGBuffers->gbufferA->getImage();
 		auto& gBufferB = inGBuffers->gbufferB->getImage();
@@ -237,8 +240,9 @@ namespace engine
 		}
 
 		
+
 		{
-			const auto cullingCount = gpuInfo.cacsadeConfig.cascadeCount * staticMeshCount;
+			const auto cullingCount = math::max(1U, gpuInfo.cacsadeConfig.cascadeCount * staticMeshCount);
 
 			auto indirectDrawCommandBuffer = m_context->getBufferParameters().getIndirectStorage("SDSMMeshIndirectCommand",
 				cullingCount * sizeof(GPUStaticMeshDrawCommand));
@@ -315,6 +319,7 @@ namespace engine
 						vkCmdSetScissor(cmd, 0, 1, &scissor);
 						vkCmdSetViewport(cmd, 0, 1, &viewport);
 
+						if(bStaticMeshRenderSDSM)
 						{
 							pass->depthPipe->bind(cmd);
 							staticMeshSetBuilder.push(pass->depthPipe.get());
@@ -331,7 +336,7 @@ namespace engine
 
 							vkCmdDrawIndirectCount(cmd,
 								indirectDrawCommandBuffer->getBuffer()->getVkBuffer(),
-								cascadeIndex * sizeof(GPUStaticMeshDrawCommand)* staticMeshCount,
+								cascadeIndex * sizeof(GPUStaticMeshDrawCommand) * staticMeshCount,
 								indirectDrawCountBuffer->getBuffer()->getVkBuffer(),
 								cascadeIndex * sizeof(uint32_t),
 								staticMeshCount,

@@ -44,21 +44,25 @@ namespace engine
 
     void TLASBuilder::destroy()
     {
-        m_bInit = false;
-        m_tlas.release();
+        if (m_bInit)
+        {
+            getContext()->waitDeviceIdle();
+            m_bInit = false;
+
+            m_tlas.release();
+            m_scratchBuffer = nullptr;
+        }
     }
 
     void TLASBuilder::buildTlas(
         VkCommandBuffer cmdBuf,
         const std::vector<VkAccelerationStructureInstanceKHR>& instances, 
-        VkBuildAccelerationStructureFlagsKHR flags, 
-        bool update)
+        bool update,
+        VkBuildAccelerationStructureFlagsKHR flags)
     {
-        if (update)
-        {
-            CHECK(m_bInit);
-        }
+        bool bUpdate = update && m_bInit;
 
+        // Copy instance matrix to buffer.
         auto instanceGPU = getContext()->getBufferParameters().getParameter("TLAS_Instances", 
             sizeof(instances[0]) * instances.size(),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
@@ -71,7 +75,7 @@ namespace engine
         uint32_t countInstance = static_cast<uint32_t>(instances.size());
 
         // Creating the TLAS
-        cmdCreateTlas(cmdBuf, countInstance, instBufferAddr, flags, update);
+        cmdCreateTlas(cmdBuf, countInstance, instBufferAddr, flags, bUpdate);
 
         m_bInit = true;
     }
@@ -94,43 +98,40 @@ namespace engine
 
         // Find sizes
         VkAccelerationStructureBuildGeometryInfoKHR buildInfo{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR };
-        buildInfo.flags = flags;
+        VkAccelerationStructureBuildSizesInfoKHR sizeInfo{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
+
+        buildInfo.flags = flags | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
         buildInfo.geometryCount = 1;
         buildInfo.pGeometries = &topASGeometry;
-        buildInfo.mode = update ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
         buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
         buildInfo.srcAccelerationStructure = VK_NULL_HANDLE;
 
-        VkAccelerationStructureBuildSizesInfoKHR sizeInfo{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
-        getAccelerationStructureBuildSizesKHR(VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &countInstance, &sizeInfo);
-
-        if (m_bInit)
         {
-            if (m_scratchBuffer->getSize() < sizeInfo.buildScratchSize ||
-                m_scratchBuffer->getSize() > sizeInfo.buildScratchSize * 10)
+
+            buildInfo.mode = update ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+            getAccelerationStructureBuildSizesKHR(VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &countInstance, &sizeInfo);
+        }
+        
+
+        if (update)
+        {
+            CHECK(m_tlas.accel);
+            CHECK(m_scratchBuffer);
+
+            // Size not match, rebuild.
+            if (m_scratchBuffer->getSize() != sizeInfo.buildScratchSize || 
+                m_tlas.createInfo.size     != sizeInfo.accelerationStructureSize)
             {
-                LOG_TRACE("Recreate scratch buffer from {} to {}.", m_scratchBuffer->getSize(), sizeInfo.buildScratchSize);
-
-                if (sizeInfo.buildScratchSize == 1920)
-                {
-                    LOG_TRACE("Hit");
-                }
-
-                getContext()->waitDeviceIdle();
-                m_scratchBuffer = nullptr;
+                update = false;
+                destroy();
             }
 
-            if (m_tlas.createInfo.size < sizeInfo.accelerationStructureSize ||
-                m_tlas.createInfo.size > sizeInfo.accelerationStructureSize * 10)
+            // Need rebuild, re-compute size info and build info.
+            if (!update)
             {
-                LOG_TRACE("Recreate tlas from {} to {}.", m_tlas.createInfo.size, sizeInfo.accelerationStructureSize);
-
-                getContext()->waitDeviceIdle();
-
-                LOG_TRACE("Wait.");
-                m_tlas.release();
-
-                LOG_TRACE("Release.");
+                buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+                buildInfo.flags = flags;
+                getAccelerationStructureBuildSizesKHR(VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &countInstance, &sizeInfo);
             }
         }
 
@@ -144,7 +145,8 @@ namespace engine
             m_tlas.create(createInfo);
         }
 
-        if (!m_scratchBuffer)
+        // Prepare tlas scratch buffer if no exist.
+        if (m_scratchBuffer == nullptr)
         {
             // Allocate the scratch memory
             m_scratchBuffer = std::make_unique<VulkanBuffer>(
@@ -170,11 +172,17 @@ namespace engine
         // Build the TLAS
         cmdBuildAccelerationStructures(cmdBuf, 1, &buildInfo, &pBuildOffsetInfo);
 
+        // Barrier.
         VkMemoryBarrier barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER };
         barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
         barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
         vkCmdPipelineBarrier(cmdBuf, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
             VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+
+        if (!update)
+        {
+            vkQueueWaitIdle(getContext()->getMajorGraphicsQueue());
+        }
     }
 
 
@@ -445,66 +453,6 @@ namespace engine
         {
             buildAs[i].cleanupAS.release();
         }
-    }
-
-    TLASBuilder& TLASBuilderRing::getActive()
-    {
-        CHECK(m_bBuildTLASThisFrame);
-
-        if (m_builder.isInit())
-        {
-            return m_builder;
-        }
-        return m_fallback;
-    }
-
-    void TLASBuilderRing::buildTlas(
-        VkCommandBuffer cmdBuf, 
-        bool update, 
-        VkBuildAccelerationStructureFlagsKHR flags)
-    {
-        if (!m_fallback.isInit())
-        {
-            std::vector<VkAccelerationStructureInstanceKHR> fallback(1);
-            fallback[0].accelerationStructureReference = 
-                getContext()->getEngineStaticMeshBox()->getOrBuilddBLAS().getBlasDeviceAddress(0);
-            fallback[0].transform = 
-            {
-                1.0f, 0.0f, 0.0f, 0.0f,
-                0.0f, 1.0f, 0.0f, 0.0f,
-                0.0f, 0.0f, 1.0f, 0.0f 
-            };
-
-            m_fallback.buildTlas(cmdBuf, fallback, flags, false);
-        }
-
-        if (!m_bBuildTLASThisFrame)
-        {
-            m_bBuildTLASThisFrame = true;
-            if (shouldUseFallback())
-            {
-                m_builder.destroy();
-            }
-            else
-            {
-                m_builder.buildTlas(cmdBuf, tlasInstance, flags, update);
-            }
-        }
-    }
-
-    bool TLASBuilderRing::shouldUseFallback() const
-    {
-        if (getContext()->getAsyncUploader().busy())
-        {
-            return true;
-        }
-
-        if (tlasInstance.empty())
-        {
-            return true;
-        }
-
-        return false;
     }
 
 }

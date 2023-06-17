@@ -17,6 +17,7 @@ layout (set = 0, binding = 7)  uniform texture2D inBRDFLut;
 layout (set = 0, binding = 8)  uniform texture2D inTransmittanceLut;
 layout (set = 0, binding = 9)  uniform texture2D inSSAO;
 layout (set = 0, binding = 10) uniform textureCube inSkyIrradiance;
+layout (set = 0, binding = 11)  uniform texture2D inShadowMaskRT;
 
 #define SHARED_SAMPLER_SET 1
 #include "../common/shared_sampler.glsl"
@@ -91,6 +92,11 @@ void main()
             if(frameData.skySDSMValid > 0)
             {
                 shadowFactor = texelFetch(inShadowMask, workPos, 0).r;
+
+                if(frameData.sky.rayTraceShadow != 0)
+                {
+                    shadowFactor = min(shadowFactor, texelFetch(inShadowMaskRT, workPos, 0).r);
+                }
             }
 
             // Second evaluate transmittance due to participating media

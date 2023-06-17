@@ -14,7 +14,7 @@ namespace engine
         "r.RHI.RayTraceEnable",
         "Enable ray trace feature or not.",
         "RHI",
-        false,
+        true,
         CVarFlags::ReadOnly
     );
 

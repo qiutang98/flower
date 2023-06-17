@@ -29,7 +29,7 @@ namespace engine
 		virtual void tick(const RuntimeModuleTickData& tickData) override;
 
 		// Return is move this frame, which toggle tlas rebuild.
-		void renderObjectCollect(std::vector<GPUStaticMeshPerObjectData>& collector);
+		void renderObjectCollect(std::vector<GPUStaticMeshPerObjectData>& collector, std::vector<VkAccelerationStructureInstanceKHR>& asInstances);
 
 		bool setMesh(const UUID& in, const std::string& staticMeshAssetRelativeRoot, bool bEngineAsset);
 
@@ -51,17 +51,21 @@ namespace engine
 		{
 			// SOA for insert and multi thread.
 			std::vector<GPUStaticMeshPerObjectData> cachePerObjectData;
+			std::vector<VkAccelerationStructureInstanceKHR> cachePerObjectAs;
 			std::vector<MaterialUUID> cacheMaterialId;
 
 			void clear()
 			{
 				cachePerObjectData.clear();
 				cacheMaterialId.clear();
+				cachePerObjectAs.clear();
 			}
+
 			void resize(size_t i)
 			{
 				cachePerObjectData.resize(i);
 				cacheMaterialId.resize(i);
+				cachePerObjectAs.resize(i);
 			}
 		};
 

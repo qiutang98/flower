@@ -2,7 +2,7 @@
 #include "../scene_graph.h"
 #include "../scene_node.h"
 #include <asset/asset_system.h>
-
+#include "../../renderer/render_scene.h"
 #include "../editor/editor.h"
 
 namespace engine
@@ -29,9 +29,21 @@ namespace engine
 		}
 	}
 
-	void StaticMeshComponent::renderObjectCollect(std::vector<GPUStaticMeshPerObjectData>& collector)
+	void fillVkAccelerationStructureInstance(VkAccelerationStructureInstanceKHR& as, uint64_t address)
+	{
+		as.accelerationStructureReference = address;
+		as.mask = 0xFF;
+
+		// TODO: VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR // Faster.
+		//       VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR // Two side.
+		as.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+		as.instanceShaderBindingTableRecordOffset = 0;
+	}
+
+	void StaticMeshComponent::renderObjectCollect(std::vector<GPUStaticMeshPerObjectData>& collector, std::vector<VkAccelerationStructureInstanceKHR>& asInstances)
 	{
 		const size_t objectOffsetId = collector.size();
+		const size_t asOffsetId = asInstances.size();
 
 		math::mat4 modelMatrix = getNode()->getTransform()->getWorldMatrix();
 		math::mat4 modelMatrixPrev = getNode()->getTransform()->getPrevWorldMatrix();
@@ -45,13 +57,28 @@ namespace engine
 			object.bSelected = bSelected;
 		};
 
+		VkAccelerationStructureInstanceKHR instanceTamplate{};
+		{
+			math::mat4 temp = math::transpose(modelMatrix);
+			memcpy(&instanceTamplate.transform, &temp, sizeof(VkTransformMatrixKHR));
+		}
+
+		// Update transform and custom index.
+		auto updateRayInstance = [&](VkAccelerationStructureInstanceKHR& object, size_t i)
+		{
+			object.transform = instanceTamplate.transform;
+			object.instanceCustomIndex = asOffsetId + i;
+		};
+
+		size_t baseInstanceOffset = asInstances.size();
 		if (m_perobjectCache.cachePerObjectData.size() > kMinSubMeshNumStartParallel)
 		{
-			const auto loop = [&updateObject, this](const size_t loopStart, const size_t loopEnd)
+			const auto loop = [&, this](const size_t loopStart, const size_t loopEnd)
 			{
 				for (size_t i = loopStart; i < loopEnd; ++i)
 				{
 					updateObject(m_perobjectCache.cachePerObjectData[i]);
+					updateRayInstance(m_perobjectCache.cachePerObjectAs[i], i);
 				}
 			};
 			ThreadPool::getDefault()->parallelizeLoop(0, m_perobjectCache.cachePerObjectData.size(), loop).wait();
@@ -61,12 +88,17 @@ namespace engine
 			for (size_t i = 0; i < m_perobjectCache.cachePerObjectData.size(); i++)
 			{
 				updateObject(m_perobjectCache.cachePerObjectData[i]);
+				updateRayInstance(m_perobjectCache.cachePerObjectAs[i], i);
 			}
 		}
 
-		collector.insert(collector.end(),
-			m_perobjectCache.cachePerObjectData.begin(),
-			m_perobjectCache.cachePerObjectData.end());
+		collector.insert(collector.end(), m_perobjectCache.cachePerObjectData.begin(), m_perobjectCache.cachePerObjectData.end());
+
+		if (getContext()->getGraphicsCardState().bSupportRaytrace)
+		{
+			asInstances.insert(asInstances.end(), m_perobjectCache.cachePerObjectAs.begin(), m_perobjectCache.cachePerObjectAs.end());
+		}
+
 	}
 
 	bool StaticMeshComponent::setMesh(const UUID& in, const std::string& staticMeshAssetRelativeRoot, bool bEngineAsset)
@@ -137,13 +169,6 @@ namespace engine
 			return;
 		}
 
-		static const VkTransformMatrixKHR kInitTransformMatrix =
-		{
-			1.0f, 0.0f, 0.0f, 0.0f,
-			0.0f, 1.0f, 0.0f, 0.0f,
-			0.0f, 0.0f, 1.0f, 0.0f
-		};
-
 		// Update mesh loading state.
 		// If mesh replace, update proxys.
 		// If mesh loading state change, upadte proxy.
@@ -158,6 +183,11 @@ namespace engine
 			// Collect object.
 			if (!gpuAsset->isEngineAsset())
 			{
+				getRenderer()->getScene()->unvalidAS();
+
+				// Build blas when loading ready.
+				auto& blas = gpuAsset->getOrBuilddBLAS();
+
 				auto meshAsset = m_cacheStaticMeshAsset.lock();
 
 				// Exist asset state.
@@ -168,6 +198,7 @@ namespace engine
 					const auto& submesh = submeshes[i];
 					auto& cacheObject = m_perobjectCache.cachePerObjectData.at(i);
 					auto& cacheMaterialId = m_perobjectCache.cacheMaterialId.at(i);
+					auto& cacheAs = m_perobjectCache.cachePerObjectAs.at(i);
 
 					cacheObject.tangentsArrayId = gpuAsset->getTangentsBindless();
 					cacheObject.uv0sArrayId = gpuAsset->getUv0sBindless();
@@ -199,7 +230,12 @@ namespace engine
 						cacheObject.material = GPUMaterialStandardPBR::getDefault();
 						LOG_WARN("Missing material, used default for submesh.");
 					}
+
+					fillVkAccelerationStructureInstance(cacheAs, blas.getBlasDeviceAddress(i));
 				}
+
+
+				LOG_TRACE("Build BLAS for mesh {}.", meshAsset->getNameUtf8());
 			}
 			else
 			{
@@ -223,6 +259,11 @@ namespace engine
 
 				m_perobjectCache.resize(1);
 				m_perobjectCache.cachePerObjectData[0] = std::move(object);
+
+
+				fillVkAccelerationStructureInstance(
+					m_perobjectCache.cachePerObjectAs[0], 
+					std::dynamic_pointer_cast<GPUStaticMeshAsset>(getContext()->getEngineAsset(gpuAsset->getAssetUUID()))->getOrBuilddBLAS().getBlasDeviceAddress(0));
 			}
 		}
 
@@ -280,6 +321,7 @@ namespace engine
 		m_cacheGPUMeshAsset = getContext()->getOrCreateStaticMeshAsset(m_staticMeshUUID);
 		m_bMeshReplace = true;
 		m_bMeshReady = m_cacheGPUMeshAsset->isAssetReady();
+		getRenderer()->getScene()->unvalidAS();
 	}
 
 }

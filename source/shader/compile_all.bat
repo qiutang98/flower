@@ -11,6 +11,7 @@ call %~dp0/bloom/compile.cmd
 call %~dp0/cbt/compile.cmd
 call %~dp0/terrain/compile.cmd
 call %~dp0/cloud/compile.cmd
+call %~dp0/raytrace/compile.bat
 
 %~dp0/glslc.exe -fshader-stage=comp --target-env=vulkan1.3 %~dp0/hzb.glsl -O -o %~dp0/../../install/shader/hzb.comp.spv
 %~dp0/glslc.exe -fshader-stage=comp --target-env=vulkan1.3 %~dp0/pick.glsl -O -o %~dp0/../../install/shader/pick.comp.spv

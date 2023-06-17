@@ -1,6 +1,6 @@
 #pragma once
 
-#define kAssetVersion 0
+#define kAssetVersion 1
 
 // Archive macro for convince.
 

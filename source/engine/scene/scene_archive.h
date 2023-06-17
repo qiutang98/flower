@@ -53,6 +53,11 @@ ASSET_ARCHIVE_IMPL_INHERIT(LightComponent, Component)
     ARCHIVE_NVP_DEFAULT(m_color);
     ARCHIVE_NVP_DEFAULT(m_forward);
     ARCHIVE_NVP_DEFAULT(m_intensity);
+
+    if (version > 0)
+    {
+        ARCHIVE_NVP_DEFAULT(m_bRayTraceShadow);
+    }
 }
 ASSET_ARCHIVE_END
 

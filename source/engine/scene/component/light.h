@@ -28,6 +28,9 @@ namespace engine
 
 		math::vec3 getDirection() const;
 		math::vec3 getPosition() const;
+
+		bool isRayTraceShadow() const { return m_bRayTraceShadow; }
+		bool setRayTraceShadow(bool bState);
 		
 	protected:
 		ARCHIVE_DECLARE;
@@ -35,6 +38,7 @@ namespace engine
 		math::vec3 m_color = { 1.0f, 1.0f, 1.0f };
 		math::vec3 m_forward = { 0.0f, -1.0f, 0.0f };
 		float m_intensity = 1.0f;
+		bool m_bRayTraceShadow = false;
 	};
 }
 

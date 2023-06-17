@@ -34,17 +34,22 @@ namespace engine
             return m_postprocessVolumeInfo;
         }
 
-        auto* getTLAS() { return &m_tlasRing->getActive(); }
-
         bool isTerrainExist() const { return !m_terrainComponents.empty(); }
         auto& getTerrains() { return m_terrainComponents; }
 
         bool isPMXExist() const { return !m_collectPMXes.empty(); }
         auto& getPMXes() { return m_collectPMXes; }
+
+        bool isASValid() const;
+        TLASBuilder* getAS() { return &m_tlas; }
+        void unvalidAS() { m_tlas.destroy(); }
+
     private:
         void renderObjectCollect(const RuntimeModuleTickData& tickData, class Scene* scene, VkCommandBuffer cmd);
 
         void lightCollect(class Scene* scene, VkCommandBuffer cmd);
+
+        void tlasPrepare(const RuntimeModuleTickData& tickData, class Scene* scene, VkCommandBuffer cmd);
 
     private:
         VulkanContext* m_context;
@@ -58,19 +63,18 @@ namespace engine
         GPUSkyInfo m_skyGPU;
         std::weak_ptr<SkyComponent> m_sky;
 
-
         // Submesh map scene nodes, only collect when require pick.
         std::unordered_map<uint32_t, class SceneNode*> m_submeshIdMapNodes;
 
         // Scene postprocessing volume info.
         PostprocessVolumeSetting m_postprocessVolumeInfo;
 
-        // Collect scene tlas instance.
-        std::unique_ptr<TLASBuilderRing> m_tlasRing;
-
         std::vector<std::weak_ptr<TerrainComponent>> m_terrainComponents;
 
         // PMX collect components.
         std::vector<std::weak_ptr<PMXComponent>> m_collectPMXes;
+
+        TLASBuilder m_tlas;
+        std::vector<VkAccelerationStructureInstanceKHR> m_cacheASInstances;
     };
 }
