@@ -13,6 +13,8 @@
 namespace engine
 {
 
+
+
 	class VulkanContext;
 
 	// Global interface for vulkan gpu resource. 
@@ -34,7 +36,7 @@ namespace engine
 
 	public:
 		GpuResource() = default;
-		virtual ~GpuResource() = default;
+		virtual ~GpuResource() {}
 
 		// Getter.
 		VkDeviceSize getSize() const { return m_size; }
@@ -42,6 +44,10 @@ namespace engine
 
 		const UUID64u& getRuntimeUUID() const { return m_runtimeUUID; }
 	};
+
+	extern void pushGpuResourceAsPendingKill(std::shared_ptr<GpuResource> s);
+
+
 
 	class VulkanBuffer : public GpuResource
 	{
@@ -72,6 +78,9 @@ namespace engine
 
 		// Copy whole size of buffer.
 		void copyTo(const void* data, VkDeviceSize size);
+
+		// Used current buffer as stage buffer.
+		void copyAndUpload(VkCommandBuffer cmd, const void* data, VulkanBuffer* buffer);
 
 		void bind(VkDeviceSize offset = 0);
 
@@ -174,4 +183,18 @@ namespace engine
 		// Cache created image views.
 		std::unordered_map<uint64_t, VkImageView> m_cacheImageViews{ };
 	};
+
+
+	template<typename T>
+	struct LazyDestroy
+	{
+		LazyDestroy(std::shared_ptr<T> in) : ptr(in) {}
+		~LazyDestroy()
+		{
+			pushGpuResourceAsPendingKill(std::dynamic_pointer_cast<GpuResource>(ptr));
+		}
+
+		std::shared_ptr<T> ptr;
+	};
+
 }

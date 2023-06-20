@@ -267,6 +267,10 @@ StaticMeshVertex buildVertex(in const StaticMeshVertexRaw raw)
     return result;
 }
 
+// Same with cpp.
+#define SMT_StaticMesh    0
+#define SMT_PMXStaticMesh 1
+
 struct StaticMeshPerObjectData
 {
     // Material for static mesh.
@@ -292,6 +296,11 @@ struct StaticMeshPerObjectData
     uint bSelected; // Can pack with sceneNodeId like shader.
     uint tangentsArrayId;
     uint normalsArrayId;
+
+    uint positionsPrevArrayId;
+    uint objectType; // == 0 is static mesh, == 1 is pmx static mesh.
+    uint pad0;
+    uint pad1;
 };
 
 /**

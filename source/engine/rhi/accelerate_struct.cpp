@@ -87,6 +87,14 @@ namespace engine
         VkBuildAccelerationStructureFlagsKHR flags, 
         bool update)
     {
+        {
+            VkMemoryBarrier barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+            barrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT;
+            barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+            vkCmdPipelineBarrier(cmdBuf, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+        }
+
         // Wraps a device pointer to the above uploaded instances.
         VkAccelerationStructureGeometryInstancesDataKHR instancesVk{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR };
         instancesVk.data.deviceAddress = instBufferAddr;
@@ -111,6 +119,8 @@ namespace engine
             buildInfo.mode = update ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
             getAccelerationStructureBuildSizesKHR(VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &countInstance, &sizeInfo);
         }
+
+        auto validMaxSize = math::max(sizeInfo.buildScratchSize, sizeInfo.updateScratchSize);
         
 
         if (update)
@@ -119,7 +129,7 @@ namespace engine
             CHECK(m_scratchBuffer);
 
             // Size not match, rebuild.
-            if (m_scratchBuffer->getSize() != sizeInfo.buildScratchSize || 
+            if (m_scratchBuffer->getSize() < validMaxSize ||
                 m_tlas.createInfo.size     != sizeInfo.accelerationStructureSize)
             {
                 update = false;
@@ -154,7 +164,7 @@ namespace engine
                 getRuntimeUniqueGPUASName("tlas_scratch"),
                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                 0,
-                sizeInfo.buildScratchSize
+                math::max(4U * 1024U * 1024U, getNextPOT((uint32_t)validMaxSize)) // At least 4 MB for TLAS scratch.
             );
         }
 
@@ -172,12 +182,15 @@ namespace engine
         // Build the TLAS
         cmdBuildAccelerationStructures(cmdBuf, 1, &buildInfo, &pBuildOffsetInfo);
 
-        // Barrier.
-        VkMemoryBarrier barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER };
-        barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
-        barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
-        vkCmdPipelineBarrier(cmdBuf, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-            VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+        {
+            // Barrier.
+            VkMemoryBarrier barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+            barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+            barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+            vkCmdPipelineBarrier(cmdBuf, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+        }
+
 
         if (!update)
         {
@@ -211,6 +224,7 @@ namespace engine
 	void BLASBuilder::build(const std::vector<BlasInput>& input, VkBuildAccelerationStructureFlagsKHR flags)
 	{
         m_bInit = true;
+
 
         auto nbBlas = static_cast<uint32_t>(input.size());
         VkDeviceSize asTotalSize{ 0 };     // Memory size of all allocated BLAS
@@ -325,49 +339,96 @@ namespace engine
         vkDestroyQueryPool(getContext()->getDevice(), queryPool, nullptr);
 	}
 
-	void BLASBuilder::update(uint32_t blasIdx, BlasInput& blas, VkBuildAccelerationStructureFlagsKHR flags)
+	void BLASBuilder::update(VkCommandBuffer cmd, const std::vector<BlasInput>& input, VkBuildAccelerationStructureFlagsKHR flags)
 	{
         CHECK(m_bInit);
-        CHECK(size_t(blasIdx) < m_blas.size());
+        std::vector<VkAccelerationStructureBuildGeometryInfoKHR> buildInfosArray(input.size());
 
-        // Preparing all build information, acceleration is filled later
-        VkAccelerationStructureBuildGeometryInfoKHR buildInfos{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR };
-        buildInfos.flags = flags;
-        buildInfos.geometryCount = (uint32_t)blas.asGeometry.size();
-        buildInfos.pGeometries = blas.asGeometry.data();
-        buildInfos.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;  // UPDATE
-        buildInfos.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-        buildInfos.srcAccelerationStructure = m_blas[blasIdx].accel;  // UPDATE
-        buildInfos.dstAccelerationStructure = m_blas[blasIdx].accel;
+        {
+            VkMemoryBarrier barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+            barrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT;
+            barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+            vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+        }
 
-        // Find size to build on the device
-        std::vector<uint32_t> maxPrimCount(blas.asBuildOffsetInfo.size());
-        for (auto tt = 0; tt < blas.asBuildOffsetInfo.size(); tt++)
-            maxPrimCount[tt] = blas.asBuildOffsetInfo[tt].primitiveCount;  // Number of primitives/triangles
-        VkAccelerationStructureBuildSizesInfoKHR sizeInfo{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
-        getAccelerationStructureBuildSizesKHR(VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfos, maxPrimCount.data(), &sizeInfo);
+        VkDeviceSize maxSize = 0;
+        for (size_t i = 0; i < input.size(); i++)
+        {
+            auto& blas = input[i];
+            auto& buildInfos = buildInfosArray[i];
+
+            // Preparing all build information, acceleration is filled later
+            buildInfos.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+            buildInfos.flags = flags;
+            buildInfos.geometryCount = (uint32_t)blas.asGeometry.size();
+            buildInfos.pGeometries = blas.asGeometry.data();
+            buildInfos.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;  // UPDATE
+            buildInfos.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+            buildInfos.srcAccelerationStructure = m_blas[i].accel;  // UPDATE
+            buildInfos.dstAccelerationStructure = m_blas[i].accel;
+
+            // Find size to build on the device
+            std::vector<uint32_t> maxPrimCount(blas.asBuildOffsetInfo.size());
+            for (auto tt = 0; tt < blas.asBuildOffsetInfo.size(); tt++)
+            {
+                maxPrimCount[tt] = blas.asBuildOffsetInfo[tt].primitiveCount;  // Number of primitives/triangles
+            }
+
+            VkAccelerationStructureBuildSizesInfoKHR sizeInfo{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
+            getAccelerationStructureBuildSizesKHR(VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfos, maxPrimCount.data(), &sizeInfo);
+
+
+            maxSize = math::max(maxSize, math::max(sizeInfo.updateScratchSize, sizeInfo.buildScratchSize));
+        }
+
+        if (m_updateScratchBuffer)
+        {
+            if (maxSize > m_updateScratchBuffer->getSize())
+            {
+                m_updateScratchBuffer = nullptr;
+                getContext()->waitDeviceIdle();
+            }
+        }
 
         // Allocate the scratch buffer and setting the scratch info
-        auto scratchBuffer = std::make_unique<VulkanBuffer>(
-            getContext(),
-            getRuntimeUniqueGPUASName("scratch_update"),
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-            0,
-            sizeInfo.buildScratchSize
-        );
-
-        buildInfos.scratchData.deviceAddress = scratchBuffer->getDeviceAddress();
-
-        std::vector<const VkAccelerationStructureBuildRangeInfoKHR*> pBuildOffset(blas.asBuildOffsetInfo.size());
-        for (size_t i = 0; i < blas.asBuildOffsetInfo.size(); i++)
-            pBuildOffset[i] = &blas.asBuildOffsetInfo[i];
-
-        getContext()->executeImmediatelyMajorGraphics([&](VkCommandBuffer cmd) 
+        if (m_updateScratchBuffer == nullptr)
         {
-            // Update the acceleration structure. Note the VK_TRUE parameter to trigger the update,
-            // and the existing BLAS being passed and updated in place
+            m_updateScratchBuffer = std::make_unique<VulkanBuffer>(
+                getContext(),
+                getRuntimeUniqueGPUASName("scratch_update"),
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                0,
+                getNextPOT((uint32_t)maxSize)
+            );
+        }
+
+
+
+        for (size_t i = 0; i < input.size(); i++)
+        {
+            auto& blas = input[i];
+            auto& buildInfos = buildInfosArray[i];
+
+            buildInfos.scratchData.deviceAddress = m_updateScratchBuffer->getDeviceAddress();
+
+            std::vector<const VkAccelerationStructureBuildRangeInfoKHR*> pBuildOffset(blas.asBuildOffsetInfo.size());
+            for (size_t i = 0; i < blas.asBuildOffsetInfo.size(); i++)
+                pBuildOffset[i] = &blas.asBuildOffsetInfo[i];
+
             cmdBuildAccelerationStructures(cmd, 1, &buildInfos, pBuildOffset.data());
-        });
+
+            {
+                VkMemoryBarrier barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+                barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+                barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+                vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+            }
+        }
+
+
+
 	}
 
 

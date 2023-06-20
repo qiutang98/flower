@@ -27,6 +27,11 @@ void main()
 
     const StaticMeshPerObjectData objectData = objectDatas[idx];
 
+    if(objectData.objectType != SMT_StaticMesh)
+    {
+        return;
+    }
+
     vec3 localPos = objectData.sphereBounds.xyz;
 	vec4 worldPos = objectData.modelMatrix * vec4(localPos, 1.0f);
 

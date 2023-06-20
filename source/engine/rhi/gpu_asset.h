@@ -7,6 +7,8 @@
 
 namespace engine
 {
+
+
 	class GPUImageAsset : public LRUAssetInterface
 	{
 	public:

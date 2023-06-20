@@ -19,6 +19,8 @@
 
 namespace engine
 {
+
+
 	enum class EBuiltinEngineAsset
 	{
 		Texture_Min,
@@ -236,6 +238,8 @@ namespace engine
 			uint32_t set, 
 			uint32_t descriptorWriteCount, 
 			const VkWriteDescriptorSet* pDescriptorWrites);
+
+		void pushGpuResourceAsPendingKill(std::shared_ptr<GpuResource> asset);
 	private:
 		void initInstance();
 		void destroyInstance();
@@ -386,6 +390,8 @@ namespace engine
 		std::unique_ptr<DynamicUniformBuffer> m_dynamicUniformBuffer;
 
 		std::unique_ptr<BufferParameterPool> m_bufferParameters;
+
+		std::vector<std::vector<std::shared_ptr<GpuResource>>> m_gpuResourcePending;
 	};
 
 	extern VulkanContext* getContext();

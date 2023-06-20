@@ -193,6 +193,10 @@ void ComponentDrawer::drawSky(std::shared_ptr<SceneNode> node)
 	ImGui::Separator();
 	ImGui::Spacing();
 
-	drawCascadeConfig(comp->getCacsadeConfig());
+	if (!comp->isRayTraceShadow())
+	{
+		drawCascadeConfig(comp->getCacsadeConfig());
+	}
+
 	drawAtmosphereConfig(comp->getAtmosphereConfig());
 }

@@ -92,7 +92,10 @@ namespace engine
                 initPresentContext();
 
                 frameNum = m_swapchain.getBackbufferCount();
+
+
             }
+            m_gpuResourcePending.resize(frameNum);
 
             m_dynamicUniformBuffer = std::make_unique<DynamicUniformBuffer>(this, frameNum, 16, 8); // 16 MB init dynamic uniform buffer size, 8 MB increment when overflow.
 
@@ -126,6 +129,7 @@ namespace engine
         m_rtPool->tick();
         m_bufferParameters->tick();
 
+        m_gpuResourcePending[m_presentContext.currentFrame].clear();
         return true;
     }
 
@@ -632,5 +636,10 @@ namespace engine
 
 
         pushDescriptorSetKHR(commandBuffer, pipelineBindPoint, layout, set, descriptorWriteCount, pDescriptorWrites);
+    }
+
+    void VulkanContext::pushGpuResourceAsPendingKill(std::shared_ptr<GpuResource> asset)
+    {
+        m_gpuResourcePending[m_presentContext.currentFrame].push_back(asset);
     }
 }

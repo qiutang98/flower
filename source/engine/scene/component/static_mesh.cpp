@@ -43,7 +43,6 @@ namespace engine
 	void StaticMeshComponent::renderObjectCollect(std::vector<GPUStaticMeshPerObjectData>& collector, std::vector<VkAccelerationStructureInstanceKHR>& asInstances)
 	{
 		const size_t objectOffsetId = collector.size();
-		const size_t asOffsetId = asInstances.size();
 
 		math::mat4 modelMatrix = getNode()->getTransform()->getWorldMatrix();
 		math::mat4 modelMatrixPrev = getNode()->getTransform()->getPrevWorldMatrix();
@@ -67,7 +66,7 @@ namespace engine
 		auto updateRayInstance = [&](VkAccelerationStructureInstanceKHR& object, size_t i)
 		{
 			object.transform = instanceTamplate.transform;
-			object.instanceCustomIndex = asOffsetId + i;
+			object.instanceCustomIndex = objectOffsetId + i;
 		};
 
 		size_t baseInstanceOffset = asInstances.size();
@@ -260,10 +259,12 @@ namespace engine
 				m_perobjectCache.resize(1);
 				m_perobjectCache.cachePerObjectData[0] = std::move(object);
 
-
-				fillVkAccelerationStructureInstance(
-					m_perobjectCache.cachePerObjectAs[0], 
-					std::dynamic_pointer_cast<GPUStaticMeshAsset>(getContext()->getEngineAsset(gpuAsset->getAssetUUID()))->getOrBuilddBLAS().getBlasDeviceAddress(0));
+				if (getContext()->getGraphicsCardState().bSupportRaytrace)
+				{
+					fillVkAccelerationStructureInstance(
+						m_perobjectCache.cachePerObjectAs[0],
+						std::dynamic_pointer_cast<GPUStaticMeshAsset>(getContext()->getEngineAsset(gpuAsset->getAssetUUID()))->getOrBuilddBLAS().getBlasDeviceAddress(0));
+				}
 			}
 		}
 

@@ -344,16 +344,6 @@ namespace engine
 							);
 						}
 
-						for (auto& pmx : pmxes)
-						{
-							if (auto comp = pmx.lock())
-							{
-								comp->onRenderSDSMDepthCollect(
-									cmd, perFrameGPU, inGBuffers, scene, 
-									this, sdsmInfos, cascadeIndex);
-							}
-						}
-
 						// Also render all terrain depth here.
 						for (auto& terrain : terrains)
 						{

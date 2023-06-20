@@ -435,41 +435,14 @@ namespace saba
 		m_updateUVs.resize(m_uvs.size());
 
 
-		m_indexElementSize = pmx.m_header.m_vertexIndexSize;
-		m_indices.resize(pmx.m_faces.size() * 3 * m_indexElementSize);
+		m_indexElementSize = 4;// pmx.m_header.m_vertexIndexSize;
 		m_indexCount = pmx.m_faces.size() * 3;
+		m_indices.resize(m_indexCount * m_indexElementSize); // @qiutang: we always use uint32 index
+
 		switch (m_indexElementSize)
 		{
 		case 1:
-		{
-			int idx = 0;
-			uint8_t* indices = (uint8_t*)m_indices.data();
-			for (const auto& face : pmx.m_faces)
-			{
-				for (int i = 0; i < 3; i++)
-				{
-					auto vi = face.m_vertices[3 - i - 1];
-					indices[idx] = (uint8_t)vi;
-					idx++;
-				}
-			}
-			break;
-		}
 		case 2:
-		{
-			int idx = 0;
-			uint16_t* indices = (uint16_t*)m_indices.data();
-			for (const auto& face : pmx.m_faces)
-			{
-				for (int i = 0; i < 3; i++)
-				{
-					auto vi = face.m_vertices[3 - i - 1];
-					indices[idx] = (uint16_t)vi;
-					idx++;
-				}
-			}
-			break;
-		}
 		case 4:
 		{
 			int idx = 0;
@@ -478,8 +451,7 @@ namespace saba
 			{
 				for (int i = 0; i < 3; i++)
 				{
-					auto vi = face.m_vertices[3 - i - 1];
-					indices[idx] = (uint32_t)vi;
+					indices[idx] = face.m_vertices[3 - i - 1];
 					idx++;
 				}
 			}

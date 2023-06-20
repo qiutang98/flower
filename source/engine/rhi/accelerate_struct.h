@@ -73,10 +73,11 @@ namespace engine
 
 		void build(const std::vector<BlasInput>& input,
 			VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
-		void update(uint32_t blasIdx, BlasInput& blas, VkBuildAccelerationStructureFlagsKHR flags);
+		void update(VkCommandBuffer cmd, const std::vector<BlasInput>& input, VkBuildAccelerationStructureFlagsKHR flags);
 
 	protected:
 		bool m_bInit = false;
+		std::unique_ptr<VulkanBuffer> m_updateScratchBuffer;
 
 		std::vector<AccelKHR> m_blas{ };
 

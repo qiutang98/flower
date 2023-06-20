@@ -112,7 +112,11 @@ void main()
                 atmosphereTransmittance = texture(sampler2D(inTransmittanceLut, linearClampEdgeSampler), sampleUv).rgb;
             }
 
-            directColor += atmosphereTransmittance * shadowFactor * evaluateSkyDirectLight(frameData.sky, material, normal, view);
+            vec3 skyVisibility = shadowFactor < 1e-3f ? vec3(shadowFactor) : 
+                mix(atmosphereTransmittance, vec3(1.0), vec3(shadowFactor)); // * mix(0.5, 1.0, shadowFactor);
+
+            skyVisibility = vec3(shadowFactor);
+            directColor += atmosphereTransmittance * skyVisibility * evaluateSkyDirectLight(frameData.sky, material, normal, view);
         }
     }
     color += directColor;

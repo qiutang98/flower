@@ -112,7 +112,7 @@ void main()
 
         if (rayQueryGetIntersectionTypeEXT(rayQuery, true) != gl_RayQueryCommittedIntersectionNoneEXT)
         {
-            shadow *= 0.1;
+            shadow *= 0.0;
         }
     }
 

@@ -12,6 +12,7 @@
 struct VS2PS
 {
     vec2 uv0;
+    float depth;
 };
 
 layout (set = 1, binding = 0) buffer BindlessSSBOVertices{ float data[]; } verticesArray[];
@@ -75,6 +76,8 @@ void main()
 
     // Convert to clip space.
     gl_Position = cascadeInfos[cascadeId].viewProj * worldPosition;
+
+    vsOut.depth = gl_Position.z;
 }
 
 #endif /////////////////////////// vertex shader end
@@ -97,6 +100,9 @@ void main()
         discard;
     }
     outColor = vec4(0.0f);
+
+    // Custom write fragment depth with shadow project z, avoid z cut.
+    gl_FragDepth = vsIn.depth;
 }
 
 #endif //////////////////////////// pixel shader end

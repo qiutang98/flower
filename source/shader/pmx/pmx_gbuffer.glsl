@@ -16,15 +16,40 @@ struct VS2PS
 
 #ifdef VERTEX_SHADER ///////////// vertex shader start 
 
-layout (location = 0) in vec3 inPosition;
-layout (location = 1) in vec3 inNormal;
-layout (location = 2) in vec2 inUV0;
-layout (location = 3) in vec3 inPositionLast;
 
 layout (location = 0) out VS2PS vsOut;
 
 void main()
 {
+    const uint indicesId  = pmxParam.indicesArrayId;
+    const uint positionId = pmxParam.positionsArrayId;
+    const uint positionsPrevId = pmxParam.positionsPrevArrayId;
+    const uint normalId = pmxParam.normalsArrayId;
+    const uint uv0Id = pmxParam.uv0sArrayId;
+
+    const uint indexId = gl_VertexIndex;
+    const uint vertexId = indicesArray[nonuniformEXT(indicesId)].data[indexId];
+
+    vec3 inPosition;
+    vec3 inNormal;
+    vec2 inUV0;
+    vec3 inPositionLast;
+
+    inPosition.x = verticesArray[nonuniformEXT(positionId)].data[vertexId * 3 + 0];
+    inPosition.y = verticesArray[nonuniformEXT(positionId)].data[vertexId * 3 + 1];
+    inPosition.z = verticesArray[nonuniformEXT(positionId)].data[vertexId * 3 + 2];
+
+    inPositionLast.x = verticesArray[nonuniformEXT(positionsPrevId)].data[vertexId * 3 + 0];
+    inPositionLast.y = verticesArray[nonuniformEXT(positionsPrevId)].data[vertexId * 3 + 1];
+    inPositionLast.z = verticesArray[nonuniformEXT(positionsPrevId)].data[vertexId * 3 + 2];
+
+    inNormal.x = verticesArray[nonuniformEXT(normalId)].data[vertexId * 3 + 0];
+    inNormal.y = verticesArray[nonuniformEXT(normalId)].data[vertexId * 3 + 1];
+    inNormal.z = verticesArray[nonuniformEXT(normalId)].data[vertexId * 3 + 2];
+
+    inUV0.x = verticesArray[nonuniformEXT(uv0Id)].data[vertexId * 2 + 0];
+    inUV0.y = verticesArray[nonuniformEXT(uv0Id)].data[vertexId * 2 + 1];
+
     // PMX GL style uv flip.
     vsOut.uv0 = inUV0 * vec2(1.0f, -1.0f); 
 

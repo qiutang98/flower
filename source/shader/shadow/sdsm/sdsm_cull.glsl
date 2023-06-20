@@ -1,9 +1,4 @@
 #version 460
-
-/*
-** Physical based render code, develop by engineer: qiutanguu.
-*/
-
 #extension GL_GOOGLE_include_directive : enable
 
 #include "sdsm_common.glsl"
@@ -12,28 +7,36 @@ void visibileCulling(uint idx, uint cascadeId)
 {
     StaticMeshPerObjectData objectData = objectDatas[idx];
 
-	vec3 localPos = objectData.sphereBounds.xyz;
-	vec4 worldPos = objectData.modelMatrix * vec4(localPos, 1.0f);
+    // todo: current only cull static mesh, also can cull p
+    if(objectData.objectType != SMT_StaticMesh)
+    {
 
-	// local to world normal matrix.
-	mat3 normalMatrix = transpose(inverse(mat3(objectData.modelMatrix)));
-	mat3 world2Local = inverse(normalMatrix);
+    }
+    else
+    {
+        vec3 localPos = objectData.sphereBounds.xyz;
+        vec4 worldPos = objectData.modelMatrix * vec4(localPos, 1.0f);
 
-	// frustum test.
-	for (int i = 0; i < 4; i++) // frustum 4, 5 is back and front face, don't test.
-	{
-        vec3 worldSpaceN = cascadeInfos[cascadeId].frustumPlanes[i].xyz;
-        float castDistance = dot(worldPos.xyz, worldSpaceN);
+        // local to world normal matrix.
+        mat3 normalMatrix = transpose(inverse(mat3(objectData.modelMatrix)));
+        mat3 world2Local = inverse(normalMatrix);
 
-		// transfer to local matrix and use abs get first dimensions project value,
-		// use that for test.
-		vec3 localNormal = world2Local * worldSpaceN;
-		float absDiff = dot(abs(localNormal), objectData.extents.xyz);
-		if (castDistance + absDiff + cascadeInfos[cascadeId].frustumPlanes[i].w < 0.0)
-		{
-			return;
-		}
-	}
+        // frustum test.
+        for (int i = 0; i < 4; i++) // frustum 4, 5 is back and front face, don't test.
+        {
+            vec3 worldSpaceN = cascadeInfos[cascadeId].frustumPlanes[i].xyz;
+            float castDistance = dot(worldPos.xyz, worldSpaceN);
+
+            // transfer to local matrix and use abs get first dimensions project value,
+            // use that for test.
+            vec3 localNormal = world2Local * worldSpaceN;
+            float absDiff = dot(abs(localNormal), objectData.extents.xyz);
+            if (castDistance + absDiff + cascadeInfos[cascadeId].frustumPlanes[i].w < 0.0)
+            {
+                return;
+            }
+        }
+    }
     
     // Build draw command if visible.
     uint drawId = atomicAdd(drawCount[cascadeId], 1) + cascadeId * cullCountPercascade;

@@ -355,6 +355,12 @@ namespace engine
     };
     static_assert(sizeof(GPUMaterialStandardPBR) % (4 * sizeof(float)) == 0);
 
+    enum class EStaticMeshType
+    {
+        StaticMesh = 0,
+        PMXStaticMesh,
+    };
+
     struct GPUStaticMeshPerObjectData
     {
         // Material for static mesh.
@@ -380,6 +386,11 @@ namespace engine
         uint32_t bSelected;
         uint32_t tangentsArrayId;
         uint32_t normalsArrayId;
+
+        uint32_t positionsPrevArrayId;
+        uint32_t objectType = uint32_t(EStaticMeshType::StaticMesh); // == 0 is static mesh, == 1 is pmx static mesh.
+        uint32_t pad0;
+        uint32_t pad1;
     };
     static_assert(sizeof(GPUStaticMeshPerObjectData) % (4 * sizeof(float)) == 0);
 

@@ -17,6 +17,12 @@ struct UniformPMX
     float pixelDepthOffset;
     float shadingModelId; 
     uint  bSelected;
+    uint indicesArrayId;
+
+    uint positionsArrayId;
+    uint positionsPrevArrayId;
+    uint normalsArrayId;
+    uint uv0sArrayId;
 };
 
 struct AngularInfoPMX
@@ -78,7 +84,12 @@ AngularInfoPMX getAngularInfoPMX(vec3 pointToLight, vec3 normal, vec3 view)
     #include "../common/shared_bluenoise.glsl"
     
     layout (set = 3, binding = 0) uniform  texture2D texture2DBindlessArray[];
-    layout (set = 4, binding = 0) uniform UniformPMXParam { UniformPMX pmxParam; };
+    layout (set = 4, binding = 0) readonly buffer BindlessSSBOVertices { float data[]; } verticesArray[];
+    layout (set = 5, binding = 0) readonly buffer BindlessSSBOIndices { uint data[]; } indicesArray[];
+
+    layout (set = 6, binding = 0) uniform UniformPMXParam { UniformPMX pmxParam; };
+
+
 #endif
 
 #endif

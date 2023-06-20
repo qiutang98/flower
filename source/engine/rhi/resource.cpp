@@ -13,6 +13,7 @@ namespace engine
 		ASSERT(m_size > 0, "you should set size of buffer before create.");
 	}
 
+
 	VulkanBuffer::VulkanBuffer(
 		const VulkanContext* context,
 		const std::string& name,
@@ -85,6 +86,21 @@ namespace engine
 		map(size);
 		memcpy(m_mapped, data, size);
 		unmap();
+	}
+
+	void VulkanBuffer::copyAndUpload(VkCommandBuffer cmd, const void* data, VulkanBuffer* buffer)
+	{
+		CHECK(buffer->getSize() <= this->getSize());
+
+		// copy vertex buffer gpu. 
+		copyTo(data, buffer->getSize());
+
+		// copy to gpu
+		VkBufferCopy copyRegion{};
+		copyRegion.srcOffset = 0;
+		copyRegion.dstOffset = 0;
+		copyRegion.size = buffer->getSize();
+		vkCmdCopyBuffer(cmd, this->getVkBuffer(), buffer->getVkBuffer(), 1, &copyRegion);
 	}
 
 	void VulkanBuffer::unmap()
@@ -375,5 +391,9 @@ namespace engine
 		{
 			transitionLayout(cb, m_context->getGraphiscFamily(), newLayout, range);
 		});
+	}
+	void pushGpuResourceAsPendingKill(std::shared_ptr<GpuResource> s)
+	{
+		getContext()->pushGpuResourceAsPendingKill(s);
 	}
 }

@@ -38,7 +38,10 @@ namespace engine
 					getContext()->getSamplerCache().getCommonDescriptorSetLayout(),
 					getRenderer()->getBlueNoise().spp_1_buffer.setLayouts,
 					getContext()->getBindlessTextureSetLayout(),
+										getContext()->getBindlessSSBOSetLayout()
+					, getContext()->getBindlessSSBOSetLayout(),
 					getContext()->getDynamicUniformBuffers().getSetlayout(),
+
 				};
 
 				pmxPass = std::make_unique<GraphicPipeResources>(
@@ -68,13 +71,7 @@ namespace engine
 						RHIColorBlendAttachmentOpauqeState(),
 						RHIColorBlendAttachmentOpauqeState(),
 					},
-					GBufferTextures::depthTextureFormat(),
-					VK_CULL_MODE_FRONT_BIT,
-					VK_COMPARE_OP_GREATER,
-					false,
-					false,
-					PMXMeshProxy::kInputAttris,
-					sizeof(PMXMeshProxy::Vertex));
+					GBufferTextures::depthTextureFormat());
 
 				// Translucency blend.
 				VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
@@ -113,8 +110,8 @@ namespace engine
 					VK_COMPARE_OP_GREATER,
 					false,
 					false,
-					PMXMeshProxy::kInputAttris,
-					sizeof(PMXMeshProxy::Vertex),
+					std::vector<VkVertexInputAttributeDescription>{},
+					0,
 					VK_POLYGON_MODE_FILL,
 					false);
 			}
@@ -207,6 +204,8 @@ namespace engine
 				getContext()->getSamplerCache().getCommonDescriptorSet(),
 				getRenderer()->getBlueNoise().spp_1_buffer.set,
 				getContext()->getBindlessTextureSet(),
+					m_context->getBindlessSSBOSet()
+					, m_context->getBindlessSSBOSet()
 			}, 1);
 
 			const auto& pmxes = scene->getPMXes();
@@ -289,6 +288,8 @@ namespace engine
 				getContext()->getSamplerCache().getCommonDescriptorSet(),
 				getRenderer()->getBlueNoise().spp_1_buffer.set,
 				getContext()->getBindlessTextureSet(),
+					m_context->getBindlessSSBOSet()
+					, m_context->getBindlessSSBOSet()
 			}, 1);
 
 			const auto& pmxes = scene->getPMXes();
@@ -336,14 +337,9 @@ namespace engine
 		}
 	}
 
-	void PMXComponent::onRenderSDSMDepthCollect(
-		VkCommandBuffer cmd, 
-		BufferParameterHandle perFrameGPU, 
-		GBufferTextures* inGBuffers, 
-		RenderScene* scene, 
-		RendererInterface* renderer, 
-		SDSMInfos& sdsmInfo, 
-		uint32_t cascadeId)
+
+	void PMXComponent::onRenderTick(const RuntimeModuleTickData& tickData, VkCommandBuffer cmd, 
+		std::vector<GPUStaticMeshPerObjectData>& collector, std::vector<VkAccelerationStructureInstanceKHR>& asInstances)
 	{
 		if (!m_proxy) { return; }
 		if (!m_proxy->isInit()) { return; }
@@ -351,16 +347,16 @@ namespace engine
 		if (auto node = m_node.lock())
 		{
 			const auto& modelMatrix = node->getTransform()->getWorldMatrix();
-			m_proxy->onRenderSDSMDepthCollect(cmd, perFrameGPU, inGBuffers, scene, renderer, sdsmInfo, cascadeId, modelMatrix);
+			const auto& modelMatrixPrev = node->getTransform()->getPrevWorldMatrix();
+
+			m_proxy->updateVertex(cmd);
+			m_proxy->updateBLAS(cmd);
+
+			m_proxy->collectObjectInfos(collector, asInstances, node->getId(), Editor::get()->getSceneNodeSelections().isSelected(SceneNodeSelctor(getNode())),
+				modelMatrix, modelMatrixPrev);
+
+
 		}
-	}
-
-	void PMXComponent::onRenderTick(const RuntimeModuleTickData& tickData, VkCommandBuffer cmd)
-	{
-		if (!m_proxy) { return; }
-		if (!m_proxy->isInit()) { return; }
-
-		m_proxy->updateVertex(cmd);
 	}
 
 
@@ -374,12 +370,6 @@ namespace engine
 		uint32_t sceneNodeId,
 		bool bSelected)
 	{
-		VkBuffer vertexBuffer = m_vertexBuffer->getVkBuffer();
-		VkBuffer indexBuffer = m_indexBuffer->getVkBuffer();
-		const VkDeviceSize offset = 0;
-		vkCmdBindIndexBuffer(cmd, indexBuffer, 0, m_indexType);
-		vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer, &offset);
-
 		// then draw every submesh.
 		size_t subMeshCount = m_mmdModel->GetSubMeshCount();
 		for (uint32_t i = 0; i < subMeshCount; i++)
@@ -417,15 +407,85 @@ namespace engine
 			params.sceneNodeId = sceneNodeId;
 			params.shadingModel = shadingModelConvert(material.pmxShadingModel);
 			params.bSelected = bSelected ? 1 : 0;
+			params.indicesArrayId = m_indicesBindless;
+			params.normalsArrayId = m_normalBindless;
+			params.positionsArrayId = m_positionBindless;
+			params.uv0sArrayId = m_uvBindless;
+			params.positionsPrevArrayId = m_positionPrevBindless;
 
 			{
 				uint32_t dynamicOffset = getContext()->getDynamicUniformBuffers().alloc(sizeof(params));
 				memcpy((char*)(getContext()->getDynamicUniformBuffers().getBuffer()->getMapped()) + dynamicOffset, &params, sizeof(params));
 				auto set = getContext()->getDynamicUniformBuffers().getSet();
-				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelinelayout, 4, 1, &set, 1, &dynamicOffset);
+				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelinelayout, 6, 1, &set, 1, &dynamicOffset);
 			}
 
-			vkCmdDrawIndexed(cmd, subMesh.m_vertexCount, 1, subMesh.m_beginIndex, 0, 0);
+			vkCmdDraw(cmd, subMesh.m_vertexCount, 1, subMesh.m_beginIndex, 0);
+		}
+	}
+
+	void PMXMeshProxy::collectObjectInfos(
+		std::vector<GPUStaticMeshPerObjectData>& collector, 
+		std::vector<VkAccelerationStructureInstanceKHR>& asInstances,
+		uint32_t sceneNodeId,
+		bool bSelected,
+		const glm::mat4& modelMatrix,
+		const glm::mat4& modelMatrixPrev)
+	{
+		const size_t objectOffsetId = collector.size();
+
+		VkAccelerationStructureInstanceKHR instanceTamplate{};
+		{
+			math::mat4 temp = math::transpose(modelMatrix);
+			memcpy(&instanceTamplate.transform, &temp, sizeof(VkTransformMatrixKHR));
+		}
+
+		size_t subMeshCount = m_mmdModel->GetSubMeshCount();
+		for (uint32_t i = 0; i < subMeshCount; i++)
+		{
+			const auto& subMesh = m_mmdModel->GetSubMeshes()[i];
+			const auto& material = m_pmxAsset->getMaterials().at(subMesh.m_materialID);
+
+			if (material.bHide)
+			{
+				continue;
+			}
+
+			bool bShouldDraw = !material.bTranslucent;
+			if (!bShouldDraw)
+			{
+				continue;
+			}
+
+			GPUStaticMeshPerObjectData object{};
+			object.uv0sArrayId = m_uvBindless;
+			object.normalsArrayId = m_normalBindless;
+			object.indicesArrayId = m_indicesBindless;
+			object.positionsArrayId = m_positionBindless;
+			object.objectId = sceneNodeId;
+			object.indexStartPosition = subMesh.m_beginIndex;
+			object.indexCount = subMesh.m_vertexCount;
+			object.objectType = uint32_t(EStaticMeshType::PMXStaticMesh);
+			object.positionsPrevArrayId = m_positionPrevBindless;
+			object.bSelected = bSelected ? 1 : 0;
+			object.modelMatrix = modelMatrix;
+			object.modelMatrixPrev = modelMatrixPrev;
+
+			object.material = GPUMaterialStandardPBR::getDefault();
+			object.material.baseColorId = material.mmdTex;
+
+			collector.push_back(object);
+
+
+			VkAccelerationStructureInstanceKHR as{};
+			as.accelerationStructureReference = m_blasBuilder.getBlasDeviceAddress(i);
+			as.mask = 0xFF;
+			as.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+			as.instanceShaderBindingTableRecordOffset = 0;
+			as.transform = instanceTamplate.transform;
+			as.instanceCustomIndex = objectOffsetId + i;
+
+			asInstances.push_back(as);
 		}
 	}
 
@@ -433,99 +493,76 @@ namespace engine
 	{
 		size_t vtxCount = m_mmdModel->GetVertexCount();
 
+		// Copy last positions, todo: can optimize.
 		std::vector<glm::vec3> positionLast = m_mmdModel->getUpdatePositions();
+
 		m_mmdModel->Update();
 		const glm::vec3* position = m_mmdModel->GetUpdatePositions();
 		const glm::vec3* normal = m_mmdModel->GetUpdateNormals();
 		const glm::vec2* uv = m_mmdModel->GetUpdateUVs();
-
 		glm::vec3* positionLastPtr = &positionLast[0];
-		// Update vertices
 
-		auto bufferSize = VkDeviceSize(sizeof(Vertex) * vtxCount);
 
 		// copy vertex buffer gpu. 
-		m_stageBuffer->map();
-		{
-			void* vbStMem = m_stageBuffer->getMapped();
-			auto v = static_cast<Vertex*>(vbStMem);
-			for (size_t i = 0; i < vtxCount; i++)
-			{
-				v->position = *position;
-				v->normal = *normal;
-				v->uv = *uv;
-				v->positionLast = *positionLastPtr;
-				v++;
-				position++;
-				normal++;
-				uv++;
-				positionLastPtr++;
-			}
-		}
-		m_stageBuffer->unmap();
-
-		// copy to gpu
-		VkBufferCopy copyRegion{};
-		copyRegion.srcOffset = 0;
-		copyRegion.dstOffset = 0;
-		copyRegion.size = bufferSize;
-		vkCmdCopyBuffer(cmd, m_stageBuffer->getVkBuffer(), m_vertexBuffer->getVkBuffer(), 1, &copyRegion);
+		m_stageBufferPosition->copyAndUpload(cmd, position, m_positionBuffer.get());
+		m_stageBufferNormal->copyAndUpload(cmd, normal, m_normalBuffer.get());
+		m_stageBufferUv->copyAndUpload(cmd, uv, m_uvBuffer.get());
+		m_stageBufferPositionPrevFrame->copyAndUpload(cmd, positionLastPtr, m_positionPrevFrameBuffer.get());
 	}
 
-	void PMXMeshProxy::onRenderSDSMDepthCollect(
-		VkCommandBuffer cmd, 
-		BufferParameterHandle perFrameGPU, 
-		GBufferTextures* inGBuffers, 
-		RenderScene* scene, 
-		RendererInterface* renderer, 
-		SDSMInfos& sdsmInfo, 
-		uint32_t cascadeId,
-		const glm::mat4& modelMatrix)
+	void PMXMeshProxy::updateBLAS(VkCommandBuffer cmd)
 	{
-		auto* pass = getContext()->getPasses().get<PMXPass>();
-		auto& cascadeBuffer = sdsmInfo.cascadeInfoBuffer;
+		const uint32_t maxVertex = m_mmdModel->GetVertexCount();
 
-		VkBuffer vertexBuffer = m_vertexBuffer->getVkBuffer();
-		VkBuffer indexBuffer = m_indexBuffer->getVkBuffer();
-		const VkDeviceSize offset = 0;
-		vkCmdBindIndexBuffer(cmd, indexBuffer, 0, m_indexType);
-		vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer, &offset);
-
-		pass->renderSDSMDepthPipe->bind(cmd);
-		PushSetBuilder(cmd)
-			.addBuffer(perFrameGPU)
-			.addBuffer(cascadeBuffer)
-			.push(pass->renderSDSMDepthPipe.get());
-
-		pass->renderSDSMDepthPipe->bindSet(cmd, 
-			std::vector<VkDescriptorSet>{
-				getContext()->getSamplerCache().getCommonDescriptorSet(),
-				getContext()->getBindlessTextureSet(),
-		}, 1);
-
-		// then draw every submesh.
 		size_t subMeshCount = m_mmdModel->GetSubMeshCount();
-		for (uint32_t i = 0; i < subMeshCount; i++)
+
+		std::vector<BLASBuilder::BlasInput> allBlas(subMeshCount);
+		for (size_t i = 0; i < subMeshCount; i++)
 		{
 			const auto& subMesh = m_mmdModel->GetSubMeshes()[i];
-			const auto& material = m_pmxAsset->getMaterials().at(subMesh.m_materialID);
 
-			if (material.bHide || material.bTranslucent)
-			{
-				continue;
-			}
+			const uint32_t maxPrimitiveCount = subMesh.m_vertexCount / 3;
 
-			PMXSDSMPushConsts push
-			{
-				.modelMatrix = modelMatrix,
-				.colorTexId = material.mmdTex,
-				.cascadeId = cascadeId,
-			};
+			// Describe buffer as array of VertexObj.
+			VkAccelerationStructureGeometryTrianglesDataKHR triangles{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR };
+			triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;  // vec3 vertex position data.
+			triangles.vertexData.deviceAddress = m_positionBuffer->getDeviceAddress();
+			triangles.vertexStride = sizeof(math::vec3);
+			triangles.indexType = VK_INDEX_TYPE_UINT32;
+			triangles.indexData.deviceAddress = m_indexBuffer->getDeviceAddress();
+			triangles.maxVertex = maxVertex;
 
-			pass->renderSDSMDepthPipe->pushConst(cmd, &push);
-			vkCmdDrawIndexed(cmd, subMesh.m_vertexCount, 1, subMesh.m_beginIndex, 0, 0);
+			// Identify the above data as containing opaque triangles.
+			VkAccelerationStructureGeometryKHR asGeom{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR };
+			asGeom.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+			asGeom.flags = VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR;
+			asGeom.geometry.triangles = triangles;
+
+			VkAccelerationStructureBuildRangeInfoKHR offset{ };
+			offset.firstVertex = 0; // No vertex offset, current all vertex buffer start from zero.
+			offset.primitiveCount = maxPrimitiveCount;
+			offset.primitiveOffset = subMesh.m_beginIndex * sizeof(VertexIndexType);
+			offset.transformOffset = 0;
+
+			allBlas[i].asGeometry.emplace_back(asGeom);
+			allBlas[i].asBuildOffsetInfo.emplace_back(offset);
 		}
+
+		if (m_blasBuilder.isInit())
+		{
+			m_blasBuilder.update(cmd, allBlas,
+				VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR |
+				VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR);
+		}
+		else
+		{
+			m_blasBuilder.build(allBlas,
+				VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR |
+				VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR);
+		}
+
 	}
+
 
 }
 

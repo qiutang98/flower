@@ -63,19 +63,33 @@ namespace engine
 		{
 			auto bufferFlagBasic = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 			VmaAllocationCreateFlags bufferFlagVMA = {};
+			if (getContext()->getGraphicsCardState().bSupportRaytrace)
+			{
+				// Raytracing accelerate struct, random shader fetch by address.
+				bufferFlagBasic |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+				bufferFlagVMA = {};
+			}
 
-			auto vbMemSize = uint32_t(sizeof(Vertex) * pmxModel->GetVertexCount());
-			m_vertexBuffer = std::make_unique<VulkanBuffer>(getContext(), pmxPath,
-				bufferFlagBasic | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-				bufferFlagVMA,
-				vbMemSize
-			);
+			auto vbMemSizePosition = uint32_t(sizeof(glm::vec3) * pmxModel->GetVertexCount());
+			auto vbMemSizeNormal = uint32_t(sizeof(glm::vec3) * pmxModel->GetVertexCount());
+			auto vbMemSizeUv = uint32_t(sizeof(glm::vec2) * pmxModel->GetVertexCount());
+			auto vbMemSizePositionLast = uint32_t(sizeof(glm::vec3) * pmxModel->GetVertexCount());
 
-			m_stageBuffer = std::make_unique<VulkanBuffer>(getContext(), pmxPath,
-				VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-				VulkanBuffer::getStageCopyForUploadBufferFlags(),
-				vbMemSize
-			);
+
+			m_positionBuffer = std::make_unique<VulkanBuffer>(getContext(), pmxPath, bufferFlagBasic | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, bufferFlagVMA, vbMemSizePosition);
+			m_normalBuffer = std::make_unique<VulkanBuffer>(getContext(), pmxPath, bufferFlagBasic | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, bufferFlagVMA, vbMemSizeNormal);
+			m_uvBuffer = std::make_unique<VulkanBuffer>(getContext(), pmxPath, bufferFlagBasic | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, bufferFlagVMA, vbMemSizeUv);
+			m_positionPrevFrameBuffer = std::make_unique<VulkanBuffer>(getContext(), pmxPath, bufferFlagBasic | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, bufferFlagVMA, vbMemSizePositionLast);
+
+			m_stageBufferPosition = std::make_unique<VulkanBuffer>(getContext(), pmxPath, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VulkanBuffer::getStageCopyForUploadBufferFlags(), vbMemSizePosition);
+			m_stageBufferNormal = std::make_unique<VulkanBuffer>(getContext(), pmxPath, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VulkanBuffer::getStageCopyForUploadBufferFlags(), vbMemSizeNormal);
+			m_stageBufferUv = std::make_unique<VulkanBuffer>(getContext(), pmxPath, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VulkanBuffer::getStageCopyForUploadBufferFlags(), vbMemSizeUv);
+			m_stageBufferPositionPrevFrame = std::make_unique<VulkanBuffer>(getContext(), pmxPath, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VulkanBuffer::getStageCopyForUploadBufferFlags(), vbMemSizePositionLast);
+
+			m_normalBindless = getContext()->getBindlessSSBOs().updateBufferToBindlessDescriptorSet(m_normalBuffer->getVkBuffer(), 0, vbMemSizeNormal);
+			m_uvBindless = getContext()->getBindlessSSBOs().updateBufferToBindlessDescriptorSet(m_uvBuffer->getVkBuffer(), 0, vbMemSizeUv);
+			m_positionBindless = getContext()->getBindlessSSBOs().updateBufferToBindlessDescriptorSet(m_positionBuffer->getVkBuffer(), 0, vbMemSizePosition);
+			m_positionPrevBindless = getContext()->getBindlessSSBOs().updateBufferToBindlessDescriptorSet(m_positionPrevFrameBuffer->getVkBuffer(), 0, vbMemSizePositionLast);
 
 			// Index Buffer
 			m_indexType = VK_INDEX_TYPE_UINT32;
@@ -120,6 +134,8 @@ namespace engine
 				);
 
 				m_indexBuffer->stageCopyFrom(stageBuffer->getVkBuffer(), ibMemSize, 0, 0);
+
+				m_indicesBindless = getContext()->getBindlessSSBOs().updateBufferToBindlessDescriptorSet(m_indexBuffer->getVkBuffer(), 0, ibMemSize);
 			}
 		}
 
@@ -131,10 +147,41 @@ namespace engine
 		m_bInit = true;
 		m_mmdModel = std::move(pmxModel);
 		m_pmxAsset = pmxAsset;
+
+		getContext()->executeImmediatelyMajorGraphics([this](VkCommandBuffer cmd) {
+			updateVertex(cmd);
+		});
+		
 	}
 
 	PMXMeshProxy::~PMXMeshProxy()
 	{
 		getContext()->waitDeviceIdle();
+
+		if (m_indicesBindless != ~0)
+		{
+			getContext()->getBindlessSSBOs().freeBindlessImpl(m_indicesBindless);
+			m_indicesBindless = ~0;
+		}
+		if (m_normalBindless != ~0)
+		{
+			getContext()->getBindlessSSBOs().freeBindlessImpl(m_normalBindless);
+			m_normalBindless = ~0;
+		}
+		if (m_uvBindless != ~0)
+		{
+			getContext()->getBindlessSSBOs().freeBindlessImpl(m_uvBindless);
+			m_uvBindless = ~0;
+		}
+		if (m_positionBindless != ~0)
+		{
+			getContext()->getBindlessSSBOs().freeBindlessImpl(m_positionBindless);
+			m_positionBindless = ~0;
+		}
+		if (m_positionPrevBindless != ~0)
+		{
+			getContext()->getBindlessSSBOs().freeBindlessImpl(m_positionPrevBindless);
+			m_positionPrevBindless = ~0;
+		}
 	}
 }

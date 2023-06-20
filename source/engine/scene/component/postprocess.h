@@ -27,8 +27,8 @@ namespace engine
 		float gtaoPower          = 1.0f;
 		float gtaoIntensity      = 1.0f;
 
-		int ssgiSliceCount = 2;
-		int ssgiStepCount = 8;
+		int ssgiSliceCount = 8;
+		int ssgiStepCount = 12;
 		float ssgiViewRadius = 0.2f;
 		float ssgiFalloff = 0.05f;
 		float ssgiPower = 1.0f;

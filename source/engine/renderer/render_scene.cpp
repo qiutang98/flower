@@ -39,7 +39,7 @@ namespace engine
 
 	bool RenderScene::shouldRenderSDSM() const
 	{
-		bool bExistMeshNeedRender = isStaticMeshExist() || isPMXExist() || isTerrainExist();
+		bool bExistMeshNeedRender = isStaticMeshExist() || isTerrainExist();
 		return isSkyExist() && (bExistMeshNeedRender);
 	}
 
@@ -54,6 +54,8 @@ namespace engine
 	{
 		// Clear AS instance.
 		m_cacheASInstances.clear();
+		m_staticmeshObjects.clear();
+		m_collectPMXes.clear();
 
 		// Collect all terrain object.
 		m_terrainComponents.clear();
@@ -64,16 +66,14 @@ namespace engine
 		});
 
 		// Collect all pmx mesh object.
-		m_collectPMXes.clear();
 		scene->loopComponents<PMXComponent>([&](std::shared_ptr<PMXComponent> comp) -> bool
 		{
-			comp->onRenderTick(tickData, cmd);
+			comp->onRenderTick(tickData, cmd, m_staticmeshObjects, m_cacheASInstances);
 			m_collectPMXes.push_back(comp);
 			return false;
 		});
 
 		// Static mesh.
-		m_staticmeshObjects.clear();
 		scene->loopComponents<StaticMeshComponent>([&](std::shared_ptr<StaticMeshComponent> comp) -> bool
 		{
 			comp->renderObjectCollect(m_staticmeshObjects, m_cacheASInstances);

@@ -43,15 +43,19 @@ namespace engine
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 4)
                 .buildNoInfoPush(rt_hardShadowSetLayout);
 
-            rt_hardShadow = std::make_unique<ComputePipeResources>("shader/rt_hard_shadow.comp.spv", 0,
-                std::vector<VkDescriptorSetLayout>{ 
-                    rt_hardShadowSetLayout, 
-                         m_context->getBindlessSSBOSetLayout()
+            if (getContext()->getGraphicsCardState().bSupportRaytrace)
+            {
+                rt_hardShadow = std::make_unique<ComputePipeResources>("shader/rt_hard_shadow.comp.spv", 0,
+                    std::vector<VkDescriptorSetLayout>{
+                    rt_hardShadowSetLayout,
+                        m_context->getBindlessSSBOSetLayout()
                         , m_context->getBindlessSSBOSetLayout()
                         , m_context->getBindlessTextureSetLayout()
                         , m_context->getBindlessSamplerSetLayout(),
-                    m_context->getSamplerCache().getCommonDescriptorSetLayout(),
-                    getRenderer()->getBlueNoise().spp_1_buffer.setLayouts});
+                        m_context->getSamplerCache().getCommonDescriptorSetLayout(),
+                        getRenderer()->getBlueNoise().spp_1_buffer.setLayouts});
+            }
+
         }
 
         virtual void release() override

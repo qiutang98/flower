@@ -21,6 +21,13 @@ namespace engine
 		float pixelDepthOffset;
 		float shadingModel;
 		uint32_t  bSelected;
+		uint32_t indicesArrayId;
+
+		uint32_t positionsArrayId;
+		uint32_t positionsPrevArrayId;
+		uint32_t normalsArrayId;
+		uint32_t uv0sArrayId;
+
 	};
 
 	struct PerFrameMMDCamera
@@ -75,28 +82,42 @@ namespace engine
 			uint32_t sceneNodeId,
 			bool bSelected);
 
+		void collectObjectInfos(std::vector<GPUStaticMeshPerObjectData>& collector, std::vector<VkAccelerationStructureInstanceKHR>& asInstances, uint32_t sceneNodeId,
+			bool bSelected,
+			const glm::mat4& modelMatrix,
+			const glm::mat4& modelMatrixPrev);
+
 		void updateVertex(VkCommandBuffer cmd);
+		void updateBLAS(VkCommandBuffer cmd);
 
-		void onRenderSDSMDepthCollect(
-			VkCommandBuffer cmd,
-			BufferParameterHandle perFrameGPU,
-			class GBufferTextures* inGBuffers,
-			class RenderScene* scene,
-			class RendererInterface* renderer,
-			struct SDSMInfos& sdsmInfo,
-			uint32_t cascadeId,
-			const glm::mat4& modelMatrix);
-
+		
+		
 	private:
 		bool m_bInit = false;
-
+		
 		VkIndexType m_indexType;
 		std::unique_ptr<VulkanBuffer> m_indexBuffer  = nullptr;
-		std::unique_ptr<VulkanBuffer> m_vertexBuffer = nullptr;
-		std::unique_ptr<VulkanBuffer> m_stageBuffer  = nullptr;
+
+		std::unique_ptr<VulkanBuffer> m_positionBuffer = nullptr;
+		std::unique_ptr<VulkanBuffer> m_positionPrevFrameBuffer = nullptr;
+		std::unique_ptr<VulkanBuffer> m_normalBuffer = nullptr;
+		std::unique_ptr<VulkanBuffer> m_uvBuffer = nullptr;
+
+		std::unique_ptr<VulkanBuffer> m_stageBufferPosition  = nullptr;
+		std::unique_ptr<VulkanBuffer> m_stageBufferPositionPrevFrame = nullptr;
+		std::unique_ptr<VulkanBuffer> m_stageBufferNormal = nullptr;
+		std::unique_ptr<VulkanBuffer> m_stageBufferUv = nullptr;
+
+		uint32_t m_indicesBindless = ~0;
+		uint32_t m_positionBindless = ~0;
+		uint32_t m_positionPrevBindless = ~0;
+		uint32_t m_normalBindless = ~0;
+		uint32_t m_uvBindless = ~0;
 
 		std::unique_ptr<saba::MMDModel>	m_mmdModel = nullptr;
 		std::shared_ptr<class AssetPMX> m_pmxAsset = nullptr;
+
+		BLASBuilder m_blasBuilder;
 	};
 
 	class PMXComponent : public Component
@@ -123,17 +144,9 @@ namespace engine
 			VkPipelineLayout pipelinelayout,
 			bool bTranslucentPass);
 
-
-		void onRenderSDSMDepthCollect(
-			VkCommandBuffer cmd,
-			BufferParameterHandle perFrameGPU,
-			class GBufferTextures* inGBuffers,
-			class RenderScene* scene,
-			class RendererInterface* renderer,
-			struct SDSMInfos& sdsmInfo,
-			uint32_t cascadeId);
-
-		void onRenderTick(const RuntimeModuleTickData& tickData, VkCommandBuffer cmd);
+		void onRenderTick(const RuntimeModuleTickData& tickData, VkCommandBuffer cmd, 
+			std::vector<GPUStaticMeshPerObjectData>& collector, 
+			std::vector<VkAccelerationStructureInstanceKHR>& asInstances);
 
 	private:
 		std::unique_ptr<PMXMeshProxy> m_proxy = nullptr;

@@ -31,6 +31,11 @@ void main()
 
     const StaticMeshPerObjectData objectData = objectDatas[idx];
 
+    if(objectData.objectType != SMT_StaticMesh)
+    {
+        return;
+    }
+
     const mat4 mvp = frameData.camViewProj * objectData.modelMatrix;
     const vec3 exten = objectData.extents;
 
