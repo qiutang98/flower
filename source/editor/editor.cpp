@@ -317,6 +317,11 @@ void Editor::init()
 		m_downbar = std::make_unique<DownbarWidget>(this);
 		m_downbar->init();
 
+		// Render Manager before viewport to ensure change value work.
+		m_renderManager = std::make_unique<RenderManagerWidget>(this);
+		m_renderManager->init();
+
+
 		m_console = std::make_unique<WidgetConsole>(this);
 		m_console->init();
 
@@ -334,6 +339,7 @@ void Editor::init()
 
 		m_detail = std::make_unique<WidgetDetail>(this);
 		m_detail->init();
+
 
 		m_assetConfigs = std::make_unique<AssetConfigWidgetManager>(this);
 	}
@@ -363,6 +369,7 @@ void Editor::release()
 	m_outlinerWidget->release();
 	m_viewport->release();
 	m_detail->release();
+	m_renderManager->release();
 
 	m_assetConfigs->release();
 
@@ -390,7 +397,7 @@ void Editor::tick(const RuntimeModuleTickData& tickData, VulkanContext* context)
 		m_outlinerWidget->tick(tickData, context);
 		m_viewport->tick(tickData, context);
 		m_detail->tick(tickData, context);
-
+		m_renderManager->tick(tickData, context);
 		m_assetConfigs->tick(tickData, context);
 	}
 
@@ -416,7 +423,7 @@ void Editor::tickWithCmd(const RuntimeModuleTickData& tickData, VkCommandBuffer 
 		m_outlinerWidget->tickWithCmd(tickData, cmd, context);
 		m_viewport->tickWithCmd(tickData, cmd, context);
 		m_detail->tickWithCmd(tickData, cmd, context);
-
+		m_renderManager->tickWithCmd(tickData, cmd, context);
 		m_assetConfigs->tickCmd(tickData, cmd, context);
 	}
 

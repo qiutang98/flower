@@ -212,67 +212,15 @@ void ViewportWidget::onVisibleTick(const engine::RuntimeModuleTickData& tickData
 	}
 	ImGui::Unindent();
 
-	bool bPrevReturn = false;
-	bool bShouldResize = false;
-	float renderPercentage = m_viewportRenderer->getRenderPercentage();
-
-	ImGui::SetCursorPos(startPos);
-	ImGui::NewLine();
-	ImVec2 toolIconPos = ImGui::GetCursorPos();
-	ImGui::GetWindowDrawList()->AddRectFilled(
-		{ maxPos.x - 75.0f, toolIconPos.y + 50.00f },
-		{ maxPos.x - 5.00f, toolIconPos.y + 105.0f },
-		IM_COL32(0, 0, 0, 139), 2.0f);
-
-	ImGui::SetCursorPos({ maxPos.x - 70.0f, toolIconPos.y });
-	{
-		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 1.0f);
-		ui::beginGroupPanel("Tools");
-		// Showing a menu with toggles
-		if (ImGui::Button("  ...  "))
-			ImGui::OpenPopup("viewportConfig_toggle_popup");
-
-		ui::endGroupPanel();
-		ImGui::PopStyleVar();
-
-
-		if (ImGui::BeginPopup("viewportConfig_toggle_popup"))
-		{
-			ImGui::PushItemWidth(100.0f);
-			ImGui::SliderFloat("Scale", &renderPercentage, 0.25f, 1.0f); 
-			if (renderPercentage != m_viewportRenderer->getRenderPercentage())
-			{
-				bShouldResize = true;
-			}
-
-			float fovy = math::degrees(m_camera->getFovY());
-			ImGui::SliderFloat("Fovy", &fovy, 10.0f, 90.0f);
-			fovy = math::radians(fovy);
-			if (fovy != m_camera->getFovY())
-			{
-				m_camera->setFovY(fovy);
-			}
-
-			ImGui::PopItemWidth();
-			ImGui::EndPopup();
-
-		}
-
-		if (ImGui::IsItemHovered())
-		{
-			bPrevReturn = true;
-		}
-	}
-
-
 	// Change viewport size, need rebuild set.
-	if (m_cacheWidth != width || m_cacheHeight != height || bShouldResize)
+	if (m_cacheWidth != width || m_cacheHeight != height || m_bShouldResize)
 	{
-		if (!ImGui::IsMouseDragging(0) || bShouldResize)
+		if (!ImGui::IsMouseDragging(0) || m_bShouldResize)
 		{
 			m_cacheWidth = width;
 			m_cacheHeight = height;
-			m_viewportRenderer->updateRenderSize(uint32_t(width), uint32_t(height), renderPercentage, 1.0f);
+			m_viewportRenderer->updateRenderSize(
+				uint32_t(width), uint32_t(height), m_viewportRenderer->getRenderPercentage(), 1.0f);
 
 			tryReleaseDescriptorSet(tickData.tickCount);
 
@@ -286,7 +234,6 @@ void ViewportWidget::onVisibleTick(const engine::RuntimeModuleTickData& tickData
 
 	// Draw icons for special components.
 	bool bClickIcon = false;
-	if(!bPrevReturn)
 	{
 		const auto& projection = m_camera->getProjectMatrix();
 		const auto& view = m_camera->getViewMatrix();
@@ -351,7 +298,7 @@ void ViewportWidget::onVisibleTick(const engine::RuntimeModuleTickData& tickData
 		}, scene->getRootNode());
 	}
 
-	if (!bPrevReturn && bClickViewport && (!bClickIcon) && (!ImGuizmo::IsUsing()) && (!ImGuizmo::IsOver()))
+	if (bClickViewport && (!bClickIcon) && (!ImGuizmo::IsUsing()) && (!ImGuizmo::IsOver()))
 	{
 		math::ivec2 samplePos = { mousePos.x - minPos.x, mousePos.y - minPos.y };
 		samplePos.x = math::clamp(samplePos.x, 0, int32_t(width) - 1);
@@ -373,7 +320,7 @@ void ViewportWidget::onVisibleTick(const engine::RuntimeModuleTickData& tickData
 	}
 
 	// Draw transform handle when scene node selected.
-	if (!bPrevReturn && m_editor->getSceneNodeSelected().size() == 1)
+	if (m_editor->getSceneNodeSelected().size() == 1)
 	{
 		// Mode switch.
 		if (!m_camera->isControlingCamera())
@@ -427,6 +374,9 @@ void ViewportWidget::onVisibleTick(const engine::RuntimeModuleTickData& tickData
 	}
 
 	ImGui::EndChild();
+
+
+	m_bShouldResize = false;
 }
 
 

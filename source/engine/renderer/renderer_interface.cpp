@@ -144,16 +144,6 @@ namespace engine
 		const uint32_t validWidth = math::clamp(width, (uint32_t)kMinRenderDim, (uint32_t)kMaxRenderDim);
 		const uint32_t validHeight = math::clamp(height, (uint32_t)kMinRenderDim, (uint32_t)kMaxRenderDim);
 
-		bool bShouldReset =
-			   (m_nativeWidth  != validWidth)
-			|| (m_nativeHeight != validHeight)
-			|| (m_renderScale  != validRenderScale)
-			|| (m_displayScale != validDisplayScale);
-
-		if (!bShouldReset)
-		{
-			return;
-		}
 
 		m_nativeWidth = validWidth;
 		m_nativeHeight = validHeight;

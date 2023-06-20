@@ -136,6 +136,10 @@ public:
 	// Get viewport camera.
 	ViewportCamera* getCamera() const { return m_camera.get(); }
 
+	engine::DeferredRenderer* getRenderer() const { return m_viewportRenderer.get(); }
+
+	void markShouldResize() { m_bShouldResize = true; }
+
 private:
 	void tryReleaseDescriptorSet(uint64_t tickTime);
 
@@ -156,6 +160,8 @@ private:
 
 	// State to know mouse in viewport. Warning: On glfw3.3 may cause some error state when set cursor to disabled.
 	bool m_bMouseInViewport = false;
+
+	bool m_bShouldResize = false;
 
 	// Sampler and set.
 	VkSampler m_viewportImageSampler;

@@ -8,10 +8,10 @@
 
 #include <scene/scene.h>
 
-class NodeDetailWidget : public Widget
+class RenderManagerWidget : public Widget
 {
 public:
-	NodeDetailWidget(Editor* editor);
+	RenderManagerWidget(Editor* editor);
 
 	// event init.
 	virtual void onInit() override;

@@ -14,6 +14,7 @@
 #include "widgets/detail.h"
 #include "widgets/asset_config.h"
 #include "selection.h"
+#include "widgets/render_manager.h"
 
 class Editor : engine::NonCopyable
 {
@@ -45,6 +46,7 @@ public:
 	bool isHubWidgetActive() const { return m_bHubWidgetActive; }
 	void setHubWidgetActiveState(bool bState) { m_bHubWidgetActive = bState; }
 
+	ViewportWidget* getViewportWidget() { return m_viewport.get(); }
 
 	// Project file absolute path.
 	const std::string& getProjectFilePathUtf8() const { return m_projectFilePathUtf8; }
@@ -85,6 +87,7 @@ public:
 	engine::VulkanImage* getStaticMeshImage()   const { return m_builtinResources.meshImage.get(); }
 	engine::VulkanImage* getMaterialImage()   const { return m_builtinResources.materialImage.get(); }
 	engine::VulkanImage* getSceneImage()   const { return m_builtinResources.sceneImage.get(); }
+
 
 	const auto* getBuiltinAssets() const {return &m_builtinResources;}
 
@@ -182,6 +185,7 @@ private:
 	std::unique_ptr<SceneOutlinerWidget> m_outlinerWidget;
 	std::unique_ptr<ViewportWidget> m_viewport;
 	std::unique_ptr<WidgetDetail> m_detail;
+	std::unique_ptr<RenderManagerWidget> m_renderManager;
 
 	std::unique_ptr<AssetConfigWidgetManager> m_assetConfigs;
 

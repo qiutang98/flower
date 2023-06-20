@@ -58,6 +58,7 @@ namespace engine
 		void setCameraCut();
 
 		float getRenderPercentage() const { return m_renderScale; }
+		void setRenderPercentage(float v) { m_renderScale = v; }
 	protected:
 		// Renderer name.
 		std::string m_name;

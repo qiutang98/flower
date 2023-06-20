@@ -39,6 +39,7 @@ void ComponentDrawer::drawLight(std::shared_ptr<engine::LightComponent> comp)
 		ImGui::DragFloat("Intensity", &intensity, 0.25f, 0.0f, 1000.0f);
 		comp->setIntensity(intensity);
 
+		ImGui::SameLine();
 		bool bRayTraceShadow = comp->isRayTraceShadow();
 		ImGui::Checkbox("Raytrace shadow", &bRayTraceShadow);
 		comp->setRayTraceShadow(bRayTraceShadow);
