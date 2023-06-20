@@ -36,9 +36,9 @@ namespace engine
 
 
 		bool bEnableExposureFusion = false;
-		float exposureFusionBlack = 0.1f;
-		float exposureFusionShadows = 0.5f;
-		float exposureFusionHighlights = 2.0f;
+		float exposureFusionBlack = 0.5f;
+		float exposureFusionShadows = 0.75f;
+		float exposureFusionHighlights = 1.5f;
 		float exposureFusionSigma = 0.2f;
 		float exposureFusionWellExposureValue = 0.5f;
 		float exposureFusionContrastPow = 1.0f;
