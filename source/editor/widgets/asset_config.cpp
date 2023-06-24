@@ -76,8 +76,10 @@ void WidgetAssetConfig::tick(const RuntimeModuleTickData& tickData, VulkanContex
 
 				ImGui::Checkbox("Translucent", &mat.bTranslucent);
 				ImGui::Checkbox("Hide", &mat.bHide);
-
+				ImGui::Checkbox("Cast Shadow", &mat.bCastShadow);
 				ImGui::DragFloat("Pixel depth offset", &mat.pixelDepthOffset);
+				ImGui::DragFloat("Eye high light scale", &mat.eyeHighlightScale);
+				ImGui::DragFloat("Translucent unlit scale", &mat.translucentUnlitScale);
 
 				int shadingModelMode = (int)mat.pmxShadingModel;
 				if (ImGui::RadioButton("Default", shadingModelMode == (int)EShadingModelType::StandardPBR)) { shadingModelMode = (int)EShadingModelType::StandardPBR; } ImGui::SameLine();
@@ -85,7 +87,7 @@ void WidgetAssetConfig::tick(const RuntimeModuleTickData& tickData, VulkanContex
 				{ shadingModelMode = (int)EShadingModelType::PMXCharacterBasic; } ImGui::SameLine();
 
 				if (ImGui::RadioButton("SSSS", shadingModelMode == (int)EShadingModelType::SSSS)) { shadingModelMode = (int)EShadingModelType::SSSS; } ImGui::SameLine();
-
+				if (ImGui::RadioButton("Eye", shadingModelMode == (int)EShadingModelType::Eye)) { shadingModelMode = (int)EShadingModelType::Eye; } ImGui::SameLine();
 				mat.pmxShadingModel = (EShadingModelType)shadingModelMode;
 
 				ImGui::TreePop();

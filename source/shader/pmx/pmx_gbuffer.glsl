@@ -117,6 +117,9 @@ void main()
 
     outGBufferS.r = 0.0f; // metal
     outGBufferS.g = 0.8f; // roughness
+
+
+
     outGBufferS.b = 1.0f; // ao
     outGBufferS.a = length(fwidth(worldNormal)) / length(fwidth(worldPosition));
     outHDRSceneColor = vec4(0.0, 0.0, 0.0, 0.0);
@@ -136,6 +139,27 @@ void main()
 
     // Z fighting avoid, use pixel depth export, will break out early z function. TODO: Use static macro to change is performance better.
     gl_FragDepth = gl_FragCoord.z + gl_FragCoord.z * pmxParam.pixelDepthOffset * intervalNoise;
+
+    if(isInShadingModelRange(pmxParam.shadingModelId, kShadingModelEye))
+    {
+        // Eye roughness is zero.
+        outGBufferS.g = 0.0f;
+
+#if 0
+        vec2 sampleUv = normalize(mat3(frameData.camView) * worldNormal).xy * 0.5 + 0.5;
+        sampleUv.y = 1.0 - sampleUv.y;
+        outHDRSceneColor.xyz += textureLod(sampler2D(texture2DBindlessArray[nonuniformEXT(pmxParam.spTexID)], linearClampEdgeSampler), sampleUv, 0.0).xyz;
+#endif
+
+        float nolFade = saturate(dot(-normalize(frameData.sky.direction), worldNormal)) * 0.5 + 0.5;
+        vec3 additionalHighlit = vec3(0.0);
+        additionalHighlit += pow(baseColor.rgb, vec3(9.0)) * nolFade * 0.00375;
+        additionalHighlit += pow(baseColor.rgb, vec3(7.0)) * nolFade * 0.0075;
+        additionalHighlit += pow(baseColor.rgb, vec3(5.0)) * nolFade * 0.015;
+        additionalHighlit *= pmxParam.eyeHighlightScale;
+
+        outHDRSceneColor.xyz += additionalHighlit;
+    }
 
 
     // Select mask, don't need z test.

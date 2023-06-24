@@ -89,6 +89,10 @@ void main()
     vec3 specularTerm = vec3(0.0);
     vec3 diffuseTerm = vec3(0.0);
 
+    float shadingModel = inGbufferAValue.a;
+
+    bool bEye = isInShadingModelRange(shadingModel, kShadingModelEye);
+
     // PBR material build.
     PBRMaterial material;
     material.perceptualRoughness = perceptualRoughness;
@@ -148,8 +152,17 @@ void main()
     vec4 bentNormalAo = texture(sampler2D(inSSAO, linearClampEdgeSampler), uv);
     vec3 bentNormal = bentNormalAo.xyz * 2.0 - 1.0;
 
+
+
     float ao = min(bentNormalAo.a, inGbufferSValue.b);
+    if(isInShadingModelRange(shadingModel, kShadingModelEye) || isInShadingModelRange(shadingModel, kShadingModelSSSS))
+    {
+        ao = saturate((ao + 0.25) * 2.0);
+    }
+
     vec3 multiBounceAO = AoMultiBounce(ao, baseColor);
+
+
 
     vec3 indirectDiffuseLit = vec3(0.0f);
     {

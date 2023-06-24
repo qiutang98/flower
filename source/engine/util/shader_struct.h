@@ -15,12 +15,14 @@ namespace engine
     #define kShadingModelStandardPBR       0.02f
     #define kShadingModelPMXBasic          0.04f
     #define kShadingModelSSSS              0.06f
+    #define kShadingModelEye               0.08f
 
     enum class EShadingModelType
     {
         StandardPBR,
         PMXCharacterBasic,
         SSSS,
+        Eye,
     };
 
     inline float shadingModelConvert(EShadingModelType type)
@@ -30,6 +32,7 @@ namespace engine
             case EShadingModelType::StandardPBR: return kShadingModelStandardPBR;
             case EShadingModelType::PMXCharacterBasic: return kShadingModelPMXBasic;
             case EShadingModelType::SSSS: return kShadingModelSSSS;
+            case EShadingModelType::Eye: return kShadingModelEye;
         }
 
         CHECK_ENTRY();

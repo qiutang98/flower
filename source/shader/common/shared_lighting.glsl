@@ -212,7 +212,7 @@ ShadingResult getPointShade(vec3 pointToLight, PBRMaterial materialInfo, vec3 no
         // Calculation of analytical lighting contribution
         // BSSRDF fit.
         vec3 diffuseContrib = (1.0 - F) * materialInfo.baseColor * 
-            texture(sampler2D(inSkinSSSLut, linearClampEdgeSampler), vec2(nolRaw * 0.5 + 0.5, materialInfo.curvature)).xyz * 0.25;
+            texture(sampler2D(inSkinSSSLut, linearClampEdgeSampler), vec2(nolRaw * 0.5 + 0.5, materialInfo.curvature)).xyz * 0.25; // TODO: Downscale factor by material.
 
         result.diffuseTerm = diffuseContrib;
         result.specularTerm = angularInfo.NdotL * specContrib;

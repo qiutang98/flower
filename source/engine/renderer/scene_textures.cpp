@@ -31,8 +31,8 @@ namespace engine
 		result.gbufferB = pool.createPoolImage("GBufferB", renderWidth, renderHeight, gbufferBFormat(), kGBufferUsage);
 		result.gbufferS = pool.createPoolImage("GBufferS", renderWidth, renderHeight, gbufferSFormat(), kGBufferUsage);
 		result.gbufferV = pool.createPoolImage("GBufferV", renderWidth, renderHeight, gbufferVFormat(), kGBufferUsage);
-		result.gbufferUpscaleTranslucencyAndComposition = pool.createPoolImage("GBufferS", renderWidth, renderHeight, gbufferUpscaleTranslucencyAndCompositionFormat(), kGBufferUsage);
-		result.gbufferUpscaleReactive = pool.createPoolImage("GBufferV", renderWidth, renderHeight, gbufferUpscaleReactiveFormat(), kGBufferUsage);
+		result.gbufferUpscaleTranslucencyAndComposition = pool.createPoolImage("gbufferUpscaleTranslucencyAndComposition", renderWidth, renderHeight, gbufferUpscaleTranslucencyAndCompositionFormat(), kGBufferUsage);
+		result.gbufferUpscaleReactive = pool.createPoolImage("gbufferUpscaleReactive", renderWidth, renderHeight, gbufferUpscaleReactiveFormat(), kGBufferUsage);
 		result.idTexture = pool.createPoolImage("IdTexture", renderWidth, renderHeight, getIdTextureFormat(), kGBufferUsage);
 
 		uint32_t selectMaskWidth = renderWidth;

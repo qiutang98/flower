@@ -25,6 +25,9 @@ namespace engine
 		bool     bTranslucent     = false;
 		bool     bHide            = false;
 		float    pixelDepthOffset = 0.0f;
+		bool     bCastShadow      = true; 
+		float    eyeHighlightScale = 1.0f;
+		float    translucentUnlitScale = 0.1f;
 		EShadingModelType pmxShadingModel = EShadingModelType::StandardPBR;
 
 		auto operator<=>(const PMXDrawMaterial&) const = default;
@@ -36,8 +39,19 @@ namespace engine
 			uint32_t pmxShadingModelValue = uint32_t(pmxShadingModel);
 			archive(pmxShadingModelValue);
 			pmxShadingModel = EShadingModelType(pmxShadingModelValue);
+
+			if (version > 1)
+			{
+				archive(bCastShadow);
+				if (version > 2)
+				{
+					archive(eyeHighlightScale, translucentUnlitScale);
+				}
+			}
 		}
 	};
+
+
 
 	// WARN: PMX mesh produced by MMD artist may **Not-Under** MIT license.
 	//       So we don't change the resource of pmx raw file.
@@ -86,3 +100,5 @@ ASSET_ARCHIVE_IMPL_INHERIT(AssetPMX, AssetInterface)
 	ARCHIVE_NVP_DEFAULT(m_materials);
 }
 ASSET_ARCHIVE_END
+
+CEREAL_CLASS_VERSION(engine::PMXDrawMaterial, kAssetVersion);

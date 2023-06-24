@@ -30,6 +30,10 @@ namespace engine
 		uint32_t normalsArrayId;
 		uint32_t uv0sArrayId;
 
+		float eyeHighlightScale;
+		float translucentUnlitScale;
+		float pad0;
+		float pad1;
 	};
 
 	struct PerFrameMMDCamera

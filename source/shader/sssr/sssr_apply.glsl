@@ -61,7 +61,13 @@ void main()
     float ao = min(bentNormalAo.a, inGbufferSValue.b);
     vec3 multiBounceAO = AoMultiBounce(ao, baseColor);
 
+
+
     vec4 ssrResult = texelFetch(inSSRIntersection, workPos, 0);
+    if(isInShadingModelRange(inGbufferAValue.a, kShadingModelEye))
+    {
+        ssrResult*= 2.0;
+    }
     ssrResult.xyz =  computeIBLContribution(perceptualRoughness, specularColor, ssrResult.xyz, bentNormal, v) * multiBounceAO;
 
     vec4 resultColor;

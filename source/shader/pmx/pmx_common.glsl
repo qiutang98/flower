@@ -23,6 +23,11 @@ struct UniformPMX
     uint positionsPrevArrayId;
     uint normalsArrayId;
     uint uv0sArrayId;
+
+    float eyeHighlightScale;
+    float translucentUnlitScale;
+    float pad0;
+    float pad1;
 };
 
 struct AngularInfoPMX

@@ -99,3 +99,4 @@ namespace engine
 }
 
 
+CEREAL_CLASS_VERSION(engine::PostprocessVolumeSetting, kAssetVersion);

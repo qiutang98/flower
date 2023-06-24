@@ -421,6 +421,9 @@ namespace engine
 			params.uv0sArrayId = m_uvBindless;
 			params.positionsPrevArrayId = m_positionPrevBindless;
 
+			params.translucentUnlitScale = material.translucentUnlitScale;
+			params.eyeHighlightScale = material.eyeHighlightScale;
+
 			{
 				uint32_t dynamicOffset = getContext()->getDynamicUniformBuffers().alloc(sizeof(params));
 				memcpy((char*)(getContext()->getDynamicUniformBuffers().getBuffer()->getMapped()) + dynamicOffset, &params, sizeof(params));
@@ -459,7 +462,7 @@ namespace engine
 				continue;
 			}
 
-			bool bShouldDraw = !material.bTranslucent;
+			bool bShouldDraw = !material.bTranslucent && material.bCastShadow;
 			if (!bShouldDraw)
 			{
 				continue;
