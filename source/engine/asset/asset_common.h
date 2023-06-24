@@ -15,6 +15,8 @@ namespace engine
 	extern bool isAssetMaterialMeta(const std::string& extension);
 	extern bool isAssetSceneMeta(const std::string& extension);
 	extern bool isAssetPMXMeta(const std::string& extension);
+	extern bool isAssetVMDMeta(const std::string& extension);
+	extern bool isAssetWaveMeta(const std::string& extension);
 
 	// Engine asset type.
 	enum class EAssetType
@@ -24,7 +26,8 @@ namespace engine
 		Material,    // Material asset.
 		Scene,       // Scene.
 		PMX,         // Pmx file.
-
+		VMD,         // Vmd file.
+		Wave,
 		Max,
 	};
 

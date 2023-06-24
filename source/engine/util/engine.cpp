@@ -1,8 +1,46 @@
 #include "engine.h"
 #include "framework.h"
+#include <util/openal.h>
 
 namespace engine
 {
+    bool Engine::soundEngineValid() const
+    {
+        return m_openALDevice && m_openALContext && (m_contextMadeCurrent == ALC_TRUE);
+    }
+
+    bool Engine::initSoundEngine()
+    {
+        // Init openal.
+        m_openALDevice = alcOpenDevice(nullptr);
+        if (!m_openALDevice)
+        {
+            return false;
+        }
+
+        if (!alcCall(alcCreateContext, m_openALContext, m_openALDevice, m_openALDevice, nullptr) || !m_openALContext)
+        {
+            LOG_ERROR("ERROR: Could not create audio context.");
+            return false;
+        }
+
+        if (!alcCall(alcMakeContextCurrent, m_contextMadeCurrent, m_openALDevice, m_openALContext)
+            || m_contextMadeCurrent != ALC_TRUE)
+        {
+            LOG_ERROR("ERROR: Could not make audio context current.");
+            return false;
+        }
+    }
+
+    void Engine::closedSoundEngine()
+    {
+        alcCall(alcMakeContextCurrent, m_contextMadeCurrent, m_openALDevice, nullptr);
+        alcCall(alcDestroyContext, m_openALDevice, m_openALContext);
+
+        ALCboolean closed;
+        alcCall(alcCloseDevice, closed, m_openALDevice, m_openALDevice);
+    }
+
     bool Engine::init(Framework* framework)
     {
         if (!framework)
@@ -14,6 +52,10 @@ namespace engine
 
         // Assign framework pointer.
         m_framework = framework;
+
+        initSoundEngine();
+
+
 
         // Engine timer init, use 5 frame to smooth fps and dt, use 5.0 as min fps to compute smooth time.
         m_timer.init(5.0, 5.0);
@@ -45,6 +87,7 @@ namespace engine
     bool Engine::tick(const EngineTickData& data)
     {
         bool bContinue = true;
+
         if (m_runtimeModules.size() > 0)
         {
             // Update engine timer.
@@ -63,6 +106,14 @@ namespace engine
             tickData.tickCount        = m_timer.getTickCount();
             tickData.bSmoothFpsUpdate = bSmoothFpsUpdate;
             tickData.runTime          = m_timer.getRuntime();
+
+
+            if (m_bRuningGame)
+            {
+                m_gameTime += tickData.deltaTime;
+            }
+
+            tickData.gameTime =  m_gameTime;
 
             for (const auto& runtimeModule : m_runtimeModules)
             {
@@ -92,6 +143,8 @@ namespace engine
 
             m_runtimeModules.clear();
         }
+
+        closedSoundEngine();
     }
 
     bool Engine::isConsoleApp() const
@@ -102,5 +155,32 @@ namespace engine
     bool Engine::isWindowApp() const
     {
         return !m_framework->isConsole();
+    }
+
+    void Engine::setGameStart()
+    {
+        m_bRuningGame = true;
+        m_gameTime = 0.0f;
+
+        onGameStart.broadcast();
+    }
+
+    void Engine::setGameStop()
+    {
+        m_bRuningGame = false;
+        m_gameTime = 0.0f;
+        onGameStop.broadcast();
+    }
+
+    void Engine::setGamePause()
+    {
+        m_bRuningGame = false;
+        onGamePause.broadcast();
+    }
+
+    void Engine::setGameContinue()
+    {
+        m_bRuningGame = true;
+        onGameContinue.broadcast();
     }
 }

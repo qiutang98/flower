@@ -24,6 +24,11 @@ struct PBRMaterial
 
     vec3 reflectance0;
     vec3 reflectance90;   
+
+    float shadingModel;
+    vec3 baseColor;
+
+    float curvature;
 };
 
 // Light info mix.
@@ -177,39 +182,85 @@ float microfacetDistribution(PBRMaterial materialInfo, AngularInfo angularInfo)
     return D_GGX(angularInfo.NdotH, materialInfo.alphaRoughness);
 }
 
-
-vec3 getPointShade(vec3 pointToLight, PBRMaterial materialInfo, vec3 normal, vec3 view)
+struct ShadingResult
 {
+    vec3 diffuseTerm;
+    vec3 specularTerm;
+};
+
+ShadingResult getPointShade(vec3 pointToLight, PBRMaterial materialInfo, vec3 normal, vec3 view)
+{
+    ShadingResult result;
     AngularInfo angularInfo = getAngularInfo(pointToLight, normal, view);
 
-    // Skip unorientation to light pixels.
-    if (angularInfo.NdotL > 0.0 || angularInfo.NdotV > 0.0)
+    // SSS.
+#ifdef SSSS_Lighting
+    if(isInShadingModelRange(materialInfo.shadingModel, kShadingModelSSSS))
     {
+        float nolRaw = dot(normalize(normal), normalize(pointToLight));
+
+        // Diffuse wrapping.
+
         // Calculate the shading terms for the microfacet specular shading model
         vec3  F   = specularReflection(materialInfo, angularInfo);
         float Vis = visibilityOcclusion(materialInfo, angularInfo);
         float D   = microfacetDistribution(materialInfo, angularInfo);
 
-        // Calculation of analytical lighting contribution
-        vec3 diffuseContrib = (1.0 - F) * Fd_LambertDiffuse(materialInfo);
+        // Specular term.
         vec3 specContrib    = F * Vis * D;
 
-        // Obtain final intensity as reflectance (BRDF) scaled by the energy of the light (cosine law)
-        return angularInfo.NdotL * (diffuseContrib + specContrib);
+        // Calculation of analytical lighting contribution
+        // BSSRDF fit.
+        vec3 diffuseContrib = (1.0 - F) * materialInfo.baseColor * 
+            texture(sampler2D(inSkinSSSLut, linearClampEdgeSampler), vec2(nolRaw * 0.5 + 0.5, materialInfo.curvature)).xyz * 0.25;
+
+        result.diffuseTerm = diffuseContrib;
+        result.specularTerm = angularInfo.NdotL * specContrib;
+
+        return result;
+    }
+    else 
+#endif
+    {
+        // Skip unorientation to light pixels.
+        if (angularInfo.NdotL > 0.0 || angularInfo.NdotV > 0.0)
+        {
+            // Calculate the shading terms for the microfacet specular shading model
+            vec3  F   = specularReflection(materialInfo, angularInfo);
+            float Vis = visibilityOcclusion(materialInfo, angularInfo);
+            float D   = microfacetDistribution(materialInfo, angularInfo);
+
+            // Calculation of analytical lighting contribution
+            vec3 diffuseContrib = (1.0 - F) * Fd_LambertDiffuse(materialInfo);
+            vec3 specContrib    = F * Vis * D;
+
+            // Obtain final intensity as reflectance (BRDF) scaled by the energy of the light (cosine law)
+
+            result.diffuseTerm = angularInfo.NdotL * diffuseContrib;
+            result.specularTerm = angularInfo.NdotL * specContrib;
+
+            return result;
+        }
     }
 
-    return vec3(0.0, 0.0, 0.0);
+    result.diffuseTerm = vec3(0.0);
+    result.specularTerm = vec3(0.0);
+
+    return result;
 }
 
 // Directional light direct lighting evaluate.
-vec3 evaluateSkyDirectLight(SkyInfo sky, PBRMaterial materialInfo, vec3 normal, vec3 view)
+ShadingResult evaluateSkyDirectLight(SkyInfo sky, PBRMaterial materialInfo, vec3 normal, vec3 view)
 {
     // Directional lighting direction is light pos to camera pos normalize vector.
     // So need inverse here for point to light.
     vec3 pointToLight = normalize(-sky.direction);
 
-    vec3 shade = getPointShade(pointToLight, materialInfo, normal, view);
-    return sky.intensity * sky.color * shade;
+    ShadingResult shade = getPointShade(pointToLight, materialInfo, normal, view);
+    shade.diffuseTerm  *= sky.intensity * sky.color;
+    shade.specularTerm *= sky.intensity * sky.color;
+
+    return  shade;
 }
 
 float specularAOLagarde(float NoV, float visibility, float roughness) 

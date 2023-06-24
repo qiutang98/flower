@@ -150,6 +150,21 @@ void ComponentDrawer::drawPostprocess(std::shared_ptr<engine::SceneNode> node)
 		ImGui::PopID();
 	}
 
+	if (ImGui::CollapsingHeader("SSSS"))
+	{
+		ImGui::PushID("SSSS");
+		ImGui::Spacing();
+		ImGui::Indent();
+		ImGui::PushItemWidth(100.0f);
+
+
+		ImGui::DragFloat("width", &copySetting.ssss_width, 0.01f, 0.00f, 0.06f);
+		ImGui::DragFloat("max width", &copySetting.ssss_maxScale, 0.1f, 1.0f, 5.0f);
+		ImGui::PopItemWidth();
+		ImGui::Unindent();
+		ImGui::Spacing();
+		ImGui::PopID();
+	}
 
 
 	comp->changeSetting(copySetting);

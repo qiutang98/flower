@@ -7,6 +7,8 @@
 #include <asset/asset_system.h>
 #include <asset/asset_staticmesh.h>
 #include <asset/asset_pmx.h>
+#include <asset/asset_vmd.h>
+#include <asset/asset_wave.h>
 
 class ProjectAssetTree;
 class ProjectAssetTreeEntry;
@@ -165,6 +167,8 @@ private:
 	void drawImageImportModalContent();
 	void drawStaticMeshImportModalContent();
 	void drawPMXImportModalContent();
+	void drawVMDImportModalContent();
+	void drawWaveImportModalContent();
 	void executeImport();
 
 public:
@@ -221,6 +225,8 @@ private:
 		std::vector<engine::AssetTexture::ImportConfig> imageConfigs; // TODO: Reconstruct me with inherited type.
 		std::vector<engine::AssetStaticMesh::ImportConfig> staticmeshConfigs;
 		std::vector<engine::AssetPMX::ImportConfig> pmxConfigs;
+		std::vector<engine::AssetVMD::ImportConfig> vmdConfigs;
+		std::vector<engine::AssetWave::ImportConfig> waveConfigs;
 
 		void cleanState()
 		{

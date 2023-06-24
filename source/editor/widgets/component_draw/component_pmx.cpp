@@ -31,6 +31,56 @@ void drawPMXSelect(
 
 }
 
+void drawVMDSelect(
+	std::shared_ptr<SceneNode> node,
+	std::shared_ptr<PMXComponent> comp)
+{
+	auto* assetSystem = Editor::get()->getAssetSystem();
+	auto* context = Editor::get()->getContext();
+
+	if (ImGui::BeginMenu("Project"))
+	{
+		const auto& map = assetSystem->getAssetMap(EAssetType::VMD);
+		for (const auto& id : map)
+		{
+			const auto& asset =std::dynamic_pointer_cast<AssetVMD>(assetSystem->getAsset(id));
+
+			if (!asset->m_bCamera && ImGui::MenuItem((std::string("  ") + ICON_FA_PERSON_WALKING"   " + asset->getRelativePathUtf8()).c_str()))
+			{
+				// TODO: multi vmd file.
+				comp->clearVmd();
+				comp->addVmd(id);
+			}
+		}
+		ImGui::EndMenu();
+	}
+
+}
+
+void drawWaveSelect(
+	std::shared_ptr<SceneNode> node,
+	std::shared_ptr<PMXComponent> comp)
+{
+	auto* assetSystem = Editor::get()->getAssetSystem();
+	auto* context = Editor::get()->getContext();
+
+	if (ImGui::BeginMenu("Project"))
+	{
+		const auto& map = assetSystem->getAssetMap(EAssetType::Wave);
+		for (const auto& id : map)
+		{
+			const auto& asset = std::dynamic_pointer_cast<AssetWave>(assetSystem->getAsset(id));
+
+			if (ImGui::MenuItem((std::string("  ") + ICON_FA_MUSIC"   " + asset->getRelativePathUtf8()).c_str()))
+			{
+				comp->setSong(id);
+			}
+		}
+		ImGui::EndMenu();
+	}
+
+}
+
 void ComponentDrawer::drawPMX(std::shared_ptr<engine::SceneNode> node)
 {
 	std::shared_ptr<PMXComponent> comp = node->getComponent<PMXComponent>();
@@ -50,6 +100,30 @@ void ComponentDrawer::drawPMX(std::shared_ptr<engine::SceneNode> node)
 			ImGui::Spacing();
 
 			drawPMXSelect(node, comp);
+			ImGui::EndPopup();
+		}
+
+		static const std::string selectVmdButtonName = " VMD Chose ";
+		if (ImGui::Button(selectVmdButtonName.c_str()))
+			ImGui::OpenPopup("VMDSelectPopUp");
+		if (ImGui::BeginPopup("VMDSelectPopUp"))
+		{
+			ImGui::TextDisabled("Select VMD...");
+			ImGui::Spacing();
+
+			drawVMDSelect(node, comp);
+			ImGui::EndPopup();
+		}
+
+		static const std::string selectWaveButtonName = " Wave Chose ";
+		if (ImGui::Button(selectWaveButtonName.c_str()))
+			ImGui::OpenPopup("WaveSelectPopUp");
+		if (ImGui::BeginPopup("WaveSelectPopUp"))
+		{
+			ImGui::TextDisabled("Select Wave...");
+			ImGui::Spacing();
+
+			drawWaveSelect(node, comp);
 			ImGui::EndPopup();
 		}
 	}

@@ -79,6 +79,15 @@ void WidgetAssetConfig::tick(const RuntimeModuleTickData& tickData, VulkanContex
 
 				ImGui::DragFloat("Pixel depth offset", &mat.pixelDepthOffset);
 
+				int shadingModelMode = (int)mat.pmxShadingModel;
+				if (ImGui::RadioButton("Default", shadingModelMode == (int)EShadingModelType::StandardPBR)) { shadingModelMode = (int)EShadingModelType::StandardPBR; } ImGui::SameLine();
+				if (ImGui::RadioButton("PMX Character Basic", shadingModelMode == (int)EShadingModelType::PMXCharacterBasic)) 
+				{ shadingModelMode = (int)EShadingModelType::PMXCharacterBasic; } ImGui::SameLine();
+
+				if (ImGui::RadioButton("SSSS", shadingModelMode == (int)EShadingModelType::SSSS)) { shadingModelMode = (int)EShadingModelType::SSSS; } ImGui::SameLine();
+
+				mat.pmxShadingModel = (EShadingModelType)shadingModelMode;
+
 				ImGui::TreePop();
 				ImGui::Separator();
 			}

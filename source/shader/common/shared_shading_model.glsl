@@ -8,6 +8,7 @@
 #define kShadingModelUnvalid           0.00
 #define kShadingModelStandardPBR       0.02
 #define kShadingModelPMXBasic          0.04
+#define kShadingModelSSSS              0.06
 
 bool isInShadingModelRange(float v, float shadingModel)
 {

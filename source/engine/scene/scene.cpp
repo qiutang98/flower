@@ -10,6 +10,10 @@ namespace engine
 
 	bool SceneManager::init()
 	{
+		m_onGameBeginHandle = m_engine->onGameStart.addLambda([this] { onGameBegin(); });
+		m_onGamePauseHandle = m_engine->onGamePause.addLambda([this] { onGamePause(); });
+		m_onGameContinueHandle = m_engine->onGameContinue.addLambda([this] { onGameContinue(); });
+		m_onGameEndHandle = m_engine->onGameStop.addLambda([this] { onGameStop(); });
 		return true;
 	}
 
@@ -23,7 +27,35 @@ namespace engine
 	void SceneManager::release()
 	{
 		releaseScene();
+
+		m_engine->onGameStart.remove(m_onGameBeginHandle);
+		m_engine->onGamePause.remove(m_onGamePauseHandle);
+		m_engine->onGameContinue.remove(m_onGameContinueHandle);
+		m_engine->onGameStop.remove(m_onGameEndHandle);
+
 	}
+
+	void SceneManager::onGameBegin()
+	{
+		getActiveScene()->onGameBegin();
+	}
+
+	void SceneManager::onGamePause()
+	{
+		getActiveScene()->onGamePause();
+	}
+
+	void SceneManager::onGameStop()
+	{
+		getActiveScene()->onGameStop();
+	}
+
+
+	void SceneManager::onGameContinue()
+	{
+		getActiveScene()->onGameContinue();
+	}
+
 
 	std::shared_ptr<Scene> SceneManager::getActiveScene()
 	{

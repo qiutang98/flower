@@ -5,6 +5,8 @@
 #include <Saba/Model/MMD/VMDFile.h>
 #include <Saba/Model/MMD/VMDAnimation.h>
 #include <Saba/Model/MMD/VMDCameraAnimation.h>
+#include <util/AudioFile.h>
+#include <util/openal.h>
 
 namespace engine
 {
@@ -66,7 +68,7 @@ namespace engine
 			{ 3, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 8 }, // pos prev.
 		};
 
-		 PMXMeshProxy(const UUID& uuid);
+		 PMXMeshProxy(const UUID& uuid, const std::vector<UUID>& vmdUUIDs);
 		~PMXMeshProxy();
 
 		bool isInit() const { return m_bInit; }
@@ -87,8 +89,11 @@ namespace engine
 			const glm::mat4& modelMatrix,
 			const glm::mat4& modelMatrixPrev);
 
+		void updateAnimation(float vmdFrameTime, float physicElapsed);
 		void updateVertex(VkCommandBuffer cmd);
 		void updateBLAS(VkCommandBuffer cmd);
+
+		bool rebuildVMD(const std::vector<UUID>& vmdUUID);
 
 		
 		
@@ -114,7 +119,8 @@ namespace engine
 		uint32_t m_normalBindless = ~0;
 		uint32_t m_uvBindless = ~0;
 
-		std::unique_ptr<saba::MMDModel>	m_mmdModel = nullptr;
+		std::shared_ptr<saba::MMDModel>	m_mmdModel = nullptr;
+		std::unique_ptr<saba::VMDAnimation> m_vmd  = nullptr;
 		std::shared_ptr<class AssetPMX> m_pmxAsset = nullptr;
 
 		BLASBuilder m_blasBuilder;
@@ -129,13 +135,26 @@ namespace engine
 		PMXComponent(std::shared_ptr<SceneNode> sceneNode)
 			: Component(sceneNode)
 		{
-
+			for (auto& buffer : m_audioBufferes)
+			{
+				buffer = ~0;
+			}
 		}
 
 		virtual void tick(const RuntimeModuleTickData& tickData) override;
 
+		virtual void onGameBegin() override;
+		virtual void onGamePause() override;
+		virtual void onGameContinue() override;
+		virtual void onGameStop() override;
+
 		const UUID& getPmxUUID() const { return m_pmxUUID; }
 		bool setPMX(const UUID& in);
+
+		const std::vector<UUID>& getVmdUUIDs() const { return m_vmdUUIDs; }
+		size_t addVmd(const UUID& in);
+		void removeVmd(size_t i);
+		void clearVmd();
 
 
 		void onRenderCollect(
@@ -148,12 +167,32 @@ namespace engine
 			std::vector<GPUStaticMeshPerObjectData>& collector, 
 			std::vector<VkAccelerationStructureInstanceKHR>& asInstances);
 
+		const UUID& getSongUUID() const { return m_singSong; }
+		bool setSong(const UUID& in);
+
 	private:
 		std::unique_ptr<PMXMeshProxy> m_proxy = nullptr;
 
+		bool m_bAudioPrepared = false;
+		bool m_bAudioVolumetric = false;
+
+		void prepareAudio();
+		void clearAudio();
+
+		ALuint m_audioSource = ~0;
+		std::array<ALuint, kOpenAlNumBuffers> m_audioBufferes;
+		ALint m_audioState = AL_INITIAL;
+		ALenum m_audioFormat;
+		std::int32_t m_audioSampleRate;
+		std::size_t m_audioBufferCursor;
+		std::vector<char> m_aduioDatas;
+		
 	public:
 		ARCHIVE_DECLARE;
 
 		UUID m_pmxUUID = {};
+
+		UUID m_singSong = {};
+		std::vector<UUID> m_vmdUUIDs = {};
 	};
 }

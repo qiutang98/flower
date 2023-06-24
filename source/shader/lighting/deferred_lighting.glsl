@@ -2,8 +2,9 @@
 #extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_samplerless_texture_functions : enable
 
+#define SSSS_Lighting
+
 #include "../common/shared_functions.glsl"
-#include "../common/shared_lighting.glsl"
 #include "../common/shared_atmosphere.glsl"
 
 layout (set = 0, binding = 0, rgba16f)  uniform image2D hdrSceneColor;
@@ -18,9 +19,20 @@ layout (set = 0, binding = 8)  uniform texture2D inTransmittanceLut;
 layout (set = 0, binding = 9)  uniform texture2D inSSAO;
 layout (set = 0, binding = 10) uniform textureCube inSkyIrradiance;
 layout (set = 0, binding = 11)  uniform texture2D inShadowMaskRT;
-
+layout (set = 0, binding = 12, rgba16f)  uniform image2D ssssDiffuseSceneColor;
+layout (set = 0, binding = 13)  uniform texture2D inSkinSSSLut;
+layout (set = 0, binding = 13)  uniform texture2D inSkinSSSLutShadow;
 #define SHARED_SAMPLER_SET 1
 #include "../common/shared_sampler.glsl"
+
+
+#include "../common/shared_lighting.glsl"
+
+vec3 skinShadowSSS(float nolClamped, float shadowValue)
+{
+	vec2 sampleUv = vec2(shadowValue, nolClamped * 0.5 + 0.5);
+	return texture(sampler2D(inSkinSSSLutShadow, linearClampEdgeSampler), sampleUv).xyz;
+}
 
 layout (local_size_x = 8, local_size_y = 8) in;
 void main()
@@ -72,6 +84,11 @@ void main()
     vec3 worldPos = getWorldPos(uv, deviceZ, frameData);
     vec3 view = normalize(frameData.camWorldPos.xyz - worldPos);
 
+    float intervalNoise = interleavedGradientNoise(workPos.xy, frameData.frameIndex.x % frameData.jitterPeriod);
+
+    vec3 specularTerm = vec3(0.0);
+    vec3 diffuseTerm = vec3(0.0);
+
     // PBR material build.
     PBRMaterial material;
     material.perceptualRoughness = perceptualRoughness;
@@ -80,7 +97,9 @@ void main()
     material.specularColor = specularColor;
     material.reflectance0 = specularEnvironmentR0;
     material.reflectance90 = specularEnvironmentR90;
-
+    material.shadingModel = inGbufferAValue.a;
+    material.baseColor = baseColor;
+    material.curvature = saturate(inGbufferSValue.w + (intervalNoise - 0.5) * 0.1); // Jitter avoid low res artifact.
     // Importance lights direct lighting evaluate.
     vec3 directColor = vec3(0.0f);
     {
@@ -116,10 +135,15 @@ void main()
                 mix(atmosphereTransmittance, vec3(1.0), vec3(shadowFactor)); // * mix(0.5, 1.0, shadowFactor);
 
             skyVisibility = vec3(shadowFactor);
-            directColor += atmosphereTransmittance * skyVisibility * evaluateSkyDirectLight(frameData.sky, material, normal, view);
+            ShadingResult shadeResult = evaluateSkyDirectLight(frameData.sky, material, normal, view);
+
+            shadeResult.diffuseTerm *= atmosphereTransmittance * skyVisibility;
+            shadeResult.specularTerm *= atmosphereTransmittance * skyVisibility;
+
+            specularTerm += shadeResult.specularTerm;
+            diffuseTerm += shadeResult.diffuseTerm;
         }
     }
-    color += directColor;
 
     vec4 bentNormalAo = texture(sampler2D(inSSAO, linearClampEdgeSampler), uv);
     vec3 bentNormal = bentNormalAo.xyz * 2.0 - 1.0;
@@ -137,6 +161,23 @@ void main()
     // Emissive color.
     color += emissiveColor;
 
-    // Store in scene color.
-    imageStore(hdrSceneColor, workPos, vec4(color, 1.0f));
+    if(isInShadingModelRange(material.shadingModel, kShadingModelSSSS))
+    {
+        imageStore(ssssDiffuseSceneColor, workPos, vec4(diffuseTerm, 1.0));
+
+        color += specularTerm;
+
+        // Emissive color already store in hdr scene color.
+        imageStore(hdrSceneColor, workPos, vec4(color, 1.0));
+    }
+    else
+    {
+        color += specularTerm + diffuseTerm;
+
+        // Store in scene color.
+        imageStore(hdrSceneColor, workPos, vec4(color, 1.0));
+
+        // No ssss.
+        imageStore(ssssDiffuseSceneColor, workPos, vec4(0.0));
+    }
 }

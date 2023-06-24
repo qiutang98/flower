@@ -5,6 +5,14 @@
 
 namespace engine
 {
+    struct SSSS_Push
+    {
+        math::vec2 direction;
+        float ssss_width;
+        float ssss_maxScale;
+        int finalPass = 0;
+    };
+
     class LightingPass : public PassInterface
     {
     public:
@@ -13,6 +21,10 @@ namespace engine
 
         std::unique_ptr<ComputePipeResources> rt_hardShadow;
         VkDescriptorSetLayout rt_hardShadowSetLayout = VK_NULL_HANDLE;
+
+
+        std::unique_ptr<ComputePipeResources> ssss_pipe;
+        VkDescriptorSetLayout ssss_setLayout = VK_NULL_HANDLE;
 
     public:
         virtual void onInit() override
@@ -30,6 +42,9 @@ namespace engine
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 9) // inGTAO
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 10) // inSkylight
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 11) // inSDSMShadowMask
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 12) // Hdr
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 13) // inSDSMShadowMask
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 14) // inSDSMShadowMask
                 .buildNoInfoPush(setLayout);
 
             pipe = std::make_unique<ComputePipeResources>("shader/deferred_lighting.comp.spv", 0, 
@@ -56,12 +71,26 @@ namespace engine
                         getRenderer()->getBlueNoise().spp_1_buffer.setLayouts});
             }
 
+
+            getContext()->descriptorFactoryBegin()
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0) // 
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1) // 
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 2) // 
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 3) // 
+                .buildNoInfoPush(ssss_setLayout);
+
+            ssss_pipe = std::make_unique<ComputePipeResources>("shader/ssss_blur.comp.spv", sizeof(SSSS_Push),
+                std::vector<VkDescriptorSetLayout>{
+                    ssss_setLayout,
+                    m_context->getSamplerCache().getCommonDescriptorSetLayout()});
         }
 
         virtual void release() override
         {
             pipe.reset();
             rt_hardShadow.reset();
+
+            ssss_pipe.reset();
         }
     };
 
@@ -139,8 +168,19 @@ namespace engine
             sdsmMask->transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
         }
 
+
+        auto hdrDiffuseSSSS = rtPool->createPoolImage(
+            "ssss diffuse",
+            hdrSceneColor.getExtent().width,
+            hdrSceneColor.getExtent().height,
+            hdrSceneColor.getFormat(),
+            VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+
+        hdrDiffuseSSSS->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
         {
             ScopePerframeMarker marker(cmd, "Deferred Lighting", { 1.0f, 1.0f, 0.0f, 1.0f });
+
+
 
             pass->pipe->bind(cmd);
             PushSetBuilder(cmd)
@@ -156,6 +196,9 @@ namespace engine
                 .addSRV(inBentNormalSSAO)
                 .addSRV(m_skylightRadiance, buildBasicImageSubresourceCube(), VK_IMAGE_VIEW_TYPE_CUBE)
                 .addSRV(rt_shadow ? rt_shadow->getImage() : *sdsmMask)
+                .addUAV(hdrDiffuseSSSS)
+                .addSRV(getContext()->getEngineTextureSkinLut()->getImage())
+                .addSRV(getContext()->getEngineTextureSkinLutShadow()->getImage())
                 .push(pass->pipe.get());
 
             pass->pipe->bindSet(cmd, std::vector<VkDescriptorSet>{
@@ -165,6 +208,71 @@ namespace engine
             vkCmdDispatch(cmd, getGroupCount(hdrSceneColor.getExtent().width, 8), getGroupCount(hdrSceneColor.getExtent().height, 8), 1);
 
             m_gpuTimer.getTimeStamp(cmd, "Deferred Lighting");
+        }
+
+        hdrDiffuseSSSS->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+        hdrSceneColor.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+
+        // Blur x.
+        {
+            const auto& postProcessVolumeSetting = scene->getPostprocessVolumeSetting();
+
+            auto tempBlur = rtPool->createPoolImage(
+                "ssss temp",
+                hdrSceneColor.getExtent().width,
+                hdrSceneColor.getExtent().height,
+                hdrSceneColor.getFormat(),
+                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+
+            SSSS_Push push{};
+            push.ssss_width = postProcessVolumeSetting.ssss_width;
+            push.ssss_maxScale = postProcessVolumeSetting.ssss_maxScale;
+
+            tempBlur->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            {
+                ScopePerframeMarker marker(cmd, "SSSS X", { 1.0f, 1.0f, 0.0f, 1.0f });
+
+                push.direction = math::vec2(1.0f, 0.0f);
+                pass->ssss_pipe->bindAndPushConst(cmd, &push);
+                PushSetBuilder(cmd)
+                    .addSRV(hdrDiffuseSSSS)
+                    .addSRV(sceneDepthZ, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT))
+                    .addUAV(tempBlur)
+                    .addBuffer(perFrameGPU)
+                    .push(pass->ssss_pipe.get());
+
+                pass->ssss_pipe->bindSet(cmd, std::vector<VkDescriptorSet>{
+                    m_context->getSamplerCache().getCommonDescriptorSet()
+                }, 1);
+
+                vkCmdDispatch(cmd, getGroupCount(hdrSceneColor.getExtent().width, 8), getGroupCount(hdrSceneColor.getExtent().height, 8), 1);
+
+            }
+            tempBlur->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            hdrSceneColor.transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+
+            {
+                ScopePerframeMarker marker(cmd, "SSSS Y", { 1.0f, 1.0f, 0.0f, 1.0f });
+
+                push.direction = math::vec2(0.0f, 1.0f);
+                push.finalPass = 1;
+                pass->ssss_pipe->bindAndPushConst(cmd, &push);
+                PushSetBuilder(cmd)
+                    .addSRV(tempBlur)
+                    .addSRV(sceneDepthZ, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT))
+                    .addUAV(hdrSceneColor)
+                    .addBuffer(perFrameGPU)
+                    .push(pass->ssss_pipe.get());
+
+                pass->ssss_pipe->bindSet(cmd, std::vector<VkDescriptorSet>{
+                    m_context->getSamplerCache().getCommonDescriptorSet()
+                }, 1);
+
+                vkCmdDispatch(cmd, getGroupCount(hdrSceneColor.getExtent().width, 8), getGroupCount(hdrSceneColor.getExtent().height, 8), 1);
+
+            }
+
+            m_gpuTimer.getTimeStamp(cmd, "SSSS");
         }
     }
 }

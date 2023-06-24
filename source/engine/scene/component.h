@@ -17,6 +17,10 @@ namespace engine
 
 		// Interface.
 		virtual void init() { }
+		virtual void onGameBegin() { }
+		virtual void onGamePause() { }
+		virtual void onGameContinue() { }
+		virtual void onGameStop() { }
 		virtual void tick(const RuntimeModuleTickData& tickData) {}
 		virtual void release() { }
 

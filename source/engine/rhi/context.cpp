@@ -442,6 +442,8 @@ namespace engine
             CASE_STR(Texture_CurlNoise)
             CASE_STR(Texture_Noise)
             CASE_STR(Texture_Sky3d)
+            CASE_STR(Texture_SkinLut)
+            CASE_STR(Texture_SkinLutShadow)
             CASE_STR(StaticMesh_Box)
             CASE_STR(StaticMesh_Sphere)
         }
@@ -529,6 +531,24 @@ namespace engine
             this,
             "./image/T_Noise.png",
             getBuiltEngineAssetUUID(EBuiltinEngineAsset::Texture_Noise),
+            VK_FORMAT_R8G8B8A8_UNORM,
+            false
+        ));
+
+        m_uploader->addTask(RawAssetTextureLoadTask::buildTexture(
+            true,
+            this,
+            "./image/skinLut.png",
+            getBuiltEngineAssetUUID(EBuiltinEngineAsset::Texture_SkinLut),
+            VK_FORMAT_R8G8B8A8_UNORM,
+            false
+        ));
+
+        m_uploader->addTask(RawAssetTextureLoadTask::buildTexture(
+            true,
+            this,
+            "./image/shadowLUT.bmp",
+            getBuiltEngineAssetUUID(EBuiltinEngineAsset::Texture_SkinLutShadow),
             VK_FORMAT_R8G8B8A8_UNORM,
             false
         ));

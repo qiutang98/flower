@@ -39,7 +39,7 @@ namespace engine
 
 	bool RenderScene::shouldRenderSDSM() const
 	{
-		bool bExistMeshNeedRender = isStaticMeshExist() || isTerrainExist();
+		bool bExistMeshNeedRender = isStaticMeshExist(); // || isTerrainExist();
 		return isSkyExist() && (bExistMeshNeedRender);
 	}
 

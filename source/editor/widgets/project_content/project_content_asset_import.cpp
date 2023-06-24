@@ -154,6 +154,94 @@ void ProjectContentWidget::drawStaticMeshImportModalContent()
 	}
 }
 
+void ProjectContentWidget::drawVMDImportModalContent()
+{
+	if (m_assetImportPayload.srcPaths.empty())
+	{
+		return;
+	}
+
+	if (!m_assetImportPayload.bConfigInit)
+	{
+		m_assetImportPayload.vmdConfigs.clear();
+		m_assetImportPayload.vmdConfigs.resize(m_assetImportPayload.srcPaths.size());
+
+		m_assetImportPayload.bConfigInit = true;
+	}
+
+	for (size_t i = 0; i < m_assetImportPayload.srcPaths.size(); i++)
+	{
+		auto& config = m_assetImportPayload.vmdConfigs.at(i);
+
+		ImGui::Spacing();
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+		ImGui::PushID((int)i);
+		ImGui::Indent();
+		{
+			std::string utf8Name = utf8::utf16to8(m_assetImportPayload.srcPaths[i].u16string());
+			std::string saveUtf8 = utf8::utf16to8(m_assetImportPayload.savePaths[i].u16string());
+
+			ImGui::TextDisabled(std::format("Load from: {}", utf8Name).c_str());
+			ImGui::TextDisabled(std::format("Save to: {}", saveUtf8).c_str());
+			ImGui::Spacing();
+
+			ImGui::Checkbox("Is Camera", &config.bCamera);
+
+		}
+		ImGui::Unindent();
+		ImGui::PopStyleVar();
+		ImGui::PopID();
+
+		ImGui::Spacing();
+		ImGui::Spacing();
+		ImGui::Separator();
+	}
+}
+
+void ProjectContentWidget::drawWaveImportModalContent()
+{
+	if (m_assetImportPayload.srcPaths.empty())
+	{
+		return;
+	}
+
+	if (!m_assetImportPayload.bConfigInit)
+	{
+		m_assetImportPayload.waveConfigs.clear();
+		m_assetImportPayload.waveConfigs.resize(m_assetImportPayload.srcPaths.size());
+
+		m_assetImportPayload.bConfigInit = true;
+	}
+
+	for (size_t i = 0; i < m_assetImportPayload.srcPaths.size(); i++)
+	{
+		auto& config = m_assetImportPayload.waveConfigs.at(i);
+
+		ImGui::Spacing();
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+		ImGui::PushID((int)i);
+		ImGui::Indent();
+		{
+			std::string utf8Name = utf8::utf16to8(m_assetImportPayload.srcPaths[i].u16string());
+			std::string saveUtf8 = utf8::utf16to8(m_assetImportPayload.savePaths[i].u16string());
+
+			ImGui::TextDisabled(std::format("Load from: {}", utf8Name).c_str());
+			ImGui::TextDisabled(std::format("Save to: {}", saveUtf8).c_str());
+			ImGui::Spacing();
+
+			ImGui::Checkbox("Volumetric", &config.bVolumetric);
+
+		}
+		ImGui::Unindent();
+		ImGui::PopStyleVar();
+		ImGui::PopID();
+
+		ImGui::Spacing();
+		ImGui::Spacing();
+		ImGui::Separator();
+	}
+}
+
 void ProjectContentWidget::drawPMXImportModalContent()
 {
 	if (m_assetImportPayload.srcPaths.empty())
@@ -268,6 +356,28 @@ void ProjectContentWidget::executeImport()
 							LOG_ERROR("Fail to import pmx mesh from {} to {}.", utf8::utf16to8(pl.srcPaths[i].u16string()), utf8::utf16to8(pl.savePaths[i].u16string()));
 						}
 					}
+					else if (pl.type == EAssetType::VMD)
+					{
+						if (AssetVMD::buildFromConfigs(pl.vmdConfigs[i], m_editor->getProjectRootPathUtf16(), pl.savePaths[i], pl.srcPaths[i]))
+						{
+							LOG_TRACE("Import vmd from {} to {}.", utf8::utf16to8(pl.srcPaths[i].u16string()), utf8::utf16to8(pl.savePaths[i].u16string()));
+						}
+						else
+						{
+							LOG_ERROR("Fail to import vmd from {} to {}.", utf8::utf16to8(pl.srcPaths[i].u16string()), utf8::utf16to8(pl.savePaths[i].u16string()));
+						}
+					}
+					else if(pl.type == EAssetType::Wave)
+					{
+						if (AssetWave::buildFromConfigs(pl.waveConfigs[i], m_editor->getProjectRootPathUtf16(), pl.savePaths[i], pl.srcPaths[i]))
+						{
+							LOG_TRACE("Import wave from {} to {}.", utf8::utf16to8(pl.srcPaths[i].u16string()), utf8::utf16to8(pl.savePaths[i].u16string()));
+						}
+						else
+						{
+							LOG_ERROR("Fail to import wave from {} to {}.", utf8::utf16to8(pl.srcPaths[i].u16string()), utf8::utf16to8(pl.savePaths[i].u16string()));
+						}
+					}
 					else
 					{
 						UN_IMPLEMENT();
@@ -348,6 +458,14 @@ void ProjectContentWidget::drawAssetImportModal()
 		else if (m_assetImportPayload.type == EAssetType::PMX)
 		{
 			drawPMXImportModalContent();
+		}
+		else if (m_assetImportPayload.type == EAssetType::VMD)
+		{
+			drawVMDImportModalContent();
+		}
+		else if (m_assetImportPayload.type == EAssetType::Wave)
+		{
+			drawWaveImportModalContent();
 		}
 		else
 		{

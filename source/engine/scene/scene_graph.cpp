@@ -82,6 +82,38 @@ namespace engine
 		}, m_root);
 	}
 
+	void Scene::onGameBegin()
+	{
+		loopNodeTopToDown([](std::shared_ptr<SceneNode> node)
+		{
+			node->onGameBegin();
+		}, m_root);
+	}
+
+	void Scene::onGameStop()
+	{
+		loopNodeTopToDown([](std::shared_ptr<SceneNode> node)
+			{
+				node->onGameStop();
+			}, m_root);
+	}
+
+	void Scene::onGameContinue()
+	{
+		loopNodeTopToDown([](std::shared_ptr<SceneNode> node)
+			{
+				node->onGameContinue();
+			}, m_root);
+	}
+
+	void Scene::onGamePause()
+	{
+		loopNodeTopToDown([](std::shared_ptr<SceneNode> node)
+			{
+				node->onGamePause();
+			}, m_root);
+	}
+
 	std::stringstream Scene::saveToStream()
 	{
 		std::stringstream storage(std::ios::in | std::ios::out | std::ios::binary);

@@ -3,6 +3,7 @@
 #include "asset_staticmesh.h"
 #include "asset_material.h"
 #include <scene/scene.h>
+#include "asset/asset_wave.h"
 
 namespace engine
 {
@@ -77,7 +78,9 @@ namespace engine
                 else if (isAssetStaticMeshMeta(extension)) { insertAsset<AssetStaticMesh>(path); }
                 else if (isAssetMaterialMeta(extension))   { insertAsset<AssetMaterial>(path); }
                 else if (isAssetPMXMeta(extension))        { insertAsset<AssetPMX>(path); }
+                else if (isAssetVMDMeta(extension))        { insertAsset<AssetVMD>(path); }
                 else if (isAssetSceneMeta(extension))      { insertAsset<Scene>(path);  }
+                else if (isAssetWaveMeta(extension))       { insertAsset<AssetWave>(path); }
                 else
                 {
                     UN_IMPLEMENT();

@@ -29,6 +29,11 @@ namespace engine
 		// Tick every frame.
 		void tick(const RuntimeModuleTickData& tickData);
 
+		void onGameBegin();
+		void onGamePause();
+		void onGameContinue();
+		void onGameStop();
+
 		std::stringstream saveToStream();
 
 		void loadFromStream(std::stringstream&& s);

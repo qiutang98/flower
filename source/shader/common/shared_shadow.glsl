@@ -16,7 +16,7 @@ vec3 biasNormalOffset(vec3 N, float NoL, float texelSize)
 // Auto bias by cacsade and NoL, some magic number here.
 float autoBias(float NoL, float biasMul)
 {
-    return 6e-4f + (1.0f - NoL) * biasMul * 1e-4f;
+    return 1e-3f + (1.0f - NoL) * biasMul * 2e-3f;
 }
 
 // Depth Aware Contact harden pcf. See GDC2021: "Shadows of Cold War" for tech detail.

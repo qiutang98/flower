@@ -349,8 +349,15 @@ namespace engine
 			const auto& modelMatrix = node->getTransform()->getWorldMatrix();
 			const auto& modelMatrixPrev = node->getTransform()->getPrevWorldMatrix();
 
+			m_proxy->updateAnimation(tickData.gameTime, tickData.deltaTime);
+
 			m_proxy->updateVertex(cmd);
-			m_proxy->updateBLAS(cmd);
+
+			if (getContext()->getGraphicsCardState().bSupportRaytrace)
+			{
+				m_proxy->updateBLAS(cmd);
+			}
+
 
 			m_proxy->collectObjectInfos(collector, asInstances, node->getId(), Editor::get()->getSceneNodeSelections().isSelected(SceneNodeSelctor(getNode())),
 				modelMatrix, modelMatrixPrev);
@@ -358,6 +365,7 @@ namespace engine
 
 		}
 	}
+
 
 
 	void PMXMeshProxy::onRenderCollect(
@@ -476,23 +484,34 @@ namespace engine
 
 			collector.push_back(object);
 
+			if (getContext()->getGraphicsCardState().bSupportRaytrace)
+			{
+				VkAccelerationStructureInstanceKHR as{};
+				as.accelerationStructureReference = m_blasBuilder.getBlasDeviceAddress(i);
+				as.mask = 0xFF;
+				as.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+				as.instanceShaderBindingTableRecordOffset = 0;
+				as.transform = instanceTamplate.transform;
+				as.instanceCustomIndex = objectOffsetId + i;
 
-			VkAccelerationStructureInstanceKHR as{};
-			as.accelerationStructureReference = m_blasBuilder.getBlasDeviceAddress(i);
-			as.mask = 0xFF;
-			as.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
-			as.instanceShaderBindingTableRecordOffset = 0;
-			as.transform = instanceTamplate.transform;
-			as.instanceCustomIndex = objectOffsetId + i;
+				asInstances.push_back(as);
+			}
 
-			asInstances.push_back(as);
+		}
+	}
+
+	void PMXMeshProxy::updateAnimation(float vmdFrameTime, float physicElapsed)
+	{
+		if (m_vmd)
+		{
+			m_mmdModel->BeginAnimation();
+			m_mmdModel->UpdateAllAnimation(m_vmd.get(), vmdFrameTime * 30.0f, physicElapsed);
+			m_mmdModel->EndAnimation();
 		}
 	}
 
 	void PMXMeshProxy::updateVertex(VkCommandBuffer cmd)
 	{
-		size_t vtxCount = m_mmdModel->GetVertexCount();
-
 		// Copy last positions, todo: can optimize.
 		std::vector<glm::vec3> positionLast = m_mmdModel->getUpdatePositions();
 

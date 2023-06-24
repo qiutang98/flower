@@ -27,7 +27,9 @@ SOURCE_GROUP_BY_FOLDER(flower)
 
 target_include_directories(flower PRIVATE 
 ${CEREAL_DIR} 
+${PROJECT_SOURCE_DIR}/dependency
 ${PROJECT_SOURCE_DIR}/dependency/assimp/include
+${PROJECT_SOURCE_DIR}/dependency/openal/include
 ${BULLET_PHYSICS_SOURCE_DIR}/src
 )
  
@@ -50,6 +52,7 @@ endif()
 add_definitions(${BULLET_DEFINITIONS})
   
 target_link_libraries(flower PUBLIC 
+    OpenAL
     Vulkan::Vulkan 
     assimp
     VulkanMemoryAllocator
@@ -57,7 +60,6 @@ target_link_libraries(flower PUBLIC
     utf8cpp 
     nativefiledialog
     spdlog::spdlog 
-    glm::glm 
     stduuid 
     nlohmann_json 
     inipp::inipp  

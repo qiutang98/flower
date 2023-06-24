@@ -10,7 +10,9 @@ namespace engine
 			isAssetStaticMeshMeta(extension) ||
 			isAssetMaterialMeta(extension)   ||
 			isAssetSceneMeta(extension)      ||
-			isAssetPMXMeta(extension);
+			isAssetPMXMeta(extension)        ||
+			isAssetVMDMeta(extension)        ||
+			isAssetWaveMeta(extension);
     }
 
 	bool isAssetTextureMeta(const std::string& extension)
@@ -32,6 +34,16 @@ namespace engine
 	bool isAssetPMXMeta(const std::string& extension)
 	{
 		return extension == ".assetpmx";
+	}
+
+	bool isAssetVMDMeta(const std::string& extension)
+	{
+		return extension == ".assetvmd";
+	}
+
+	bool isAssetWaveMeta(const std::string& extension)
+	{
+		return extension == ".assetwave";
 	}
 
 	bool AssetInterface::saveAction()

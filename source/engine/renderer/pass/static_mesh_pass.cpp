@@ -65,7 +65,8 @@ namespace engine
                 0,
                 std::vector<VkFormat>{ },
                 std::vector<VkPipelineColorBlendAttachmentState>{ },
-                GBufferTextures::depthTextureFormat());
+                GBufferTextures::depthTextureFormat(),
+                VK_CULL_MODE_NONE);
 
             getContext()->descriptorFactoryBegin()
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, kCommonShaderStage, 0) // frameData
@@ -116,7 +117,7 @@ namespace engine
                     RHIColorBlendAttachmentOpauqeState(),
                 },
                 GBufferTextures::depthTextureFormat(),
-                VK_CULL_MODE_FRONT_BIT,
+                VK_CULL_MODE_NONE,
                 VK_COMPARE_OP_EQUAL);
         }
 

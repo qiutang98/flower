@@ -27,8 +27,8 @@ namespace engine
 		float gtaoPower          = 1.0f;
 		float gtaoIntensity      = 1.0f;
 
-		int ssgiSliceCount = 8;
-		int ssgiStepCount = 12;
+		int ssgiSliceCount = 4;
+		int ssgiStepCount = 8;
 		float ssgiViewRadius = 0.2f;
 		float ssgiFalloff = 0.05f;
 		float ssgiPower = 1.0f;
@@ -44,6 +44,9 @@ namespace engine
 		float exposureFusionContrastPow = 1.0f;
 		float exposureFusionSaturationPow = 1.0f;
 		float exposureFusionExposurePow = 1.0f;
+
+		float ssss_width = 0.02f;
+		float ssss_maxScale = 1.0f;
 
 		auto operator<=>(const PostprocessVolumeSetting&) const = default;
 		template<class Archive> void serialize(Archive& archive, std::uint32_t const version)
@@ -68,6 +71,8 @@ namespace engine
 
 			archive(bEnableExposureFusion, exposureFusionBlack, exposureFusionShadows, exposureFusionHighlights, exposureFusionSigma,
 				exposureFusionWellExposureValue, exposureFusionContrastPow, exposureFusionSaturationPow, exposureFusionExposurePow);
+
+			archive(ssss_width, ssss_maxScale);
 		}
 	};
 

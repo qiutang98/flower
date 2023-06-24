@@ -85,7 +85,7 @@ void main()
     worldNormal.y = 2.0f;
     worldNormal = normalize(worldNormal); // = cross(vec3(2.0, a, 0.0), vec3(0.0, b, 2.0))
 
-    outHDRSceneColor = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    outHDRSceneColor = vec4(0.0f, 0.0f, 0.0f, 0.0f);
     outGBufferA.rgb = baseColor;
     outGBufferA.a = kShadingModelStandardPBR;
 
@@ -94,6 +94,7 @@ void main()
     outGBufferS.r = 0.0f;
     outGBufferS.g = 0.95f;
     outGBufferS.b = terrainMask.a;
+    outGBufferS.a = length(fwidth(worldNormal)) / length(fwidth(vsIn.worldPos));
     
     outGBufferV = (vsIn.posNDCPrevNoJitter.xy / vsIn.posNDCPrevNoJitter.w) - (vsIn.posNDCCurNoJitter.xy / vsIn.posNDCCurNoJitter.w);
     outGBufferV *= vec2(0.5f, -0.5f);

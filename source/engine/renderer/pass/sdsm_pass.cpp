@@ -80,7 +80,7 @@ namespace engine
 				std::vector<VkFormat>{ },
 				std::vector<VkPipelineColorBlendAttachmentState>{ },
 				GBufferTextures::depthTextureFormat(),
-				VK_CULL_MODE_FRONT_BIT,
+				VK_CULL_MODE_NONE,
 				VK_COMPARE_OP_GREATER,
 				true,
 				true);
@@ -184,7 +184,7 @@ namespace engine
 			.addUAV(sdsmMask)
 			.addSRV(terrains.empty() ? gBufferA : terrains[0].lock()->getHeightfiledImage())
 			.addBuffer(perFrameGPU)
-			.addBuffer(scene->getStaticMeshObjectsGPU());
+			.addBuffer(scene->getStaticMeshObjectsGPU() ? scene->getStaticMeshObjectsGPU() : cascadeBuffer);
 
 		GPUSDSMPushConst pushConst
 		{

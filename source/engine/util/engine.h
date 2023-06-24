@@ -5,6 +5,8 @@
 #include <vector>
 #include <memory>
 #include <map>
+#include <AL/al.h>
+#include <AL/alc.h>
 
 #include "timer.h"
 #include "noncopyable.h"
@@ -57,6 +59,8 @@ namespace engine
 		// Application run time.
 		float runTime = 0.0f;
 
+		float gameTime = 0.0f;
+
 		// Total tick frame count.
 		uint64_t tickCount = 0;
 
@@ -100,6 +104,16 @@ namespace engine
 
 		Timer m_timer;
 
+		bool m_bRuningGame = false;
+		float m_gameTime = 0.0f;
+	private:
+		ALCboolean m_contextMadeCurrent = false;
+		ALCdevice* m_openALDevice = nullptr;
+		ALCcontext* m_openALContext = nullptr;
+
+		bool initSoundEngine();
+		void closedSoundEngine();
+
 	public:
 		template<typename T>
 		bool existRegisteredModule()
@@ -137,6 +151,11 @@ namespace engine
 			return static_cast<T*>(m_runtimeModules.at(moduleIndex).get());
 		}
 
+		bool soundEngineValid() const;
+
+		ALCdevice* getSoundEngineDevice() { return m_openALDevice; }
+		ALCcontext* getSoundEngineContext() { return m_openALContext; }
+
 		bool init(Framework* framework);
 		bool tick(const EngineTickData& tickData);
 		void release();
@@ -144,6 +163,19 @@ namespace engine
 		bool isConsoleApp() const;
 		bool isWindowApp() const;
 
+		void setGameStart();
+		void setGameStop();
+		void setGamePause();
+		void setGameContinue();
+		float getGameTime() const { return m_gameTime; }
+
+		bool getGameRuningState() const { return m_bRuningGame; }
 		const Framework* getFramework() const { return m_framework; }
+
+
+		MulticastDelegate<> onGameStart;
+		MulticastDelegate<> onGameStop;
+		MulticastDelegate<> onGamePause;
+		MulticastDelegate<> onGameContinue;
 	};
 }

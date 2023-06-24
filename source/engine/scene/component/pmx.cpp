@@ -5,23 +5,81 @@
 #include <saba/Base/File.h>
 #include <saba/Base/UnicodeUtil.h>
 #include <saba/Base/Time.h>
+#include <asset/asset_wave.h>
+#include <util/openal.h>
+#include <renderer/render_scene.h>
 
 namespace engine
 {
 	PMXComponent::~PMXComponent()
 	{
+		clearAudio();
+	}
 
+	void PMXComponent::onGameBegin()
+	{
+		if (m_bAudioPrepared)
+		{
+			update_stream(m_audioSource, m_audioFormat, m_audioSampleRate, m_aduioDatas, m_audioBufferCursor);
+
+			m_audioState = AL_PLAYING;
+			alCall(alSourcePlay, m_audioSource);
+		}
+	}
+
+	void PMXComponent::onGameStop()
+	{
+		if (m_bAudioPrepared)
+		{
+			m_audioBufferCursor = 0;
+			update_stream(m_audioSource, m_audioFormat, m_audioSampleRate, m_aduioDatas, m_audioBufferCursor);
+
+			m_audioState = AL_STOPPED;
+			alCall(alSourceStop, m_audioSource);
+		}
+	}
+
+	void PMXComponent::onGameContinue()
+	{
+		if (m_bAudioPrepared)
+		{
+			m_audioState = AL_PLAYING;
+			alCall(alSourcePlay, m_audioSource);
+		}
+	}
+
+	void PMXComponent::onGamePause()
+	{
+		if (m_bAudioPrepared)
+		{
+			m_audioState = AL_PAUSED;
+			alCall(alSourcePause, m_audioSource);
+		}
 	}
 
 	void PMXComponent::tick(const RuntimeModuleTickData& tickData)
 	{
 		if (!m_proxy && (!m_pmxUUID.empty()))
 		{
-			m_proxy = std::make_unique<PMXMeshProxy>(m_pmxUUID);
+			m_proxy = std::make_unique<PMXMeshProxy>(m_pmxUUID, m_vmdUUIDs);
+			getRenderer()->getScene()->unvalidAS();
 		}
 
+		if (!m_bAudioPrepared && !m_singSong.empty())
+		{
+			prepareAudio();
+		}
 
+		// Runing game.
+		if (m_bAudioPrepared)
+		{
+			if (m_audioState == AL_PLAYING)
+			{
+				update_stream(m_audioSource, m_audioFormat, m_audioSampleRate, m_aduioDatas, m_audioBufferCursor);
+				alCall(alGetSourcei, m_audioSource, AL_SOURCE_STATE, &m_audioState);
+			}
 
+		}
 	}
 
 	bool PMXComponent::setPMX(const UUID& in)
@@ -30,20 +88,208 @@ namespace engine
 		{
 			m_pmxUUID = in;
 			m_proxy = nullptr;
-
+			getRenderer()->getScene()->unvalidAS();
 			return true;
 		}
 
 		return false;
 	}
 
-	PMXMeshProxy::PMXMeshProxy(const UUID& uuid)
+	bool PMXComponent::setSong(const UUID& in)
+	{
+		if (m_singSong != in)
+		{
+			m_singSong = in;
+			prepareAudio();
+			return true;
+		}
+
+		return false;
+	}
+
+	void PMXComponent::prepareAudio()
+	{
+		clearAudio();
+
+		auto waveAsset = std::dynamic_pointer_cast<AssetWave>(getAssetSystem()->getAsset(m_singSong));
+		auto wavePath = waveAsset->getWaveFilePath().string();
+
+		AudioFile<double> audioFile;
+
+		// Load song.
+		audioFile.load(wavePath);
+		audioFile.printSummary();
+
+
+		std::uint8_t channels = audioFile.getNumChannels();
+		m_audioSampleRate = audioFile.getSampleRate();
+		std::uint8_t bitsPerSample = audioFile.getBitDepth();
+
+
+		m_bAudioVolumetric = waveAsset->m_bVolumetric;
+		alCall(alGenBuffers, m_audioBufferes.size(), m_audioBufferes.data());
+
+		
+		if (channels == 1 && bitsPerSample == 8)
+		{
+			m_audioFormat = AL_FORMAT_MONO8;
+
+			m_aduioDatas.resize(audioFile.samples[0].size());
+			uint8* datas = (uint8*)m_aduioDatas.data();
+			for (size_t i = 0; i < audioFile.samples[0].size(); i++)
+			{
+				datas[i] = AudioSampleConverter<double>::sampleToUnsignedByte(audioFile.samples[0][i]);
+			}
+		}
+		else if (channels == 1 && bitsPerSample == 16)
+		{
+			m_audioFormat = AL_FORMAT_MONO16;
+			m_aduioDatas.resize(audioFile.samples[0].size() * 2);
+			int16_t* datas = (int16_t*)m_aduioDatas.data();
+
+			for (size_t i = 0; i < audioFile.samples[0].size(); i++)
+			{
+				datas[i] = AudioSampleConverter<double>::sampleToSixteenBitInt(audioFile.samples[0][i]);
+			}
+		}
+		else if (channels == 2 && bitsPerSample == 8)
+		{
+			m_audioFormat = AL_FORMAT_STEREO8;
+
+			m_aduioDatas.resize(audioFile.samples[0].size() * 2);
+			uint8* datas = (uint8*)m_aduioDatas.data();
+
+			for (size_t i = 0; i < audioFile.samples[0].size(); i++)
+			{
+				datas[i * 2 + 0] = AudioSampleConverter<double>::sampleToUnsignedByte(audioFile.samples[0][i]);
+				datas[i * 2 + 1] = AudioSampleConverter<double>::sampleToUnsignedByte(audioFile.samples[1][i]);
+			}
+		}
+		else if (channels == 2 && bitsPerSample == 16)
+		{
+			m_audioFormat = AL_FORMAT_STEREO16;
+
+			m_aduioDatas.resize(audioFile.samples[0].size() * 2 * 2);
+			int16_t* datas = (int16_t*)m_aduioDatas.data();
+
+			for (size_t i = 0; i < audioFile.samples[0].size(); i++)
+			{
+				datas[i * 2 + 0] = AudioSampleConverter<double>::sampleToSixteenBitInt(audioFile.samples[0][i]);
+				datas[i * 2 + 1] = AudioSampleConverter<double>::sampleToSixteenBitInt(audioFile.samples[1][i]);
+			}
+		}
+		else
+		{
+			LOG_ERROR("unrecognised wave format {} channels and {} bps.", channels, bitsPerSample);
+			return;
+		}
+
+		for (std::size_t i = 0; i < m_audioBufferes.size(); ++i)
+		{
+			alCall(alBufferData, m_audioBufferes[i], m_audioFormat, &m_aduioDatas[i * kOpenAlBufferSize], kOpenAlBufferSize, m_audioSampleRate);
+		}
+
+		alCall(alGenSources, 1, &m_audioSource);
+
+		alCall(alSourcef, m_audioSource, AL_PITCH, 1);
+		alCall(alSourcef, m_audioSource, AL_GAIN, 1.0f);
+		alCall(alSource3f, m_audioSource, AL_VELOCITY, 0, 0, 0);
+		alCall(alSourcei, m_audioSource, AL_LOOPING, AL_FALSE);
+		alCall(alSource3f, m_audioSource, AL_POSITION, 0, 0, 0);
+
+		alCall(alSourceQueueBuffers, m_audioSource, kOpenAlNumBuffers, &m_audioBufferes[0]);
+
+		m_bAudioPrepared = true;
+		m_audioBufferCursor = kOpenAlNumBuffers * kOpenAlBufferSize;
+	}
+
+	void PMXComponent::clearAudio()
+	{
+		if (m_bAudioPrepared)
+		{
+			alCall(alDeleteSources, 1, &m_audioSource);
+			alCall(alDeleteBuffers, kOpenAlNumBuffers, &m_audioBufferes[0]);
+		}
+
+
+		m_audioState = AL_INITIAL;
+		m_bAudioPrepared = false;
+	}
+
+
+	size_t PMXComponent::addVmd(const UUID& in)
+	{
+		auto result = m_vmdUUIDs.size();
+		m_vmdUUIDs.push_back(in);
+		m_proxy->rebuildVMD(m_vmdUUIDs);
+
+		return result;
+	}
+
+	void PMXComponent::removeVmd(size_t i)
+	{
+		m_vmdUUIDs.erase(m_vmdUUIDs.begin() + i);
+		m_proxy->rebuildVMD(m_vmdUUIDs);
+	}
+
+	void PMXComponent::clearVmd()
+	{
+		m_vmdUUIDs.clear();
+		m_proxy->rebuildVMD(m_vmdUUIDs);
+	}
+
+	bool PMXMeshProxy::rebuildVMD(const std::vector<UUID>& vmdUUIDs)
+	{
+		// Clear vmd animation proxy when need rebuild.
+		m_vmd = std::make_unique<saba::VMDAnimation>();
+		if (!m_vmd->Create(m_mmdModel))
+		{
+			LOG_ERROR("Failed to create VMDAnimation.");
+			return false;
+		}
+
+
+		for (const auto& vmdUUID : vmdUUIDs)
+		{
+			auto vmdAsset = std::dynamic_pointer_cast<AssetVMD>(getAssetSystem()->getAsset(vmdUUID));
+			if (vmdAsset->m_bCamera)
+			{
+				continue;
+			}
+
+			auto vmdPath = vmdAsset->getVMDFilePath().string();
+			saba::VMDFile vmdFile;
+			if (!saba::ReadVMDFile(&vmdFile, vmdPath.c_str()))
+			{
+				LOG_ERROR("Failed to read VMD file {0}.", vmdPath);
+				return false;
+			}
+
+			if (!vmdFile.m_cameras.empty())
+			{
+				LOG_ERROR("You can't use camera as pmx vmd {0}.", vmdPath);
+				continue;
+			}
+
+			if (!m_vmd->Add(vmdFile))
+			{
+				LOG_ERROR("Failed to add VMDAnimation {0}.", vmdPath);
+				continue;
+			}
+		}
+
+		m_vmd->SyncPhysics(0.0f);
+
+		return true;
+	}
+
+	PMXMeshProxy::PMXMeshProxy(const UUID& uuid, const std::vector<UUID>& vmdUUIDs)
 	{
 		auto pmxAsset = std::dynamic_pointer_cast<AssetPMX>(getAssetSystem()->getAsset(uuid));
 		auto path = pmxAsset->getPMXFilePath();
 		std::string pmxPath = path.string();
 
-		auto pmxModel = std::make_unique<saba::PMXModel>();
+		auto pmxModel = std::make_shared<saba::PMXModel>();
 		{
 			auto ext = saba::PathUtil::GetExt(pmxPath);
 			if (ext != "pmx")
@@ -57,6 +303,15 @@ namespace engine
 				LOG_ERROR("Failed to load pmx file {0}.", pmxPath);
 				return;
 			}
+		}
+
+		pmxModel->InitializeAnimation();
+
+		m_mmdModel = pmxModel;
+		m_pmxAsset = pmxAsset;
+		if (!vmdUUIDs.empty())
+		{
+			rebuildVMD(vmdUUIDs);
 		}
 
 		// Prepare vertex buffers.
@@ -94,24 +349,7 @@ namespace engine
 			// Index Buffer
 			m_indexType = VK_INDEX_TYPE_UINT32;
 			{
-				if (pmxModel->GetIndexElementSize() == 1)
-				{
-					LOG_ERROR("Vulkan is not supported uint8_t index."); // Some machine can use uint8 extension.
-					return;
-				}
-				else if (pmxModel->GetIndexElementSize() == 2)
-				{
-					m_indexType = VK_INDEX_TYPE_UINT16;
-				}
-				else if (pmxModel->GetIndexElementSize() == 4)
-				{
-					m_indexType = VK_INDEX_TYPE_UINT32;
-				}
-				else
-				{
-					UN_IMPLEMENT_WARN();
-					return;
-				}
+				CHECK(pmxModel->GetIndexElementSize() == 4);
 
 				// Create buffer
 				auto ibMemSize = uint32_t(pmxModel->GetIndexElementSize() * pmxModel->GetIndexCount());
@@ -142,16 +380,12 @@ namespace engine
 		// Prepare textures.
 		pmxAsset->tryLoadAllTextures(*pmxModel);
 
-		pmxModel->InitializeAnimation();
-
 		m_bInit = true;
-		m_mmdModel = std::move(pmxModel);
-		m_pmxAsset = pmxAsset;
 
-		getContext()->executeImmediatelyMajorGraphics([this](VkCommandBuffer cmd) {
+		getContext()->executeImmediatelyMajorGraphics([this](VkCommandBuffer cmd) 
+		{
 			updateVertex(cmd);
 		});
-		
 	}
 
 	PMXMeshProxy::~PMXMeshProxy()

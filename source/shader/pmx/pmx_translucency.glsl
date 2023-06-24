@@ -123,7 +123,7 @@ void main()
 
 
     outHDRSceneColor.rgb = baseColor.rgb;
-    outHDRSceneColor.a   = baseColor.a;
+    outHDRSceneColor.a   = 0.0;
 
     // Velocity output.
     outGBufferV = (vsIn.posNDCPrevNoJitter.xy / vsIn.posNDCPrevNoJitter.w) - (vsIn.posNDCCurNoJitter.xy / vsIn.posNDCCurNoJitter.w);

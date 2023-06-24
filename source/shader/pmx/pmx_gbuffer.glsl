@@ -110,7 +110,7 @@ void main()
     const vec3 worldPosition = vsIn.worldPos;
     const vec3 worldView = normalize(frameData.camWorldPos.xyz - worldPosition);
 
-    outGBufferA.rgb = baseColor.rgb;
+    outGBufferA.rgb = baseColor.rgb; // Scale PMX base color, all texture used are unlit albedo.
     outGBufferA.a   = pmxParam.shadingModelId;
 
     outGBufferB.rgb = worldNormal;
@@ -118,8 +118,8 @@ void main()
     outGBufferS.r = 0.0f; // metal
     outGBufferS.g = 0.8f; // roughness
     outGBufferS.b = 1.0f; // ao
-
-    outHDRSceneColor = vec4(0.0, 0.0, 0.0, 1.0);
+    outGBufferS.a = length(fwidth(worldNormal)) / length(fwidth(worldPosition));
+    outHDRSceneColor = vec4(0.0, 0.0, 0.0, 0.0);
 
     // Velocity output.
     outGBufferV = (vsIn.posNDCPrevNoJitter.xy / vsIn.posNDCPrevNoJitter.w) - (vsIn.posNDCCurNoJitter.xy / vsIn.posNDCCurNoJitter.w);

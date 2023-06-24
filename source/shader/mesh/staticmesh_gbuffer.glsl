@@ -182,7 +182,7 @@ void main()
 
     // Scene hdr color. r16g16b16a16 sfloat.
     outHDRSceneColor.rgb = emissiveColor.rgb; // Store emissive color in RGB channel.
-    outHDRSceneColor.a = 1.0f;
+    outHDRSceneColor.a = 0.0f;
 
     // GBufferA: r8g8b8a8 unorm.
     outGBufferA.rgb = baseColor.rgb; // Output base color in GBuffer A rgb channel.
@@ -195,6 +195,7 @@ void main()
     outGBufferS.r = metallic;  // Metalic
     outGBufferS.g = roughness; // Actually it is perceptualRoughness.
     outGBufferS.b = meshAo;    // Mesh Ao
+    outGBufferS.a = length(fwidth(normalize(vsIn.normal))) / length(fwidth(vsIn.worldPos));
 
     // Velocity output.
     outGBufferV = (vsIn.posNDCPrevNoJitter.xy / vsIn.posNDCPrevNoJitter.w) - (vsIn.posNDCCurNoJitter.xy / vsIn.posNDCCurNoJitter.w);

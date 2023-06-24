@@ -35,6 +35,35 @@ namespace engine
         }
     }
 
+    void SceneNode::onGameBegin()
+    {
+        for (auto& comp : m_components)
+        {
+            comp.second->onGameBegin();
+        }
+    }
+    void SceneNode::onGameStop()
+    {
+        for (auto& comp : m_components)
+        {
+            comp.second->onGameStop();
+        }
+    }
+    void SceneNode::onGameContinue()
+    {
+        for (auto& comp : m_components)
+        {
+            comp.second->onGameContinue();
+        }
+    }
+    void SceneNode::onGamePause()
+    {
+        for (auto& comp : m_components)
+        {
+            comp.second->onGamePause();
+        }
+    }
+
     void SceneNode::removeComponent(const char* type)
     {
         m_components.erase(type);

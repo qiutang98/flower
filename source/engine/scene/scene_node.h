@@ -24,6 +24,11 @@ namespace engine
         static std::shared_ptr<SceneNode> create(const size_t id, const std::string& name, std::shared_ptr<Scene> scene);
 
         void tick(const RuntimeModuleTickData& tickData);
+
+        void onGameBegin();
+        void onGamePause();
+        void onGameContinue();
+        void onGameStop();
         
         const auto& getId() const { return m_id; }
         const auto& getRuntimeIdName() const { return m_runTimeIdName; }

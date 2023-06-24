@@ -38,7 +38,7 @@ void RenderManagerWidget::onVisibleTick(const engine::RuntimeModuleTickData& tic
 
 	ImGui::Spacing();
 
-	ui::beginGroupPanel("Viewport Camera");
+	ui::beginGroupPanel("Global Render");
 	{
 		ImGui::PushItemWidth(100.0f);
 		float renderPercentage = viewportRenderer->getRenderPercentage();
@@ -48,6 +48,14 @@ void RenderManagerWidget::onVisibleTick(const engine::RuntimeModuleTickData& tic
 			m_editor->getViewportWidget()->markShouldResize();
 			viewportRenderer->setRenderPercentage(renderPercentage);
 		}
+		ImGui::PopItemWidth();
+	}
+	ui::endGroupPanel();
+
+
+	ui::beginGroupPanel("Viewport Camera");
+	{
+		ImGui::PushItemWidth(100.0f);
 
 		float fovy = math::degrees(viewportCamera->getFovY());
 		ImGui::SliderFloat("Fovy", &fovy, 10.0f, 90.0f);
@@ -56,7 +64,34 @@ void RenderManagerWidget::onVisibleTick(const engine::RuntimeModuleTickData& tic
 		{
 			viewportCamera->setFovY(fovy);
 		}
+
 		ImGui::PopItemWidth();
 	}
 	ui::endGroupPanel();
+
+	bool bGameRuning = m_engine->getGameRuningState();
+	if (ImGui::Checkbox("Playing", &bGameRuning))
+	{
+		if (bGameRuning)
+		{
+			m_engine->setGameContinue();
+		}
+		else
+		{
+			m_engine->setGamePause();
+		}
+	}
+
+
+	if (ImGui::Button("Start"))
+	{
+		m_engine->setGameStart();
+	}
+
+	if (ImGui::Button("Stop"))
+	{
+		m_engine->setGameStop();
+	}
+
+	ImGui::TextDisabled("Game Time: %2f.", m_engine->getGameTime());
 }

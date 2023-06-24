@@ -34,6 +34,8 @@ namespace engine
 		Texture_CurlNoise,
 		Texture_Noise,
 		Texture_Sky3d,
+		Texture_SkinLut,
+		Texture_SkinLutShadow,
 		Texture_Max,
 
 		StaticMesh_Min,
@@ -201,6 +203,8 @@ namespace engine
 
 		std::shared_ptr<GPUImageAsset> getEngineTextureWhite() const { return std::dynamic_pointer_cast<GPUImageAsset>(getEngineAsset(EBuiltinEngineAsset::Texture_White)); }
 		std::shared_ptr<GPUImageAsset> getEngineTextureNormal() const { return std::dynamic_pointer_cast<GPUImageAsset>(getEngineAsset(EBuiltinEngineAsset::Texture_Normal)); }
+		std::shared_ptr<GPUImageAsset> getEngineTextureSkinLut() const { return std::dynamic_pointer_cast<GPUImageAsset>(getEngineAsset(EBuiltinEngineAsset::Texture_SkinLut)); }
+		std::shared_ptr<GPUImageAsset> getEngineTextureSkinLutShadow() const { return std::dynamic_pointer_cast<GPUImageAsset>(getEngineAsset(EBuiltinEngineAsset::Texture_SkinLutShadow)); }
 		std::shared_ptr<GPUImageAsset> getEngineTextureSpecular() const { return std::dynamic_pointer_cast<GPUImageAsset>(getEngineAsset(EBuiltinEngineAsset::Texture_Specular)); }
 		std::shared_ptr<GPUImageAsset> getEngineTextureTranslucent() const { return std::dynamic_pointer_cast<GPUImageAsset>(getEngineAsset(EBuiltinEngineAsset::Texture_Translucent)); }
 		std::shared_ptr<GPUStaticMeshAsset> getEngineStaticMeshBox() const { return std::dynamic_pointer_cast<GPUStaticMeshAsset>(getEngineAsset(EBuiltinEngineAsset::StaticMesh_Box)); }

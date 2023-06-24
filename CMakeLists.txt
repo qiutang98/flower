@@ -15,7 +15,6 @@ set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 # Add dependency library.
 add_subdirectory("dependency/spdlog")
 add_subdirectory("dependency/vma")
-add_subdirectory("dependency/glm")
 add_subdirectory("dependency/stduuid")
 add_subdirectory("dependency/json")
 add_subdirectory("dependency/inipp") 
@@ -42,6 +41,10 @@ add_subdirectory("dependency/glfw")
 SET(GFX_API_DX12 OFF CACHE BOOL "Build with DX12" FORCE)
 SET(GFX_API_VK ON CACHE BOOL "Build with Vulkan" FORCE)  
 add_subdirectory("dependency/fsr2") 
+
+SET(LIBTYPE "STATIC")
+SET(ALSOFT_EXAMPLES  OFF CACHE BOOL "Build example programs"  FORCE)
+add_subdirectory("dependency/openal")
  
 # Prepare imgui path.
 set(CEREAL_DIR ${CMAKE_SOURCE_DIR}/dependency/cereal/include)

@@ -10,9 +10,6 @@
 [submodule "dependency/stduuid"]
 	path = dependency/stduuid
 	url = https://github.com/mariusbancila/stduuid
-[submodule "dependency/glm"]
-	path = dependency/glm
-	url = https://github.com/g-truc/glm
 [submodule "dependency/json"]
 	path = dependency/json
 	url = https://github.com/nlohmann/json
@@ -55,3 +52,6 @@
 [submodule "dependency/bullet3"]
 	path = dependency/bullet3
 	url = https://github.com/bulletphysics/bullet3
+[submodule "dependency/openal"]
+	path = dependency/openal
+	url = https://github.com/kcat/openal-soft

@@ -18,6 +18,11 @@ namespace engine
 		virtual bool tick(const RuntimeModuleTickData& tickData) override;
 		virtual void release() override;
 
+		void onGameBegin();
+		void onGamePause();
+		void onGameContinue();
+		void onGameStop();
+
 		// Get current active scene.
 		std::shared_ptr<Scene> getActiveScene();
 
@@ -32,5 +37,10 @@ namespace engine
 
 	private:
 		std::shared_ptr<Scene> m_scene = nullptr;
+
+		DelegateHandle m_onGameBeginHandle;
+		DelegateHandle m_onGameEndHandle;
+		DelegateHandle m_onGamePauseHandle;
+		DelegateHandle m_onGameContinueHandle;
 	};
 }

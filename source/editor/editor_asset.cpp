@@ -85,3 +85,21 @@ RegisteredStructForEditorAsset registerPMX(
 	"pmx",
 	EAssetType::PMX
 );
+
+std::string kVMDIcon = ICON_FA_PERSON_WALKING + std::string("  ");
+
+RegisteredStructForEditorAsset registerVMD(
+	"VMD",
+	kVMDIcon,
+	std::string("  ") + kVMDIcon + std::string("    VMD"),
+	"vmd",
+	EAssetType::VMD
+);
+
+RegisteredStructForEditorAsset registerWave(
+	"Wave",
+	ICON_FA_MUSIC,
+	std::string("  ") + ICON_FA_MUSIC + std::string("    Wave"),
+	"wave,wav",
+	EAssetType::Wave
+);
