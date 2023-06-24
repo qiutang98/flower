@@ -1,5 +1,7 @@
 # Miku Fan-Made Free MikuMikuDacne Renderer
 
+![](capture/Snipaste_2023-06-24_19-26-36.png)
+
 ![](capture/Snipaste_2023-02-06_10-39-57.png)
 
 **The repo still under positive developing, any community contribution is greeting and welcome.**
