@@ -105,12 +105,12 @@ namespace engine
 		renderPMXTranslucent(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU);
 
 		adaptiveExposure(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, tickData);
-
+		renderSelectionOutline(graphicsCmd, &gbuffers, perFrameGPU);
 		renderFSR2(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, tickData);
 		auto bloomTex = renderBloom(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU);
 
 		renderTonemapper(graphicsCmd, &gbuffers, perFrameGPU, m_renderer->getScene(), bloomTex, lensBuffer);
-		renderSelectionOutline(graphicsCmd, &gbuffers, perFrameGPU);
+
 		renderGrid(graphicsCmd, &gbuffers, perFrameGPU);
 
 		getPickPixelObject(graphicsCmd, &gbuffers);

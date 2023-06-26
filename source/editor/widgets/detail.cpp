@@ -180,6 +180,7 @@ void WidgetDetail::drawComponent(std::shared_ptr<SceneNode> node)
 			};
 
 			drawAddNode.template operator()<PMXComponent>(kIconPMX);
+			drawAddNode.template operator()<MMDCameraComponent>(kIconMMDCamera);
 			drawAddNode.template operator()<StaticMeshComponent>(kIconStaticMesh);
 			drawAddNode.template operator()<SkyComponent>(kIconSky);
 			drawAddNode.template operator()<PostprocessVolumeComponent>(kIconPostprocess);

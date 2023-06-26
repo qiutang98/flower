@@ -10,6 +10,8 @@ layout (set = 0, binding = 0, rgba8) uniform image2D inoutLdrColor;
 layout (set = 0, binding = 1) uniform texture2D inMask;
 layout (set = 0, binding = 2) uniform utexture2D inSceneNodeIdTexture;
 layout (set = 0, binding = 3) uniform UniformFrameData { PerFrameData frameData; };
+layout (set = 0, binding = 4) uniform texture2D inAdaptedLumTex;
+
 #define SHARED_SAMPLER_SET 1
 #include "common/shared_sampler.glsl"
 
@@ -28,7 +30,7 @@ void main()
     }
 
 
-    vec2 uvDt = 1.0f / vec2(frameData.displayWidth, frameData.displayHeight);
+    vec2 uvDt = 1.0f / vec2(frameData.renderWidth, frameData.renderHeight);
     const vec2 cancelJitter = -frameData.jitterData.xy * uvDt;
 
     vec4 resultColor = imageLoad(inoutLdrColor, workPos);
@@ -52,6 +54,9 @@ void main()
 
     float mixDensity = saturate(smoothstep(0.0, 16.0, diff)) * (bSelected != 0 ? 1.0 : 0.3);
     vec3 mixColor = bSelected != 0 ? vec3(1.0, 0.5, 0.0) : vec3(0.6, 0.2, 0.0);
+    mixColor = pow(mixColor, vec3(2.2));
+    
+    mixColor /= max(1e-5f, getExposure(frameData, inAdaptedLumTex).r);
 
     resultColor.xyz = mix(resultColor.xyz, mixColor, mixDensity);
 

@@ -10,6 +10,7 @@
 #include "component/postprocess.h"
 #include "component/terrain.h"
 #include "component/pmx.h"
+#include "component/camera.h"
 
 ASSET_ARCHIVE_IMPL(Component)
 {
@@ -47,6 +48,12 @@ ASSET_ARCHIVE_IMPL_INHERIT(PMXComponent, Component)
     ARCHIVE_NVP_DEFAULT(m_pmxUUID);
     ARCHIVE_NVP_DEFAULT(m_vmdUUIDs);
     ARCHIVE_NVP_DEFAULT(m_singSong);
+}
+ASSET_ARCHIVE_END
+
+ASSET_ARCHIVE_IMPL_INHERIT(MMDCameraComponent, Component)
+{
+    ARCHIVE_NVP_DEFAULT(m_vmdUUID);
 }
 ASSET_ARCHIVE_END
 

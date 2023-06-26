@@ -108,7 +108,7 @@ namespace saba
 		Destroy();
 	}
 
-	bool VMDCameraAnimation::Create(const VMDFile & vmd)
+	bool VMDCameraAnimation::Create(const VMDFile& vmd)
 	{
 		if (!vmd.m_cameras.empty())
 		{

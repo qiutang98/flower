@@ -4,8 +4,9 @@
 //
 
 #include "MMDCamera.h"
-
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/vec3.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 namespace saba
 {
@@ -17,7 +18,7 @@ namespace saba
 		m_fov = glm::radians(30.0f);
 	}
 
-	MMDLookAtCamera::MMDLookAtCamera(const MMDCamera & cam)
+	MMDLookAtCamera::MMDLookAtCamera(const MMDCamera& cam)
 	{
 		glm::mat4 view(1.0f);
 		view = glm::translate(view, glm::vec3(0, 0, std::abs(cam.m_distance)));

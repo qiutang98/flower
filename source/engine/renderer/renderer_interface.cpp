@@ -57,6 +57,11 @@ namespace engine
 		perframe.basicTextureLODBias = math::log2((float)m_renderWidth / (float)m_displayWidth) - 1.0f;
 		m_camera->fillPerframe(perframe);
 
+		if (m_renderer->getScene()->isMMDCameraExist() && Framework::get()->getEngine().getGameRuningState())
+		{
+			m_renderer->getScene()->fillMMDCameraInfo(perframe, (float)m_renderWidth, (float)m_renderHeight);
+		}
+
 		// Update prev cam infos.
 		{
 			perframe.camInfoPrev = m_cacheGPUPerFrameData.camInfo;

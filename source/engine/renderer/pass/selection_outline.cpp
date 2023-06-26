@@ -23,6 +23,7 @@ namespace engine
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1) // inId
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 2) // inId
                 .bindNoInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 3)
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 4) // inId
                 .buildNoInfoPush(setLayout);
 
             pipe = std::make_unique<ComputePipeResources>("shader/selection_outline.comp.spv", 0, std::vector<VkDescriptorSetLayout>{ setLayout, getContext()->getSamplerCache().getCommonDescriptorSetLayout() });
@@ -42,7 +43,7 @@ namespace engine
             return;
         }
 
-        auto& ldrSceneColor = getDisplayOutput();
+        auto& ldrSceneColor = inGBuffers->hdrSceneColor->getImage();
         ldrSceneColor.transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
 
         auto& selectionOutlineMask = inGBuffers->selectionOutlineMask->getImage();
@@ -62,6 +63,7 @@ namespace engine
                 .addSRV(selectionOutlineMask)
                 .addSRV(idTexture)
                 .addBuffer(perFrameGPU)
+                .addSRV(m_averageLum ? m_averageLum : inGBuffers->hdrSceneColorUpscale)
                 .push(pass->pipe.get());
 
             pass->pipe->bindSet(cmd, std::vector<VkDescriptorSet>{ getContext()->getSamplerCache().getCommonDescriptorSet() }, 1);

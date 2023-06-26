@@ -19,6 +19,8 @@ RenderManagerWidget::RenderManagerWidget(Editor* editor)
 void RenderManagerWidget::onInit()
 {
 	m_name = combineIcon(RenderManager_Title, ICON_RENDERMANAGER);
+
+	m_storePath.resize(257);
 }
 
 void RenderManagerWidget::onTick(const engine::RuntimeModuleTickData& tickData, engine::VulkanContext* context)
@@ -94,4 +96,19 @@ void RenderManagerWidget::onVisibleTick(const engine::RuntimeModuleTickData& tic
 	}
 
 	ImGui::TextDisabled("Game Time: %2f.", m_engine->getGameTime());
+
+	ImGui::InputText("StorePath", m_storePath.data(), 256); ImGui::SameLine();
+	if (ImGui::Button("Render Current frame"))
+	{
+		std::filesystem::path pathStore = m_editor->getProjectAssetPathUtf16();
+		std::u16string storePath = utf8::utf8to16(m_storePath);
+		pathStore /= storePath;
+
+		LOG_INFO("Store png image in {}.", pathStore.string());
+	}
+
+	if (ImGui::Button("Render All frame"))
+	{
+
+	}
 }

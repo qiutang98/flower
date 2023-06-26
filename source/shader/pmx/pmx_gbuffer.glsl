@@ -160,7 +160,10 @@ void main()
 
         outHDRSceneColor.xyz += additionalHighlit;
     }
-
+    else if(isInShadingModelRange(pmxParam.shadingModelId, kShadingModelSSSS))
+    {
+       outGBufferS.g = 0.65f;
+    }
 
     // Select mask, don't need z test.
     if(pmxParam.bSelected != 0)

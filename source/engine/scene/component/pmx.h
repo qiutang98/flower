@@ -36,15 +36,6 @@ namespace engine
 		float pad1;
 	};
 
-	struct PerFrameMMDCamera
-	{
-		bool bValidData = false;
-		glm::mat4 viewMat;
-		glm::mat4 projMat;
-		float fovy;
-		glm::vec3 worldPos;
-	};
-
 	struct PMXInitTrait
 	{
 		std::string pmxPath;

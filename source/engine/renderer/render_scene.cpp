@@ -17,6 +17,9 @@ namespace engine
 
 	void RenderScene::tick(const RuntimeModuleTickData& tickData, VkCommandBuffer cmd)
 	{
+		m_postprocessVolumeInfo = {};
+		m_mmdCamera = {};
+
 		auto activeScene = m_sceneManager->getActiveScene();
 
 		renderObjectCollect(tickData, activeScene.get(), cmd);
@@ -26,15 +29,20 @@ namespace engine
 		lightCollect(activeScene.get(), cmd);
 
 
-
-		// TODO: post process volunme lerp.
 		activeScene->loopComponents<PostprocessVolumeComponent>([&](std::shared_ptr<PostprocessVolumeComponent> comp) -> bool
 		{
 			m_postprocessVolumeInfo = comp->getSetting();
-
-			// NOTE: current only use first postprocess volume.
 			return true;
 		});
+
+		activeScene->loopComponents<MMDCameraComponent>(
+			[&](std::shared_ptr<MMDCameraComponent> comp) -> bool
+		{
+			m_mmdCamera = comp;
+			return true;
+		});
+
+		
 	}
 
 	bool RenderScene::shouldRenderSDSM() const
@@ -47,6 +55,27 @@ namespace engine
 	bool RenderScene::isASValid() const
 	{
 		return !m_cacheASInstances.empty() && m_tlas.isInit();
+	}
+
+	void RenderScene::fillMMDCameraInfo(GPUPerFrameData& view, float width, float height)
+	{
+		auto frame = m_mmdCamera.lock()->getCameraPerframe(width, height, view.camInfo.z, view.camInfo.w);
+
+		view.camWorldPos = { frame.worldPos, 1.0f };
+		view.camInfo.x = frame.fovy;
+
+		view.camView = frame.viewMat;
+		view.camProjNoJitter = frame.projMat;
+
+		view.camForward = { frame.front, 0.0f };
+
+		auto frustum = Frustum::build(view.camProjNoJitter * view.camView);
+		view.frustumPlanes[0] = frustum.planes[0];
+		view.frustumPlanes[1] = frustum.planes[1];
+		view.frustumPlanes[2] = frustum.planes[2];
+		view.frustumPlanes[3] = frustum.planes[3];
+		view.frustumPlanes[4] = frustum.planes[4];
+		view.frustumPlanes[5] = frustum.planes[5];
 	}
 
 	// All dynamic, no cache yet, I don't want to make the logic too complex, keep simple make life easy.

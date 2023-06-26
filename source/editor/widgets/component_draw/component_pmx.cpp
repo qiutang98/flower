@@ -57,6 +57,50 @@ void drawVMDSelect(
 
 }
 
+void ComponentDrawer::drawMMDCamera(std::shared_ptr<engine::SceneNode> node)
+{
+	std::shared_ptr<MMDCameraComponent> comp = node->getComponent<MMDCameraComponent>();
+
+	ProjectContentWidget* contentWidget = Editor::get()->getContentWidget();
+	auto* assetSystem = Editor::get()->getAssetSystem();
+
+	ImGui::Unindent();
+	ui::beginGroupPanel("Vmd");
+	{
+		static const std::string selectVmdButtonName = " VMD Chose ";
+		if (ImGui::Button(selectVmdButtonName.c_str()))
+			ImGui::OpenPopup("VMDSelectPopUp");
+		if (ImGui::BeginPopup("VMDSelectPopUp"))
+		{
+			ImGui::TextDisabled("Select VMD...");
+			ImGui::Spacing();
+
+			{
+				auto* assetSystem = Editor::get()->getAssetSystem();
+				auto* context = Editor::get()->getContext();
+
+				if (ImGui::BeginMenu("Project"))
+				{
+					const auto& map = assetSystem->getAssetMap(EAssetType::VMD);
+					for (const auto& id : map)
+					{
+						const auto& asset = std::dynamic_pointer_cast<AssetVMD>(assetSystem->getAsset(id));
+
+						if (asset->m_bCamera && ImGui::MenuItem((std::string("  ") + ICON_FA_CAMERA"   " + asset->getRelativePathUtf8()).c_str()))
+						{
+							comp->setVmd(id);
+						}
+					}
+					ImGui::EndMenu();
+				}
+			}
+			ImGui::EndPopup();
+		}
+	}
+	ui::endGroupPanel();
+	ImGui::Indent();
+}
+
 void drawWaveSelect(
 	std::shared_ptr<SceneNode> node,
 	std::shared_ptr<PMXComponent> comp)

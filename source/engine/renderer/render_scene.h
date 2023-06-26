@@ -44,6 +44,9 @@ namespace engine
         TLASBuilder* getAS() { return &m_tlas; }
         void unvalidAS() { m_tlas.destroy(); }
 
+        bool isMMDCameraExist() const { return m_mmdCamera.lock() != nullptr; }
+        void fillMMDCameraInfo(GPUPerFrameData& data, float width, float height);
+
     private:
         void renderObjectCollect(const RuntimeModuleTickData& tickData, class Scene* scene, VkCommandBuffer cmd);
 
@@ -76,5 +79,7 @@ namespace engine
 
         TLASBuilder m_tlas;
         std::vector<VkAccelerationStructureInstanceKHR> m_cacheASInstances;
+
+        std::weak_ptr<MMDCameraComponent> m_mmdCamera;
     };
 }
