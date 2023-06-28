@@ -11,6 +11,7 @@
 #include "component/terrain.h"
 #include "component/pmx.h"
 #include "component/camera.h"
+#include "component/spotlight.h"
 
 ASSET_ARCHIVE_IMPL(Component)
 {
@@ -74,6 +75,15 @@ ASSET_ARCHIVE_IMPL_INHERIT(SkyComponent, LightComponent)
 {
     ARCHIVE_NVP_DEFAULT(m_cascadeConfig);
     ARCHIVE_NVP_DEFAULT(m_atmosphereConfig);
+}
+ASSET_ARCHIVE_END
+
+ASSET_ARCHIVE_IMPL_INHERIT(SpotLightComponent, LightComponent)
+{
+    ARCHIVE_NVP_DEFAULT(bCastShadow);
+    ARCHIVE_NVP_DEFAULT(innerCone);
+    ARCHIVE_NVP_DEFAULT(outerCone);
+    ARCHIVE_NVP_DEFAULT(range);
 }
 ASSET_ARCHIVE_END
 

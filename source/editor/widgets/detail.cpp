@@ -7,6 +7,8 @@
 #include "component_draw/component_draw.h"
 #include <scene/component/static_mesh.h>
 #include <scene/component/terrain.h>
+#include <scene/component/spotlight.h>
+
 using namespace engine;
 using namespace engine::ui;
 
@@ -183,6 +185,7 @@ void WidgetDetail::drawComponent(std::shared_ptr<SceneNode> node)
 			drawAddNode.template operator()<MMDCameraComponent>(kIconMMDCamera);
 			drawAddNode.template operator()<StaticMeshComponent>(kIconStaticMesh);
 			drawAddNode.template operator()<SkyComponent>(kIconSky);
+			drawAddNode.template operator()<SpotLightComponent>(kIconSpotlight);
 			drawAddNode.template operator()<PostprocessVolumeComponent>(kIconPostprocess);
 			drawAddNode.template operator()<TerrainComponent>(kIconTerrain);
 

@@ -119,7 +119,7 @@ namespace engine
 			std::vector<VkFormat>&& inColorAttachmentFormats,
 			std::vector<VkPipelineColorBlendAttachmentState>&& inBlendState,
 			VkFormat depthFormat,
-			VkCullModeFlags cullMode = VK_CULL_MODE_FRONT_BIT,
+			VkCullModeFlags cullMode = VK_CULL_MODE_NONE,
 			VkCompareOp zTestComp = VK_COMPARE_OP_GREATER,
 			bool bEnableDepthClamp = false,
 			bool bEnableDepthBias = false,

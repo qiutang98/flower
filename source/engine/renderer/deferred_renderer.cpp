@@ -97,6 +97,9 @@ namespace engine
 			atmosphereTextures, 
 			ssaoBentNormal);
 
+		renderPMXOutline(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU);
+
+
 		renderAtmosphere(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, atmosphereTextures, &sdsmInfos, true);
 		auto lensBuffer = renderVolumetricCloud(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, atmosphereTextures, sdsmInfos, hzbClosest);
 

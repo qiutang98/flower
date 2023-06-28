@@ -184,8 +184,7 @@ namespace engine
 			{
 				getRenderer()->getScene()->unvalidAS();
 
-				// Build blas when loading ready.
-				auto& blas = gpuAsset->getOrBuilddBLAS();
+
 
 				auto meshAsset = m_cacheStaticMeshAsset.lock();
 
@@ -230,7 +229,15 @@ namespace engine
 						LOG_WARN("Missing material, used default for submesh.");
 					}
 
-					fillVkAccelerationStructureInstance(cacheAs, blas.getBlasDeviceAddress(i));
+					if (getContext()->getGraphicsCardState().bSupportRaytrace)
+					{
+						// Build blas when loading ready.
+						auto& blas = gpuAsset->getOrBuilddBLAS();
+
+						fillVkAccelerationStructureInstance(cacheAs, blas.getBlasDeviceAddress(i));
+					}
+
+
 				}
 
 

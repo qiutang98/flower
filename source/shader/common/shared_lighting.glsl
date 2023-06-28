@@ -199,23 +199,28 @@ ShadingResult getPointShade(vec3 pointToLight, PBRMaterial materialInfo, vec3 no
     {
         float nolRaw = dot(normalize(normal), normalize(pointToLight));
 
-        // Diffuse wrapping.
-
         // Calculate the shading terms for the microfacet specular shading model
         vec3  F   = specularReflection(materialInfo, angularInfo);
         float Vis = visibilityOcclusion(materialInfo, angularInfo);
         float D   = microfacetDistribution(materialInfo, angularInfo);
 
-        // Specular term.
+        // Calculation of analytical lighting contribution
+        vec3 diffuseContrib = (1.0 - F) * Fd_LambertDiffuse(materialInfo);
         vec3 specContrib    = F * Vis * D;
 
+        // Obtain final intensity as reflectance (BRDF) scaled by the energy of the light (cosine law)
+
+        result.diffuseTerm = angularInfo.NdotL * diffuseContrib;
+        result.specularTerm = angularInfo.NdotL * specContrib;
+
+#if 0
         // Calculation of analytical lighting contribution
         // BSSRDF fit.
-        vec3 diffuseContrib = (1.0 - F) * materialInfo.baseColor * 
-            texture(sampler2D(inSkinSSSLutShadow, linearClampEdgeSampler), vec2(nolRaw * 0.5 + 0.5, materialInfo.curvature)).xyz * 0.25; // TODO: Downscale factor by material.
+        vec3 sssFit = materialInfo.baseColor * 
+            texture(sampler2D(inSkinSSSLutShadow, linearClampEdgeSampler), vec2(nolRaw * 0.5 + 0.5, materialInfo.curvature)).xyz; 
 
-        result.diffuseTerm = diffuseContrib;
-        result.specularTerm = angularInfo.NdotL * specContrib;
+        result.diffuseTerm += sssFit / kPI; // TODO: Downscale factor by material.
+#endif
 
         return result;
     }

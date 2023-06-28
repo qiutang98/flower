@@ -81,6 +81,7 @@ AngularInfoPMX getAngularInfoPMX(vec3 pointToLight, vec3 normal, vec3 view)
 #ifdef PMX_COMMON_SET
     layout (set = 0, binding = 0) uniform UniformFrameData { PerFrameData frameData; };
     layout (set = 0, binding = 1, r8) uniform image2D outSelectionMask;
+    layout (set = 0, binding = 2) uniform texture2D inAdaptedLumTex;
 
     #define SHARED_SAMPLER_SET 1
     #include "../common/shared_sampler.glsl"
@@ -93,6 +94,7 @@ AngularInfoPMX getAngularInfoPMX(vec3 pointToLight, vec3 normal, vec3 view)
     layout (set = 5, binding = 0) readonly buffer BindlessSSBOIndices { uint data[]; } indicesArray[];
 
     layout (set = 6, binding = 0) uniform UniformPMXParam { UniformPMX pmxParam; };
+    
 
 
 #endif

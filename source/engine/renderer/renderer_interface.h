@@ -163,6 +163,13 @@ namespace engine
 			BufferParameterHandle perFrameGPU
 		);
 
+		void renderPMXOutline(
+			VkCommandBuffer cmd,
+			class GBufferTextures* inGBuffers,
+			class RenderScene* scene,
+			BufferParameterHandle perFrameGPU
+		);
+
 		void renderPMXTranslucent(
 			VkCommandBuffer cmd,
 			class GBufferTextures* inGBuffers,

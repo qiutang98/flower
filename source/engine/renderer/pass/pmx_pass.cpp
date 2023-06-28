@@ -18,6 +18,7 @@ namespace engine
 	public:
 		VkDescriptorSetLayout frameDataSetLayout = VK_NULL_HANDLE;
 		std::unique_ptr<GraphicPipeResources> pmxPass;
+		std::unique_ptr<GraphicPipeResources> pmxOutlinePass;
 		std::unique_ptr<GraphicPipeResources> pmxTranslucencyPass;
 
 		VkDescriptorSetLayout sdsmSetLayout = VK_NULL_HANDLE;
@@ -30,6 +31,7 @@ namespace engine
 				getContext()->descriptorFactoryBegin()
 					.bindNoInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, kCommonShaderStage, 0) // frameData
 					.bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, kCommonShaderStage, 1) // frameData
+					.bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, kCommonShaderStage, 2) // frameData
 					.buildNoInfoPush(frameDataSetLayout);
 
 				std::vector<VkDescriptorSetLayout> commonLayouts =
@@ -73,6 +75,24 @@ namespace engine
 					},
 					GBufferTextures::depthTextureFormat());
 
+				pmxOutlinePass = std::make_unique<GraphicPipeResources>(
+					"shader/pmx_outline_depth.vert.spv",
+					"shader/pmx_outline_depth.frag.spv",
+					commonLayouts,
+					0,
+					std::vector<VkFormat>
+					{
+						GBufferTextures::hdrSceneColorFormat(),
+						GBufferTextures::gbufferVFormat(),
+					},
+					std::vector<VkPipelineColorBlendAttachmentState>
+					{
+						RHIColorBlendAttachmentOpauqeState(),
+						RHIColorBlendAttachmentOpauqeState(),
+					},
+					GBufferTextures::depthTextureFormat(),
+					VK_CULL_MODE_BACK_BIT);
+
 				// Translucency blend.
 				VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
 				colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -106,7 +126,7 @@ namespace engine
 						RHIColorBlendAttachmentOpauqeState(),
 					},
 					GBufferTextures::depthTextureFormat(),
-					VK_CULL_MODE_FRONT_BIT,
+					VK_CULL_MODE_NONE,
 					VK_COMPARE_OP_GREATER,
 					false,
 					false,
@@ -137,7 +157,7 @@ namespace engine
 					std::vector<VkFormat>{ },
 					std::vector<VkPipelineColorBlendAttachmentState>{ },
 					GBufferTextures::depthTextureFormat(),
-					VK_CULL_MODE_FRONT_BIT,
+					VK_CULL_MODE_NONE,
 					VK_COMPARE_OP_GREATER,
 					true,
 					true,
@@ -151,6 +171,7 @@ namespace engine
 			pmxPass.reset();
 			pmxTranslucencyPass.reset();
 			renderSDSMDepthPipe.reset();
+			pmxOutlinePass.reset();
 		}
 	};
 
@@ -197,6 +218,7 @@ namespace engine
 			PushSetBuilder(cmd)
 				.addBuffer(perFrameGPU)
 				.addUAV(selectionMask)
+				.addSRV(m_averageLum ? m_averageLum->getImage() : getContext()->getEngineTextureWhite()->getImage())
 				.push(pass->pmxTranslucencyPass.get());
 
 			pass->pmxTranslucencyPass->bindSet(cmd, std::vector<VkDescriptorSet>
@@ -281,6 +303,7 @@ namespace engine
 			PushSetBuilder(cmd)
 				.addBuffer(perFrameGPU)
 				.addUAV(selectionMask)
+				.addSRV(m_averageLum ? m_averageLum->getImage() : getContext()->getEngineTextureWhite()->getImage())
 				.push(pass->pmxPass.get());
 
 			pass->pmxPass->bindSet(cmd, std::vector<VkDescriptorSet>
@@ -312,6 +335,66 @@ namespace engine
 		idTexture.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT));
 
 		m_gpuTimer.getTimeStamp(cmd, "pmx gbuffer");
+	}
+
+	void RendererInterface::renderPMXOutline(VkCommandBuffer cmd, GBufferTextures* inGBuffers, RenderScene* scene, BufferParameterHandle perFrameGPU)
+	{
+		if (!scene->isPMXExist())
+		{
+			return;
+		}
+
+		auto* pass = m_context->getPasses().get<PMXPass>();
+
+		auto& hdrSceneColor = inGBuffers->hdrSceneColor->getImage();
+		auto& gbufferV = inGBuffers->gbufferV->getImage();
+		auto& sceneDepthZ = inGBuffers->depthTexture->getImage();
+		auto& selectionMask = inGBuffers->selectionOutlineMask->getImage();
+
+		selectionMask.transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT));
+		hdrSceneColor.transitionLayout(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT));
+		gbufferV.transitionLayout(cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT));
+		sceneDepthZ.transitionLayout(cmd, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT));
+
+		std::vector<VkRenderingAttachmentInfo> colorAttachments = ColorAttachmentsBuilder()
+			.add(hdrSceneColor, VK_ATTACHMENT_LOAD_OP_LOAD)
+			.add(gbufferV, VK_ATTACHMENT_LOAD_OP_LOAD)
+			.result;
+		VkRenderingAttachmentInfo depthAttachment = getDepthAttachment(sceneDepthZ, VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE);
+
+		{
+			ScopeRenderCmdObject renderCmdScope(cmd, "PMXOutline", sceneDepthZ, colorAttachments, depthAttachment);
+			pass->pmxOutlinePass->bind(cmd);
+
+			PushSetBuilder(cmd)
+				.addBuffer(perFrameGPU)
+				.addUAV(selectionMask)
+				.addSRV(m_averageLum ? m_averageLum->getImage() : getContext()->getEngineTextureWhite()->getImage())
+				.push(pass->pmxOutlinePass.get());
+
+			pass->pmxOutlinePass->bindSet(cmd, std::vector<VkDescriptorSet>
+			{
+				getContext()->getSamplerCache().getCommonDescriptorSet(),
+					getRenderer()->getBlueNoise().spp_1_buffer.set,
+					getContext()->getBindlessTextureSet(),
+					m_context->getBindlessSSBOSet()
+					, m_context->getBindlessSSBOSet()
+			}, 1);
+
+			const auto& pmxes = scene->getPMXes();
+			for (const auto& pmx : pmxes)
+			{
+				pmx.lock()->onRenderCollect(this, cmd, pass->pmxOutlinePass->pipelineLayout, false);
+			}
+
+		}
+
+		selectionMask.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT));
+		hdrSceneColor.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT));
+		gbufferV.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT));
+		sceneDepthZ.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT));
+
+		m_gpuTimer.getTimeStamp(cmd, "pmx outline");
 	}
 
 
