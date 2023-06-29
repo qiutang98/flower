@@ -13,6 +13,13 @@ namespace engine
         int finalPass = 0;
     };
 
+    struct OutlinePush
+    {
+        int kContourMethod;
+        float kNormalDiffCoeff = 0.5f;
+        float kDepthDiffCoeff = 1.0f;
+    };
+
     class LightingPass : public PassInterface
     {
     public:
@@ -25,6 +32,10 @@ namespace engine
 
         std::unique_ptr<ComputePipeResources> ssss_pipe;
         VkDescriptorSetLayout ssss_setLayout = VK_NULL_HANDLE;
+
+
+        std::unique_ptr<ComputePipeResources> outline_pipe;
+        VkDescriptorSetLayout outline_setLayout = VK_NULL_HANDLE;
 
     public:
         virtual void onInit() override
@@ -83,6 +94,21 @@ namespace engine
                 std::vector<VkDescriptorSetLayout>{
                     ssss_setLayout,
                     m_context->getSamplerCache().getCommonDescriptorSetLayout()});
+
+
+            getContext()->descriptorFactoryBegin()
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0) // 
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1) // 
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 2) // 
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 3) // 
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 4) //
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 5)
+                .buildNoInfoPush(outline_setLayout);
+
+            outline_pipe = std::make_unique<ComputePipeResources>("shader/outline.comp.spv", sizeof(OutlinePush),
+                std::vector<VkDescriptorSetLayout>{
+                outline_setLayout,
+                    m_context->getSamplerCache().getCommonDescriptorSetLayout()});
         }
 
         virtual void release() override
@@ -91,6 +117,7 @@ namespace engine
             rt_hardShadow.reset();
 
             ssss_pipe.reset();
+            outline_pipe.reset();
         }
     };
 
@@ -101,7 +128,8 @@ namespace engine
         BufferParameterHandle perFrameGPU, 
         PoolImageSharedRef inSDSMMask,
         AtmosphereTextures& atmosphere,
-        PoolImageSharedRef inBentNormalSSAO)
+        PoolImageSharedRef inBentNormalSSAO,
+        SDSMInfos& sdsmInfo)
     {
         auto& hdrSceneColor = inGBuffers->hdrSceneColor->getImage();
         auto& gbufferA = inGBuffers->gbufferA->getImage();
@@ -212,8 +240,6 @@ namespace engine
 
         hdrDiffuseSSSS->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
         hdrSceneColor.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-
-        // Blur x.
         {
             const auto& postProcessVolumeSetting = scene->getPostprocessVolumeSetting();
 
@@ -274,5 +300,41 @@ namespace engine
 
             m_gpuTimer.getTimeStamp(cmd, "SSSS");
         }
+
+        bool bPostOutline = false;
+        if (bPostOutline)
+        {
+            gbufferA.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            gbufferB.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            hdrSceneColor.transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            {
+                ScopePerframeMarker marker(cmd, "Outline PP", { 1.0f, 1.0f, 0.0f, 1.0f });
+
+                OutlinePush push{};
+                push.kContourMethod = 2;
+                push.kDepthDiffCoeff = 1.0f;
+                push.kNormalDiffCoeff = 0.5f;
+
+                pass->outline_pipe->bindAndPushConst(cmd, &push);
+                PushSetBuilder(cmd)
+                    .addSRV(gbufferB)
+                    .addUAV(hdrSceneColor)
+                    .addBuffer(perFrameGPU)
+                    .addSRV(gbufferA)
+                    .addSRV(sceneDepthZ, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT))
+                    .addBuffer(sdsmInfo.rangeBuffer)
+                    .push(pass->outline_pipe.get());
+
+                pass->outline_pipe->bindSet(cmd, std::vector<VkDescriptorSet>{
+                    m_context->getSamplerCache().getCommonDescriptorSet()
+                }, 1);
+
+                vkCmdDispatch(cmd, getGroupCount(hdrSceneColor.getExtent().width, 8), getGroupCount(hdrSceneColor.getExtent().height, 8), 1);
+
+            }
+            hdrSceneColor.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+        }
+
+
     }
 }

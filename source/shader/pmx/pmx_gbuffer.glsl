@@ -27,6 +27,7 @@ void main()
     const uint normalId = pmxParam.normalsArrayId;
     const uint uv0Id = pmxParam.uv0sArrayId;
 
+
     const uint indexId = gl_VertexIndex;
     const uint vertexId = indicesArray[nonuniformEXT(indicesId)].data[indexId];
 
@@ -34,6 +35,7 @@ void main()
     vec3 inNormal;
     vec2 inUV0;
     vec3 inPositionLast;
+
 
     inPosition.x = verticesArray[nonuniformEXT(positionId)].data[vertexId * 3 + 0];
     inPosition.y = verticesArray[nonuniformEXT(positionId)].data[vertexId * 3 + 1];
@@ -46,6 +48,7 @@ void main()
     inNormal.x = verticesArray[nonuniformEXT(normalId)].data[vertexId * 3 + 0];
     inNormal.y = verticesArray[nonuniformEXT(normalId)].data[vertexId * 3 + 1];
     inNormal.z = verticesArray[nonuniformEXT(normalId)].data[vertexId * 3 + 2];
+
 
     inUV0.x = verticesArray[nonuniformEXT(uv0Id)].data[vertexId * 2 + 0];
     inUV0.y = verticesArray[nonuniformEXT(uv0Id)].data[vertexId * 2 + 1];
@@ -114,6 +117,7 @@ void main()
     outGBufferA.a   = pmxParam.shadingModelId;
 
     outGBufferB.rgb = worldNormal;
+    outGBufferB.w = float(pmxParam.sceneNodeId);
 
     outGBufferS.r = 0.0f; // metal
     outGBufferS.g = 0.8f; // roughness

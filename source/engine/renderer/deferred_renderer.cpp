@@ -95,15 +95,20 @@ namespace engine
 			perFrameGPU, 
 			sdsmInfos.mainViewMask, 
 			atmosphereTextures, 
-			ssaoBentNormal);
+			ssaoBentNormal,
+			sdsmInfos);
 
-		renderPMXOutline(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU);
 
 
 		renderAtmosphere(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, atmosphereTextures, &sdsmInfos, true);
 		auto lensBuffer = renderVolumetricCloud(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, atmosphereTextures, sdsmInfos, hzbClosest);
 
+
+
 		renderSSSR(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU, hzbClosest, ssaoBentNormal);
+
+		renderPMXOutline(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU);
+
 
 		renderPMXTranslucent(graphicsCmd, &gbuffers, m_renderer->getScene(), perFrameGPU);
 

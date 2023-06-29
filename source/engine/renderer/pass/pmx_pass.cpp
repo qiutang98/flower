@@ -21,9 +21,6 @@ namespace engine
 		std::unique_ptr<GraphicPipeResources> pmxOutlinePass;
 		std::unique_ptr<GraphicPipeResources> pmxTranslucencyPass;
 
-		VkDescriptorSetLayout sdsmSetLayout = VK_NULL_HANDLE;
-		std::unique_ptr<GraphicPipeResources> renderSDSMDepthPipe;
-
 	protected:
 		virtual void onInit() override
 		{
@@ -135,42 +132,12 @@ namespace engine
 					VK_POLYGON_MODE_FILL,
 					false);
 			}
-
-			{
-				getContext()->descriptorFactoryBegin()
-					.bindNoInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, kCommonShaderStage, 0) // frameData
-					.bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, kCommonShaderStage, 1) // frameData
-					.buildNoInfoPush(sdsmSetLayout);
-
-				std::vector<VkDescriptorSetLayout> commonLayouts =
-				{
-					sdsmSetLayout,
-					getContext()->getSamplerCache().getCommonDescriptorSetLayout(),
-					getContext()->getBindlessTextureSetLayout(),
-				};
-
-				renderSDSMDepthPipe = std::make_unique<GraphicPipeResources>(
-					"shader/pmx_sdsm_depth.vert.spv",
-					"shader/pmx_sdsm_depth.frag.spv",
-					commonLayouts,
-					sizeof(PMXSDSMPushConsts),
-					std::vector<VkFormat>{ },
-					std::vector<VkPipelineColorBlendAttachmentState>{ },
-					GBufferTextures::depthTextureFormat(),
-					VK_CULL_MODE_NONE,
-					VK_COMPARE_OP_GREATER,
-					true,
-					true,
-					PMXMeshProxy::kInputAttris,
-					sizeof(PMXMeshProxy::Vertex));
-			}
 		}
 
 		virtual void release() override
 		{
 			pmxPass.reset();
 			pmxTranslucencyPass.reset();
-			renderSDSMDepthPipe.reset();
 			pmxOutlinePass.reset();
 		}
 	};
@@ -362,6 +329,8 @@ namespace engine
 			.result;
 		VkRenderingAttachmentInfo depthAttachment = getDepthAttachment(sceneDepthZ, VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE);
 
+
+
 		{
 			ScopeRenderCmdObject renderCmdScope(cmd, "PMXOutline", sceneDepthZ, colorAttachments, depthAttachment);
 			pass->pmxOutlinePass->bind(cmd);
@@ -503,6 +472,10 @@ namespace engine
 			params.positionsArrayId = m_positionBindless;
 			params.uv0sArrayId = m_uvBindless;
 			params.positionsPrevArrayId = m_positionPrevBindless;
+			params.smoothNormalArrayId = m_smoothNormalBindless;
+
+			params.edgeColorSize = material.material.m_edgeColor;
+			params.edgeColorSize.w = material.material.m_edgeSize;
 
 			params.translucentUnlitScale = material.translucentUnlitScale;
 			params.eyeHighlightScale = material.eyeHighlightScale;
@@ -561,6 +534,7 @@ namespace engine
 			object.indexCount = subMesh.m_vertexCount;
 			object.objectType = uint32_t(EStaticMeshType::PMXStaticMesh);
 			object.positionsPrevArrayId = m_positionPrevBindless;
+			object.smoothNormalArrayId = m_smoothNormalBindless;
 			object.bSelected = bSelected ? 1 : 0;
 			object.modelMatrix = modelMatrix;
 			object.modelMatrixPrev = modelMatrixPrev;
@@ -600,7 +574,7 @@ namespace engine
 	{
 		// Copy last positions, todo: can optimize.
 		std::vector<glm::vec3> positionLast = m_mmdModel->getUpdatePositions();
-
+		std::vector<glm::vec3> smoothNormalPrev = m_mmdModel->getUpdateSmoothNormals();
 		m_mmdModel->Update();
 		const glm::vec3* position = m_mmdModel->GetUpdatePositions();
 		const glm::vec3* normal = m_mmdModel->GetUpdateNormals();
@@ -613,6 +587,7 @@ namespace engine
 		m_stageBufferNormal->copyAndUpload(cmd, normal, m_normalBuffer.get());
 		m_stageBufferUv->copyAndUpload(cmd, uv, m_uvBuffer.get());
 		m_stageBufferPositionPrevFrame->copyAndUpload(cmd, positionLastPtr, m_positionPrevFrameBuffer.get());
+		m_stageSmoothNormal->copyAndUpload(cmd, &smoothNormalPrev[0], m_smoothNormalBuffer.get());
 	}
 
 	void PMXMeshProxy::updateBLAS(VkCommandBuffer cmd)

@@ -128,6 +128,8 @@ namespace engine
 			VK_FORMAT_R8_UNORM,
 			VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
 		);
+
+		rangeBuffer = getContext()->getBufferParameters().getStaticStorageGPUOnly("SDSMRangeBuffer", sizeof(GPUDepthRange));
 	}
 
 	void RendererInterface::renderSDSM(
@@ -161,7 +163,7 @@ namespace engine
 		gBufferS.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT));
 
 		auto* pass = m_context->getPasses().get<SDSMPass>();
-		auto rangeBuffer = m_context->getBufferParameters().getStaticStorageGPUOnly("SDSMRangeBuffer", sizeof(GPUDepthRange));
+		auto rangeBuffer = sdsmInfos.rangeBuffer;
 
 		sdsmInfos.build(&gpuInfo.cacsadeConfig, this);
 		auto& cascadeBuffer = sdsmInfos.cascadeInfoBuffer;

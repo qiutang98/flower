@@ -104,6 +104,7 @@ namespace saba
 		MMDPhysics* GetMMDPhysics() override { return m_physicsMan.GetMMDPhysics(); }
 
 		virtual std::vector<glm::vec3> getUpdatePositions() const override { return m_updatePositions; }
+		virtual std::vector<glm::vec3> getUpdateSmoothNormals() const override { return m_smoothNormals; }
 
 		void InitializeAnimation() override;
 		// アニメーションの前後で呼ぶ (VMDアニメーションの前後)
@@ -264,6 +265,7 @@ namespace saba
 	private:
 		std::vector<glm::vec3>	m_positions;
 		std::vector<glm::vec3>	m_normals;
+		std::vector<glm::vec3> m_smoothNormals;
 		std::vector<glm::vec2>	m_uvs;
 		std::vector<VertexBoneInfo>	m_vertexBoneInfos;
 		std::vector<glm::vec3>	m_updatePositions;

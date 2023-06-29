@@ -395,7 +395,7 @@ namespace engine
 
         uint32_t positionsPrevArrayId;
         uint32_t objectType = uint32_t(EStaticMeshType::StaticMesh); // == 0 is static mesh, == 1 is pmx static mesh.
-        uint32_t pad0;
+        uint32_t smoothNormalArrayId;
         uint32_t pad1;
     };
     static_assert(sizeof(GPUStaticMeshPerObjectData) % (4 * sizeof(float)) == 0);

@@ -28,6 +28,7 @@ void main()
     const uint positionsPrevId = pmxParam.positionsPrevArrayId;
     const uint normalId = pmxParam.normalsArrayId;
     const uint uv0Id = pmxParam.uv0sArrayId;
+    const uint smoothNormalId = pmxParam.smoothNormalArrayId;
 
     const uint indexId = gl_VertexIndex;
     const uint vertexId = indicesArray[nonuniformEXT(indicesId)].data[indexId];
@@ -36,6 +37,7 @@ void main()
     vec3 inNormal;
     vec2 inUV0;
     vec3 inPositionLast;
+    vec3 inSmoothNormal;
 
     inPosition.x = verticesArray[nonuniformEXT(positionId)].data[vertexId * 3 + 0];
     inPosition.y = verticesArray[nonuniformEXT(positionId)].data[vertexId * 3 + 1];
@@ -51,8 +53,12 @@ void main()
 
     inUV0.x = verticesArray[nonuniformEXT(uv0Id)].data[vertexId * 2 + 0];
     inUV0.y = verticesArray[nonuniformEXT(uv0Id)].data[vertexId * 2 + 1];
+    
+    inSmoothNormal.x = verticesArray[nonuniformEXT(smoothNormalId)].data[vertexId * 3 + 0];
+    inSmoothNormal.y = verticesArray[nonuniformEXT(smoothNormalId)].data[vertexId * 3 + 1];
+    inSmoothNormal.z = verticesArray[nonuniformEXT(smoothNormalId)].data[vertexId * 3 + 2];
 
-    float outlineWidth = 0.0025f;
+    float outlineWidth = 0.001 * 2.5;
 
  
     // PMX GL style uv flip.
@@ -65,6 +71,7 @@ void main()
     vsOut.normal  = worldNormal;
 
 
+    vec3 worldSmoothNormal = normalize(normalMatrix * normalize(inSmoothNormal));
 
     // Local vertex position.
     const vec4 localPosition = vec4(inPosition, 1.0f);
@@ -73,7 +80,7 @@ void main()
 
     {
         vec4 clipPos = frameData.camViewProj * worldPosition;
-        vec3 clipNormal = normalize(mat3(frameData.camViewProj) * worldNormal);
+        vec3 clipNormal = normalize(mat3(frameData.camViewProj) * worldSmoothNormal);
         clipNormal.x /= frameData.camInfo.y;
         clipPos.xy +=  clipNormal.xy * (outlineWidth * clipPos.w);
 
@@ -83,7 +90,7 @@ void main()
 
     {
         vec4 clipPosNoJitter = frameData.camViewProjNoJitter * worldPosition;
-        vec3 clipNormalNoJitter = normalize(mat3(frameData.camViewProjPrevNoJitter) * worldNormal);
+        vec3 clipNormalNoJitter = normalize(mat3(frameData.camViewProjPrevNoJitter) * worldSmoothNormal);
         clipNormalNoJitter.x /= frameData.camInfo.y;
         clipPosNoJitter.xy +=  clipNormalNoJitter.xy * (outlineWidth * clipPosNoJitter.w);
 
@@ -95,8 +102,8 @@ void main()
         vec4 clipPosPrevNoJitter = frameData.camViewProjPrevNoJitter * worldPositionPrev;
 
         const mat3 normalMatrixPrev = transpose(inverse(mat3(pmxParam.modelMatrixPrev)));
-        vec3 worldNormalPrev = normalize(normalMatrixPrev * normalize(inNormal));
-        vec3 clipNormaPrevlNoJitter = normalize(mat3(frameData.camViewProjPrevNoJitter) * worldNormalPrev);
+        vec3 worldSmoothNormalPrev = normalize(normalMatrixPrev * normalize(inSmoothNormal));
+        vec3 clipNormaPrevlNoJitter = normalize(mat3(frameData.camViewProjPrevNoJitter) * worldSmoothNormalPrev);
         clipNormaPrevlNoJitter.x /= frameData.camInfo.y;
         clipPosPrevNoJitter.xy +=  clipNormaPrevlNoJitter.xy * (outlineWidth * clipPosPrevNoJitter.w);
 
@@ -139,8 +146,8 @@ void main()
 
     // Outline color.
     float powFactor = bSSS ? 2.0 : 4.0;
-    float scaleFator = bSSS ? 0.05 : 0.01;
-    outHDRSceneColor.xyz = pow(baseColor.xyz, vec3(powFactor)) * scaleFator;
+    float scaleFator = bSSS ? 0.002 : 0.001;
+    outHDRSceneColor.xyz = pow(baseColor.xyz, vec3(powFactor)) * scaleFator * getExposure(frameData, inAdaptedLumTex).r;
     outHDRSceneColor.w = 0.0;
 
     // Velocity output.
@@ -152,6 +159,11 @@ void main()
 
     // Transform motion vector from NDC space to UV space (+Y is top-down).
     outGBufferV *= vec2(0.5f, -0.5f);
+
+    // TODO: Configable.
+        float intervalNoise = interleavedGradientNoise(gl_FragCoord.xy, frameData.frameIndex.x % frameData.jitterPeriod);
+    gl_FragDepth = gl_FragCoord.z - gl_FragCoord.z * 0.005 * intervalNoise;
+
 }
 
 #endif //////////////////////////// pixel shader end

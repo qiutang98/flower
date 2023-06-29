@@ -149,6 +149,7 @@ namespace saba
 
 		virtual MMDPhysics* GetMMDPhysics() = 0;
 		virtual std::vector<glm::vec3> getUpdatePositions() const { return {}; }
+		virtual std::vector<glm::vec3> getUpdateSmoothNormals() const { return {}; }
 
 		// ノードを初期化する
 		virtual void InitializeAnimation() = 0;

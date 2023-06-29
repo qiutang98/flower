@@ -132,7 +132,7 @@ layout(location = 2) in VS2PS vsIn;
 
 layout(location = 0) out vec4 outHDRSceneColor; // Scene hdr color: r16g16b16a16. .rgb store emissive color.
 layout(location = 1) out vec4 outGBufferA; // GBuffer A: r8g8b8a8 unorm, .rgb store base color, .a is shading model id.
-layout(location = 2) out vec3 outGBufferB; // GBuffer B: r16g16b16a16. store worldspace normal.
+layout(location = 2) out vec4 outGBufferB; // GBuffer B: r16g16b16a16. store worldspace normal.
 layout(location = 3) out vec4 outGBufferS; // GBuffer S: r8g8b8a8 unorm, .r is metal, .g is roughness, .b is mesh ao.
 layout(location = 4) out vec2 outGBufferV; // GBuffer V: r16g16 sfloat, store velocity.
 layout(location = 5) out uint outId; // Id texture, [0 : 14] is sceneNode id, [15 : 15] is selection bit. 
@@ -190,6 +190,7 @@ void main()
 
     // GBuffer B: r16g16b16a16.
     outGBufferB.rgb = worldNormal; 
+    outGBufferB.w = float(inObjectId);
 
     // GBuffer S: r8g8b8a8 unorm.
     outGBufferS.r = metallic;  // Metalic

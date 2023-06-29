@@ -971,4 +971,14 @@ float atan2(vec2 v)
 		atan(v.y / v.x) + step(v.x, 0.0) * sign(v.y) * kPI;
 }
 
+uint depthPackUnit(float depth)
+{
+    return floatBitsToUint(depth);
+}
+
+float uintDepthUnpack(uint uintDepth)
+{
+    return uintBitsToFloat(uintDepth);
+}
+
 #endif

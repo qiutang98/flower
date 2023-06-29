@@ -299,7 +299,7 @@ struct StaticMeshPerObjectData
 
     uint positionsPrevArrayId;
     uint objectType; // == 0 is static mesh, == 1 is pmx static mesh.
-    uint pad0;
+    uint smoothNormalArrayId;
     uint pad1;
 };
 
@@ -387,6 +387,12 @@ struct DispatchIndirectCommand
     uint y;
     uint z;
     uint pad;
+};
+
+struct DepthRange
+{
+    uint minDepth;
+    uint maxDepth;
 };
 
 #endif

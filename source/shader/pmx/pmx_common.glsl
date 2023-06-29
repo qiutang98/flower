@@ -24,9 +24,11 @@ struct UniformPMX
     uint normalsArrayId;
     uint uv0sArrayId;
 
+    vec4 edgeColorSize; // .xyz is color, .w is size.
+
     float eyeHighlightScale;
     float translucentUnlitScale;
-    float pad0;
+	uint smoothNormalArrayId;
     float pad1;
 };
 

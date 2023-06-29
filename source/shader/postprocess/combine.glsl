@@ -218,8 +218,8 @@ vec3 lensFlare(vec2 texcoord, vec2 sunCoord, out vec3 ghostColor)
     vec2 coord = texcoord - 0.5;
     vec2 sunPos = sunCoord - 0.5;
 
-    coord.x /= frameData.camInfo.y;
-    sunPos.x /= frameData.camInfo.y;
+    coord.x *= frameData.camInfo.y;
+    sunPos.x *= frameData.camInfo.y;
 
     vec2 v = coord - sunPos;
 

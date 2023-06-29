@@ -335,16 +335,19 @@ namespace engine
 			m_normalBuffer = std::make_unique<VulkanBuffer>(getContext(), pmxPath, bufferFlagBasic | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, bufferFlagVMA, vbMemSizeNormal);
 			m_uvBuffer = std::make_unique<VulkanBuffer>(getContext(), pmxPath, bufferFlagBasic | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, bufferFlagVMA, vbMemSizeUv);
 			m_positionPrevFrameBuffer = std::make_unique<VulkanBuffer>(getContext(), pmxPath, bufferFlagBasic | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, bufferFlagVMA, vbMemSizePositionLast);
+			m_smoothNormalBuffer = std::make_unique<VulkanBuffer>(getContext(), pmxPath, bufferFlagBasic | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, bufferFlagVMA, vbMemSizeNormal);
 
 			m_stageBufferPosition = std::make_unique<VulkanBuffer>(getContext(), pmxPath, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VulkanBuffer::getStageCopyForUploadBufferFlags(), vbMemSizePosition);
 			m_stageBufferNormal = std::make_unique<VulkanBuffer>(getContext(), pmxPath, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VulkanBuffer::getStageCopyForUploadBufferFlags(), vbMemSizeNormal);
 			m_stageBufferUv = std::make_unique<VulkanBuffer>(getContext(), pmxPath, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VulkanBuffer::getStageCopyForUploadBufferFlags(), vbMemSizeUv);
 			m_stageBufferPositionPrevFrame = std::make_unique<VulkanBuffer>(getContext(), pmxPath, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VulkanBuffer::getStageCopyForUploadBufferFlags(), vbMemSizePositionLast);
+			m_stageSmoothNormal = std::make_unique<VulkanBuffer>(getContext(), pmxPath, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VulkanBuffer::getStageCopyForUploadBufferFlags(), vbMemSizeNormal);
 
 			m_normalBindless = getContext()->getBindlessSSBOs().updateBufferToBindlessDescriptorSet(m_normalBuffer->getVkBuffer(), 0, vbMemSizeNormal);
 			m_uvBindless = getContext()->getBindlessSSBOs().updateBufferToBindlessDescriptorSet(m_uvBuffer->getVkBuffer(), 0, vbMemSizeUv);
 			m_positionBindless = getContext()->getBindlessSSBOs().updateBufferToBindlessDescriptorSet(m_positionBuffer->getVkBuffer(), 0, vbMemSizePosition);
 			m_positionPrevBindless = getContext()->getBindlessSSBOs().updateBufferToBindlessDescriptorSet(m_positionPrevFrameBuffer->getVkBuffer(), 0, vbMemSizePositionLast);
+			m_smoothNormalBindless = getContext()->getBindlessSSBOs().updateBufferToBindlessDescriptorSet(m_smoothNormalBuffer->getVkBuffer(), 0, vbMemSizeNormal);
 
 			// Index Buffer
 			m_indexType = VK_INDEX_TYPE_UINT32;
@@ -416,6 +419,11 @@ namespace engine
 		{
 			getContext()->getBindlessSSBOs().freeBindlessImpl(m_positionPrevBindless);
 			m_positionPrevBindless = ~0;
+		}
+		if (m_smoothNormalBindless != ~0)
+		{
+			getContext()->getBindlessSSBOs().freeBindlessImpl(m_smoothNormalBindless);
+			m_smoothNormalBindless = ~0;
 		}
 	}
 }

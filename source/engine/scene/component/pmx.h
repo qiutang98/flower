@@ -30,9 +30,11 @@ namespace engine
 		uint32_t normalsArrayId;
 		uint32_t uv0sArrayId;
 
+		math::vec4 edgeColorSize;
+
 		float eyeHighlightScale;
 		float translucentUnlitScale;
-		float pad0;
+		uint32_t smoothNormalArrayId;
 		float pad1;
 	};
 
@@ -47,21 +49,6 @@ namespace engine
 	class PMXMeshProxy
 	{
 	public:
-		struct Vertex
-		{
-			glm::vec3 position;
-			glm::vec3 normal;
-			glm::vec2 uv;
-			glm::vec3 positionLast;
-		};
-
-		inline static const auto kInputAttris = std::vector<VkVertexInputAttributeDescription>
-		{
-			{ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 0 }, // pos
-			{ 1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 3 }, // normal
-			{ 2, 0, VK_FORMAT_R32G32_SFLOAT,    sizeof(float) * 6 }, // uv0
-			{ 3, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 8 }, // pos prev.
-		};
 
 		 PMXMeshProxy(const UUID& uuid, const std::vector<UUID>& vmdUUIDs);
 		~PMXMeshProxy();
@@ -101,17 +88,20 @@ namespace engine
 		std::unique_ptr<VulkanBuffer> m_positionBuffer = nullptr;
 		std::unique_ptr<VulkanBuffer> m_positionPrevFrameBuffer = nullptr;
 		std::unique_ptr<VulkanBuffer> m_normalBuffer = nullptr;
+		std::unique_ptr<VulkanBuffer> m_smoothNormalBuffer = nullptr;
 		std::unique_ptr<VulkanBuffer> m_uvBuffer = nullptr;
 
 		std::unique_ptr<VulkanBuffer> m_stageBufferPosition  = nullptr;
 		std::unique_ptr<VulkanBuffer> m_stageBufferPositionPrevFrame = nullptr;
 		std::unique_ptr<VulkanBuffer> m_stageBufferNormal = nullptr;
+		std::unique_ptr<VulkanBuffer> m_stageSmoothNormal = nullptr;
 		std::unique_ptr<VulkanBuffer> m_stageBufferUv = nullptr;
 
 		uint32_t m_indicesBindless = ~0;
 		uint32_t m_positionBindless = ~0;
 		uint32_t m_positionPrevBindless = ~0;
 		uint32_t m_normalBindless = ~0;
+		uint32_t m_smoothNormalBindless = ~0;
 		uint32_t m_uvBindless = ~0;
 
 		std::shared_ptr<saba::MMDModel>	m_mmdModel = nullptr;

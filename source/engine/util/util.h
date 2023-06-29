@@ -280,6 +280,19 @@ namespace engine
 
 		return math::vec3(R, G, B);
 	}
+
+	struct KeyFuncsVec3
+	{
+		size_t operator()(const glm::vec3& k)const
+		{
+			return hashCombine(hashCombine(std::hash<float>()(k.x), std::hash<float>()(k.y)), std::hash<float>()(k.z));
+		}
+
+		bool operator()(const glm::vec3& a, const glm::vec3& b)const
+		{
+			return a.x == b.x && a.y == b.y;
+		}
+	};
 }
 
 

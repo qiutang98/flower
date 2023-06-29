@@ -28,6 +28,7 @@ namespace engine
 	struct SDSMInfos
 	{
 		BufferParameterHandle cascadeInfoBuffer;
+		BufferParameterHandle rangeBuffer;
 		PoolImageSharedRef shadowDepths;
 		PoolImageSharedRef mainViewMask;
 
@@ -250,7 +251,8 @@ namespace engine
 			BufferParameterHandle perFrameGPU,
 			PoolImageSharedRef inSDSMMask,
 			AtmosphereTextures& atmosphere,
-			PoolImageSharedRef inSSAO);
+			PoolImageSharedRef inSSAO,
+			SDSMInfos& sdsmInfo);
 
 		void adaptiveExposure(
 			VkCommandBuffer cmd,

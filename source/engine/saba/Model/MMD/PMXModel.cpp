@@ -324,6 +324,8 @@ namespace saba
 		m_parallelUpdateCount = parallelCount;
 	}
 
+
+
 	bool PMXModel::Load(const std::string& filepath, const std::string& mmdDataDir)
 	{
 		Destroy();
@@ -339,6 +341,7 @@ namespace saba
 		size_t vertexCount = pmx.m_vertices.size();
 		m_positions.reserve(vertexCount);
 		m_normals.reserve(vertexCount);
+
 		m_uvs.reserve(vertexCount);
 		m_vertexBoneInfos.reserve(vertexCount);
 		m_bboxMax = glm::vec3(-std::numeric_limits<float>::max());
@@ -434,6 +437,22 @@ namespace saba
 		m_updateNormals.resize(m_normals.size());
 		m_updateUVs.resize(m_uvs.size());
 
+		std::unordered_map<glm::vec3, glm::dvec3, engine::KeyFuncsVec3, engine::KeyFuncsVec3> positionNormalMap;
+		for (size_t i = 0; i < vertexCount; i++)
+		{
+			positionNormalMap[m_positions[i]] += m_normals[i];
+		}
+
+		for (auto& pair : positionNormalMap)
+		{
+			pair.second = glm::normalize(pair.second);
+		}
+
+		m_smoothNormals.resize(vertexCount);
+		for (size_t i = 0; i < vertexCount; i++)
+		{
+			m_smoothNormals[i] += positionNormalMap[m_positions[i]];
+		}
 
 		m_indexElementSize = 4;// pmx.m_header.m_vertexIndexSize;
 		m_indexCount = pmx.m_faces.size() * 3;
@@ -886,6 +905,7 @@ namespace saba
 
 		m_positions.clear();
 		m_normals.clear();
+		m_smoothNormals.clear();
 		m_uvs.clear();
 		m_vertexBoneInfos.clear();
 

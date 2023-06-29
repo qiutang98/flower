@@ -11,12 +11,6 @@
 
 #include "../../common/shared_functions.glsl"
 
-struct DepthRange
-{
-    uint minDepth;
-    uint maxDepth;
-};
-
 layout(set = 0, binding = 0) uniform texture2D inDepth; // Depth z.
 layout(set = 0, binding = 1) buffer SSBODepthRangeBuffer { DepthRange depthRange; }; // Depth range min max buffer
 layout(set = 0, binding = 2) buffer SSBOCascadeInfoBuffer{ CascadeInfo cascadeInfos[]; }; // Cascade infos.
@@ -45,15 +39,7 @@ layout (push_constant) uniform PushConsts
     float heightfiledDump;
 };
 
-uint depthPackUnit(float depth)
-{
-    return floatBitsToUint(depth);
-}
 
-float uintDepthUnpack(uint uintDepth)
-{
-    return uintBitsToFloat(uintDepth);
-}
 
 // RH look at function for compute shadow camera eye matrix.
 mat4 lookAtRH(vec3 eye,vec3 center,vec3 up)
