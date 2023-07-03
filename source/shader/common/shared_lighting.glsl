@@ -193,11 +193,11 @@ ShadingResult getPointShade(vec3 pointToLight, PBRMaterial materialInfo, vec3 no
     ShadingResult result;
     AngularInfo angularInfo = getAngularInfo(pointToLight, normal, view);
 
-    // SSS.
-#ifdef SSSS_Lighting
-    if(isInShadingModelRange(materialInfo.shadingModel, kShadingModelSSSS))
+    if(isInShadingModelRange(materialInfo.shadingModel, kShaidngModelTwoSideFoliage))
     {
-        float nolRaw = dot(normalize(normal), normalize(pointToLight));
+        float wrapFactor = 0.5;
+        vec3 backLitDirMixNorm = normalize(normal * wrapFactor + pointToLight);
+        float transmissionBasic = saturate(dot(-backLitDirMixNorm, view));
 
         // Calculate the shading terms for the microfacet specular shading model
         vec3  F   = specularReflection(materialInfo, angularInfo);
@@ -205,27 +205,19 @@ ShadingResult getPointShade(vec3 pointToLight, PBRMaterial materialInfo, vec3 no
         float D   = microfacetDistribution(materialInfo, angularInfo);
 
         // Calculation of analytical lighting contribution
-        vec3 diffuseContrib = (1.0 - F) * Fd_LambertDiffuse(materialInfo);
+        vec3 diffuseContrib = (1.0 - F) * Fd_BurleyDiffuse(materialInfo, angularInfo);
         vec3 specContrib    = F * Vis * D;
 
         // Obtain final intensity as reflectance (BRDF) scaled by the energy of the light (cosine law)
 
-        result.diffuseTerm = angularInfo.NdotL * diffuseContrib;
+        result.diffuseTerm = angularInfo.NdotL * (diffuseContrib);
+        result.diffuseTerm += materialInfo.diffuseColor * pow(transmissionBasic, 2.0) / kPI;
+
         result.specularTerm = angularInfo.NdotL * specContrib;
-
-#if 0
-        // Calculation of analytical lighting contribution
-        // BSSRDF fit.
-        vec3 sssFit = materialInfo.baseColor * 
-            texture(sampler2D(inSkinSSSLutShadow, linearClampEdgeSampler), vec2(nolRaw * 0.5 + 0.5, materialInfo.curvature)).xyz; 
-
-        result.diffuseTerm += sssFit / kPI; // TODO: Downscale factor by material.
-#endif
 
         return result;
     }
-    else 
-#endif
+    else
     {
         // Skip unorientation to light pixels.
         if (angularInfo.NdotL > 0.0 || angularInfo.NdotV > 0.0)

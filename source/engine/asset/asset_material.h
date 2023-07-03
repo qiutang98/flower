@@ -23,6 +23,8 @@ namespace engine
 
 		}
 
+		virtual bool drawAssetConfig();
+
 		virtual EAssetType getType() const override { return EAssetType::Material; }
 		virtual const char* getSuffix() const { return ".material"; }
 		EMaterialType getMaterialType() const { return m_materialType; }
@@ -61,6 +63,11 @@ namespace engine
 
 		GPUTexturesHandle buildCache();
 
+		virtual bool drawAssetConfig();
+	protected:
+		virtual bool saveActionImpl() override;
+
+
 	private:
 		// Runtime state, use this to know all asset in this material is ready or not.
 		bool m_bAllAssetReady = false;
@@ -89,6 +96,8 @@ namespace engine
 
 		float cutoff  = 0.5f;
 		float faceCut = 0.0f;
+
+		EShadingModelType shadingModelType = EShadingModelType::StandardPBR;
 	};
 
 	using StandardPBRMaterialHandle = StandardPBRMaterial::GPUTexturesHandle;
@@ -124,5 +133,11 @@ ASSET_ARCHIVE_IMPL_INHERIT(StandardPBRMaterial, AssetMaterial)
 
 	ARCHIVE_NVP_DEFAULT(cutoff);
 	ARCHIVE_NVP_DEFAULT(faceCut);
+
+	if (version > 2)
+	{
+		ARCHIVE_ENUM_CLASS(shadingModelType);
+	}
+
 }
 ASSET_ARCHIVE_END

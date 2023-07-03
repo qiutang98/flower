@@ -186,7 +186,7 @@ void main()
 
     // GBufferA: r8g8b8a8 unorm.
     outGBufferA.rgb = baseColor.rgb; // Output base color in GBuffer A rgb channel.
-    outGBufferA.a = kShadingModelStandardPBR; // Shading model id.
+    outGBufferA.a = material.shadeingModel; // Shading model id.
 
     // GBuffer B: r16g16b16a16.
     outGBufferB.rgb = worldNormal; 

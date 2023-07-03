@@ -49,6 +49,7 @@ namespace engine
 		result.roughnessAdd = 0.0f;
 		result.emissiveMul = math::vec4{ 1.0f };
 		result.emissiveAdd = math::vec4{ 0.0f };
+		result.shadingModel = kShadingModelStandardPBR;
 
 		return result;
 	}

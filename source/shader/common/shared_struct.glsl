@@ -234,6 +234,11 @@ struct MaterialStandardPBR
     // Emissive operator.
     vec4 emissiveMul;
     vec4 emissiveAdd;
+
+    float shadeingModel;
+    float pad0;
+    float pad1;
+    float pad2;
 };
 
 // Memory layout same with mesh_misc.h

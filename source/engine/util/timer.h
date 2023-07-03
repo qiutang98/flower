@@ -41,8 +41,28 @@ namespace engine
 
         // return true if smooth fps update.
         // false is non update.
-        bool tick()
+        bool tick(float waitDt = 0.0f, int sleepMs = 1)
         {
+            if (waitDt > 0.0f)
+            {
+
+                while (true)
+                {
+                    std::chrono::duration<float> dt = std::chrono::system_clock::now() - m_timePoint;
+                    float dtCur = dt.count();
+
+                    if (dtCur < waitDt)
+                    {
+                        // std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs)); // 
+                        // std::this_thread::yield(); // Or sleep?
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
+
             m_deltaTime = std::chrono::system_clock::now() - m_timePoint;
             m_timePoint = std::chrono::system_clock::now();
 

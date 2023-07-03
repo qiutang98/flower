@@ -65,6 +65,49 @@ namespace engine
 		m_runtimeMaterialcache.cutoff       = this->cutoff;
 		m_runtimeMaterialcache.faceCut      = this->faceCut;
 
+		m_runtimeMaterialcache.shadingModel = shadingModelConvert(this->shadingModelType);
+
 		return handle;
     }
+
+	bool AssetMaterial::drawAssetConfig()
+	{
+		return AssetInterface::drawAssetConfig();
+	}
+
+	bool StandardPBRMaterial::drawAssetConfig()
+	{
+		bool bDataChange = false;
+		bDataChange |= AssetMaterial::drawAssetConfig();
+
+
+		bDataChange |= ui::drawShadingModelSelect(this->shadingModelType);
+
+		bDataChange |= ui::drawVector4("BaseColor Mul", this->baseColorMul, glm::vec4{ 1.0f }, ImGui::GetFontSize() * 6.0f);
+		bDataChange |= ui::drawVector4("BaseColor Add", this->baseColorAdd, glm::vec4{ 0.0f }, ImGui::GetFontSize() * 6.0f);
+
+		bDataChange |= ui::drawVector4("Emissive Mul", this->emissiveMul, glm::vec4{ 1.0f }, ImGui::GetFontSize() * 6.0f);
+		bDataChange |= ui::drawVector4("Emissive Add", this->emissiveAdd, glm::vec4{ 0.0f }, ImGui::GetFontSize() * 6.0f);
+
+		bDataChange |= ui::drawFloat("Metallic Mul", this->metalMul, 1.0f);
+		bDataChange |= ui::drawFloat("Metallic Add", this->metalAdd, 0.0f);
+		bDataChange |= ui::drawFloat("Roughness Mul", this->roughnessMul, 1.0f);
+		bDataChange |= ui::drawFloat("Roughness Add", this->roughnessAdd, 0.0f);
+
+		if (bDataChange)
+		{
+			this->buildCache();
+			setDirty();
+		}
+
+		return bDataChange;
+	}
+
+	bool StandardPBRMaterial::saveActionImpl()
+	{
+		saveAssetMeta<StandardPBRMaterial>(*this, getSavePath(), this->getSuffix(), false);
+		return true;
+	}
+
+
 }

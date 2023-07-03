@@ -66,7 +66,14 @@ namespace engine::ui
 	}
 
 	extern bool drawVector3(const std::string& label, math::vec3& values, const math::vec3& resetValue, float labelWidth);
+	extern bool drawVector4(const std::string& label, math::vec4& values, const math::vec4& resetValue, float labelWidth);
+	extern bool drawFloat(
+		const std::string& label,
+		float& values,
+		const float& resetValue);
 
 	extern void beginGroupPanel(const char* name, const ImVec2& size = ImVec2(0.0f, 0.0f));
 	extern void endGroupPanel();
+
+	extern bool drawShadingModelSelect(EShadingModelType& shadingModelType);
 }

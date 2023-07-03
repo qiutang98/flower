@@ -6,6 +6,8 @@
 
 namespace engine
 {
+
+	AutoCVarInt32 cVarTAAEnable("r.taa.enable", "enable taa or not.", "engne", 1);
 	RendererInterface::RendererInterface(const char* name, VulkanContext* context, CameraInterface* inCam)
 		: m_name(name), m_context(context), m_camera(inCam)
 	{
@@ -47,10 +49,20 @@ namespace engine
 		perframe.jitterData.z = m_cacheGPUPerFrameData.jitterData.x;
 		perframe.jitterData.w = m_cacheGPUPerFrameData.jitterData.y;
 
+		if(cVarTAAEnable.get() != 0)
 		{
 			const int32_t jitterPhaseCount = ffxFsr2GetJitterPhaseCount(m_renderWidth, m_displayWidth);
 			ffxFsr2GetJitterOffset(&perframe.jitterData.x, &perframe.jitterData.y, m_tickCount, jitterPhaseCount);
 			perframe.jitterPeriod = jitterPhaseCount;
+		}
+		else
+		{
+			perframe.jitterData.x = 0.0f;
+			perframe.jitterData.y = 0.0f;
+			perframe.jitterData.z = 0.0f;
+			perframe.jitterData.w = 0.0f;
+
+			perframe.jitterPeriod = 1;
 		}
 
 		perframe.sky = m_renderer->getScene()->getSkyGPU();

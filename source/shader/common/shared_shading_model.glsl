@@ -10,6 +10,7 @@
 #define kShadingModelPMXBasic          0.04
 #define kShadingModelSSSS              0.06
 #define kShadingModelEye               0.08
+#define kShaidngModelTwoSideFoliage    0.10
 
 bool isInShadingModelRange(float v, float shadingModel)
 {

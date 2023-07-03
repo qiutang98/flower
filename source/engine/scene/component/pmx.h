@@ -171,6 +171,8 @@ namespace engine
 		std::int32_t m_audioSampleRate;
 		std::size_t m_audioBufferCursor;
 		std::vector<char> m_aduioDatas;
+
+		float m_dtSum = 0.0f;
 		
 	public:
 		ARCHIVE_DECLARE;

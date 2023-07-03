@@ -2,6 +2,7 @@
 #include "asset_material.h"
 #include "asset_texture.h"
 #include "asset_system.h"
+#include "../../editor/editor.h"
 
 namespace engine
 {
@@ -199,6 +200,67 @@ namespace engine
 				workingMat.mmdToonTex = ~0;
 			}
 		}
+	}
+
+	bool AssetPMX::drawAssetConfig()
+	{
+		bool bDataChange = false;
+		bDataChange |= AssetInterface::drawAssetConfig();
+
+		auto* pmx = this;
+
+		// Draw Materials.
+		for (size_t i = 0; i < pmx->m_materials.size(); i++)
+		{
+			ImGui::PushID(i);
+			auto mat = pmx->m_materials.at(i);
+			if (ImGui::TreeNode(mat.material.m_name.c_str()))
+			{
+				ImGui::TextDisabled("English Name: %s.", mat.material.m_enName.c_str());
+
+				VkDescriptorSet set = Editor::get()->getClampToTransparentBorderSet(&getContext()->getEngineTextureWhite()->getImage());
+
+				ImGui::TextDisabled("Basic texture: %s.", mat.material.m_texture.c_str());
+				if (!mat.material.m_texture.empty())
+				{
+
+				}
+				ImGui::Image(set, { 80 , 80 });
+
+				ImGui::TextDisabled("Toon texture: %s.", mat.material.m_toonTexture.c_str());
+				if (mat.mmdToonTex != ~0)
+				{
+				}
+
+				ImGui::TextDisabled("Sp texture: %s.", mat.material.m_spTexture.c_str());
+				if (mat.mmdSphereTex != ~0)
+				{
+				}
+
+				ImGui::Checkbox("Translucent", &mat.bTranslucent);
+				ImGui::Checkbox("Hide", &mat.bHide);
+				ImGui::Checkbox("Cast Shadow", &mat.bCastShadow);
+				ImGui::DragFloat("Pixel depth offset", &mat.pixelDepthOffset);
+				ImGui::DragFloat("Eye high light scale", &mat.eyeHighlightScale);
+				ImGui::DragFloat("Translucent unlit scale", &mat.translucentUnlitScale);
+
+				bDataChange |= ui::drawShadingModelSelect(mat.pmxShadingModel);
+
+				ImGui::TreePop();
+				ImGui::Separator();
+			}
+			ImGui::PopID();
+
+			if (mat != pmx->m_materials[i])
+			{
+				pmx->m_materials[i] = mat;
+				pmx->setDirty();
+
+				bDataChange = true;
+			}
+		}
+
+		return bDataChange;
 	}
 
 	bool AssetPMX::saveActionImpl()

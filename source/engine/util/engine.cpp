@@ -4,6 +4,9 @@
 
 namespace engine
 {
+    // AutoCVarFloat cVarEngineTickFps("r.engine.tickFps", "engine tick fps.", "engne", 60.0f);
+    // AutoCVarInt32 cVarEngineTickSleepMs("r.engine.tickSleep", "engine tick fps sleep ms.", "engne", 2);
+
     bool Engine::soundEngineValid() const
     {
         return m_openALDevice && m_openALContext && (m_contextMadeCurrent == ALC_TRUE);
@@ -87,6 +90,8 @@ namespace engine
     bool Engine::tick(const EngineTickData& data)
     {
         bool bContinue = true;
+
+        // float engineDtRequire = 1.0f / cVarEngineTickFps.get();
 
         if (m_runtimeModules.size() > 0)
         {

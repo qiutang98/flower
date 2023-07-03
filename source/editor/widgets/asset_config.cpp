@@ -42,74 +42,13 @@ void WidgetAssetConfig::tick(const RuntimeModuleTickData& tickData, VulkanContex
 
 	prepareAssetConfigWindow();
 
-	auto drawPMXConfig = [&]()
-	{
-		auto pmx = std::dynamic_pointer_cast<AssetPMX>(m_asset);
-
-		// Draw Materials.
-		for (size_t i = 0; i < pmx->m_materials.size(); i++)
-		{
-			ImGui::PushID(i);
-			auto mat = pmx->m_materials.at(i);
-			if (ImGui::TreeNode(mat.material.m_name.c_str()))
-			{
-				ImGui::TextDisabled("English Name: %s.", mat.material.m_enName.c_str());
-
-				VkDescriptorSet set = m_editor->getClampToTransparentBorderSet(&getContext()->getEngineTextureWhite()->getImage());
-
-				ImGui::TextDisabled("Basic texture: %s.", mat.material.m_texture.c_str());
-				if (!mat.material.m_texture.empty())
-				{
-					
-				}
-				ImGui::Image(set, { 80 , 80 });
-
-				ImGui::TextDisabled("Toon texture: %s.", mat.material.m_toonTexture.c_str());
-				if (mat.mmdToonTex != ~0)
-				{
-				}
-
-				ImGui::TextDisabled("Sp texture: %s.", mat.material.m_spTexture.c_str());
-				if (mat.mmdSphereTex != ~0)
-				{
-				}
-
-				ImGui::Checkbox("Translucent", &mat.bTranslucent);
-				ImGui::Checkbox("Hide", &mat.bHide);
-				ImGui::Checkbox("Cast Shadow", &mat.bCastShadow);
-				ImGui::DragFloat("Pixel depth offset", &mat.pixelDepthOffset);
-				ImGui::DragFloat("Eye high light scale", &mat.eyeHighlightScale);
-				ImGui::DragFloat("Translucent unlit scale", &mat.translucentUnlitScale);
-
-				int shadingModelMode = (int)mat.pmxShadingModel;
-				if (ImGui::RadioButton("Default", shadingModelMode == (int)EShadingModelType::StandardPBR)) { shadingModelMode = (int)EShadingModelType::StandardPBR; } ImGui::SameLine();
-				if (ImGui::RadioButton("PMX Character Basic", shadingModelMode == (int)EShadingModelType::PMXCharacterBasic)) 
-				{ shadingModelMode = (int)EShadingModelType::PMXCharacterBasic; } ImGui::SameLine();
-
-				if (ImGui::RadioButton("SSSS", shadingModelMode == (int)EShadingModelType::SSSS)) { shadingModelMode = (int)EShadingModelType::SSSS; } ImGui::SameLine();
-				if (ImGui::RadioButton("Eye", shadingModelMode == (int)EShadingModelType::Eye)) { shadingModelMode = (int)EShadingModelType::Eye; } ImGui::SameLine();
-				mat.pmxShadingModel = (EShadingModelType)shadingModelMode;
-
-				ImGui::TreePop();
-				ImGui::Separator();
-			}
-			ImGui::PopID();
-
-			if (mat != pmx->m_materials[i])
-			{
-				pmx->m_materials[i] = mat;
-				pmx->setDirty();
-			}
-		}
-	};
-
 	// Default window size set to 400x300
 	ImGui::SetNextWindowSize(ImVec2(800, 400), ImGuiCond_FirstUseEver);
 	if (ImGui::Begin(m_nameUTF8.c_str(), &m_bRun, ImGuiWindowFlags_NoSavedSettings))
 	{
 		ImGui::PushID(m_nameUTF8.c_str());
 		{
-			if (m_asset->getType() == EAssetType::PMX) { drawPMXConfig(); }
+			m_asset->drawAssetConfig();
 		}
 		ImGui::PopID();
 	}

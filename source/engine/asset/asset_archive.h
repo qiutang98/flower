@@ -31,4 +31,3 @@
 	size_t enum__type__##value = (size_t)value; \
 	ARCHIVE_NVP_DEFAULT(enum__type__##value); \
 	value = (decltype(value))(enum__type__##value);
-	

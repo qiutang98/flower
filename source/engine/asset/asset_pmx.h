@@ -36,9 +36,7 @@ namespace engine
 			archive(material);
 			archive(bTranslucent, bHide, pixelDepthOffset);
 
-			uint32_t pmxShadingModelValue = uint32_t(pmxShadingModel);
-			archive(pmxShadingModelValue);
-			pmxShadingModel = EShadingModelType(pmxShadingModelValue);
+			ARCHIVE_ENUM_CLASS(pmxShadingModel);
 
 			if (version > 1)
 			{
@@ -84,6 +82,8 @@ namespace engine
 
 		const auto& getMaterials() const { return m_materials; }
 		auto& getMaterials() { return m_materials; }
+
+		virtual bool drawAssetConfig() override;
 
 	protected:
 		virtual bool saveActionImpl() override;

@@ -16,6 +16,7 @@ namespace engine
     #define kShadingModelPMXBasic          0.04f
     #define kShadingModelSSSS              0.06f
     #define kShadingModelEye               0.08f
+    #define kTwoSideFoliage                0.10f
 
     enum class EShadingModelType
     {
@@ -23,6 +24,9 @@ namespace engine
         PMXCharacterBasic,
         SSSS,
         Eye,
+        TwoSidedFoliage,
+
+        UnValid,
     };
 
     inline float shadingModelConvert(EShadingModelType type)
@@ -33,9 +37,11 @@ namespace engine
             case EShadingModelType::PMXCharacterBasic: return kShadingModelPMXBasic;
             case EShadingModelType::SSSS: return kShadingModelSSSS;
             case EShadingModelType::Eye: return kShadingModelEye;
+            case EShadingModelType::TwoSidedFoliage: return kTwoSideFoliage;
+
         }
 
-        CHECK_ENTRY();
+        UN_IMPLEMENT();
         return kShadingModelUnvalid;
     }
 
@@ -238,7 +244,11 @@ namespace engine
                 cloudLightStepMul,
                 cloudLightBasicStep,
                 cloudLightStepNum,
-                cloudEnableGroundContribution);
+                cloudEnableGroundContribution,
+                cloudMarchingStepNum,
+                cloudSunLitMapOctave,
+                cloudNoiseScale,
+                cloudGodRay);
         }
     };
     static_assert(sizeof(AtmosphereConfig) % (4 * sizeof(float)) == 0);
@@ -356,6 +366,11 @@ namespace engine
 
         math::vec4 emissiveMul = math::vec4{ 1.0f };
         math::vec4 emissiveAdd = math::vec4{ 0.0f };
+
+        float shadingModel = kShadingModelStandardPBR;
+        float pad0;
+        float pad1;
+        float pad2;
 
         static GPUMaterialStandardPBR getDefault();
     };

@@ -5,6 +5,7 @@
 
 namespace engine
 {
+
 	struct PMXSDSMPushConsts
 	{
 		math::mat4 modelMatrix;
@@ -393,6 +394,8 @@ namespace engine
 	void PMXComponent::onRenderTick(const RuntimeModuleTickData& tickData, VkCommandBuffer cmd, 
 		std::vector<GPUStaticMeshPerObjectData>& collector, std::vector<VkAccelerationStructureInstanceKHR>& asInstances)
 	{
+		m_dtSum += tickData.deltaTime;
+
 		if (!m_proxy) { return; }
 		if (!m_proxy->isInit()) { return; }
 
@@ -401,20 +404,22 @@ namespace engine
 			const auto& modelMatrix = node->getTransform()->getWorldMatrix();
 			const auto& modelMatrixPrev = node->getTransform()->getPrevWorldMatrix();
 
-			m_proxy->updateAnimation(tickData.gameTime, tickData.deltaTime);
-
-			m_proxy->updateVertex(cmd);
-
-			if (getContext()->getGraphicsCardState().bSupportRaytrace)
+			// if (m_dtSum > kDt)
 			{
-				m_proxy->updateBLAS(cmd);
-			}
+				m_proxy->updateAnimation(tickData.gameTime, tickData.deltaTime);
 
+				m_proxy->updateVertex(cmd);
+
+				if (getContext()->getGraphicsCardState().bSupportRaytrace)
+				{
+					m_proxy->updateBLAS(cmd);
+				}
+
+				m_dtSum = 0.0f;
+			}
 
 			m_proxy->collectObjectInfos(collector, asInstances, node->getId(), Editor::get()->getSceneNodeSelections().isSelected(SceneNodeSelctor(getNode())),
 				modelMatrix, modelMatrixPrev);
-
-
 		}
 	}
 

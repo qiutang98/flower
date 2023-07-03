@@ -5,6 +5,10 @@
 #define SHADOW_DEPTH_GATHER 0
 #endif
 
+#ifndef SHADOW_COLOR
+#define SHADOW_COLOR 0.99
+#endif
+
 #include "shared_functions.glsl"
 
 // Surface normal based bias, see https://learn.microsoft.com/en-us/windows/win32/dxtecharts/cascaded-shadow-maps for more details.
@@ -51,7 +55,7 @@ float contactHardenPCFKernal(
     percentageOccluded *= occludedSign;
     percentageOccluded = 0.5f * percentageOccluded + 0.5f;
 
-    return 1.0f - percentageOccluded;
+    return 1.0f - percentageOccluded * SHADOW_COLOR;
 }
 
 float screenSpaceContactShadow(

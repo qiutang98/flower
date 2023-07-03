@@ -20,7 +20,13 @@ namespace engine
 	{
 		if (m_bAudioPrepared)
 		{
-			update_stream(m_audioSource, m_audioFormat, m_audioSampleRate, m_aduioDatas, m_audioBufferCursor);
+			for (std::size_t i = 0; i < m_audioBufferes.size(); ++i)
+			{
+				alCall(alBufferData, m_audioBufferes[i], m_audioFormat, &m_aduioDatas[i * kOpenAlBufferSize], kOpenAlBufferSize, m_audioSampleRate);
+			}
+			m_audioBufferCursor = kOpenAlNumBuffers * kOpenAlBufferSize;
+
+			alCall(alSourceQueueBuffers, m_audioSource, kOpenAlNumBuffers, &m_audioBufferes[0]);
 
 			m_audioState = AL_PLAYING;
 			alCall(alSourcePlay, m_audioSource);
@@ -32,10 +38,18 @@ namespace engine
 		if (m_bAudioPrepared)
 		{
 			m_audioBufferCursor = 0;
-			update_stream(m_audioSource, m_audioFormat, m_audioSampleRate, m_aduioDatas, m_audioBufferCursor);
 
 			m_audioState = AL_STOPPED;
 			alCall(alSourceStop, m_audioSource);
+
+
+			ALint buffersProcessed = 0;
+			alCall(alGetSourcei, m_audioSource, AL_BUFFERS_PROCESSED, &buffersProcessed);
+			while (buffersProcessed--)
+			{
+				ALuint buffer;
+				alCall(alSourceUnqueueBuffers, m_audioSource, 1, &buffer);
+			}
 		}
 	}
 
@@ -184,10 +198,7 @@ namespace engine
 			return;
 		}
 
-		for (std::size_t i = 0; i < m_audioBufferes.size(); ++i)
-		{
-			alCall(alBufferData, m_audioBufferes[i], m_audioFormat, &m_aduioDatas[i * kOpenAlBufferSize], kOpenAlBufferSize, m_audioSampleRate);
-		}
+
 
 		alCall(alGenSources, 1, &m_audioSource);
 
@@ -197,10 +208,10 @@ namespace engine
 		alCall(alSourcei, m_audioSource, AL_LOOPING, AL_FALSE);
 		alCall(alSource3f, m_audioSource, AL_POSITION, 0, 0, 0);
 
-		alCall(alSourceQueueBuffers, m_audioSource, kOpenAlNumBuffers, &m_audioBufferes[0]);
+
 
 		m_bAudioPrepared = true;
-		m_audioBufferCursor = kOpenAlNumBuffers * kOpenAlBufferSize;
+
 	}
 
 	void PMXComponent::clearAudio()

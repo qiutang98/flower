@@ -54,6 +54,9 @@ namespace engine
 
 		}
 
+		// Draw asset config pannel.
+		virtual bool drawAssetConfig() { return false; };
+
 		virtual EAssetType getType() const { return EAssetType::Max; }
 		virtual const char* getSuffix() const = 0;
 
