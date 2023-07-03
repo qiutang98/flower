@@ -188,7 +188,12 @@ namespace engine
                 VK_FORMAT_R32_SFLOAT,
                 VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
+            VkClearColorValue zeroClear =
+            {
+                .uint32 = {0,0,0,0}
+            };
 
+            auto rangeClear = buildBasicImageSubresource();
 
             if (!m_cloudReconstruction)
             {
@@ -198,8 +203,13 @@ namespace engine
                     sceneDepthZ.getExtent().height,
                     VK_FORMAT_R16G16B16A16_SFLOAT,
                     VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
-                m_cloudReconstruction->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                m_cloudReconstruction->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
                 m_bCameraCut = true;
+
+                vkCmdClearColorImage(cmd, m_cloudReconstruction->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &zeroClear, 1, &rangeClear);
+
+                m_cloudReconstruction->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+
             }
             if (!m_cloudFogReconstruction)
             {
@@ -209,8 +219,12 @@ namespace engine
                     sceneDepthZ.getExtent().height,
                     VK_FORMAT_R16G16B16A16_SFLOAT,
                     VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
-                m_cloudFogReconstruction->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                m_cloudFogReconstruction->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
                 m_bCameraCut = true;
+
+                vkCmdClearColorImage(cmd, m_cloudFogReconstruction->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &zeroClear, 1, &rangeClear);
+
+                m_cloudFogReconstruction->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
             }
             if (!m_cloudReconstructionDepth)
             {
@@ -220,8 +234,13 @@ namespace engine
                     sceneDepthZ.getExtent().height,
                     VK_FORMAT_R32_SFLOAT,
                     VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
-                m_cloudReconstructionDepth->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+                m_cloudReconstructionDepth->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
                 m_bCameraCut = true;
+
+
+                vkCmdClearColorImage(cmd, m_cloudReconstructionDepth->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &zeroClear, 1, &rangeClear);
+
+                m_cloudReconstructionDepth->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
             }
 
             auto weatherTexture = std::dynamic_pointer_cast<GPUImageAsset>(getContext()->getEngineAsset(EBuiltinEngineAsset::Texture_CloudWeather));
