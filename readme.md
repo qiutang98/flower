@@ -18,6 +18,29 @@
 
 ​	https://www.bilibili.com/video/BV1FL4y147DN?share_source=copy_web
 
+## How to build
+
+ Just download the project, all dependency here is ready.(**Maybe need install VulkanSDK 1.3 and update driver**).
+
+There exist three branch, dark branch is clean developing branch. Main branch include MMD features. Release branch is stable legacy branch.
+
+**Dark branch design UI and realtime rendering in 4k, so run in 1k or 2k, maybe need to change configs smaller:**
+
+```
+r.ImGui.FontSize
+r.ImGui.IconSize
+```
+
+**The dark editor support FSR2, use command “r.viewport.screenpercentage” to downscale the render percentage to get better performace.**
+
+ Some mesh art asset can download here:
+
+ https://drive.google.com/file/d/1aRkqTKuqAAmkOSmfe6BSnnycj6HnJaIi/view?usp=sharing
+
+ and unzip then import mesh. It need some time to cook asset.
+
+**When first time open the editor, need something to compile shader variants, and it will cache if next time reopen.**
+
 ![](capture/202312070012.png)
 
 ![](capture/20230507224325.png)

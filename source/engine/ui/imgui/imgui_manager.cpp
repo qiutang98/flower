@@ -242,7 +242,7 @@ namespace engine
 		io.ConfigViewportsNoDecoration = false;
 
 		std::stringstream iniFilePath;
-		iniFilePath << kConfigCacheFolder << Engine::get()->getGLFWWindows()->getName() << "-imgui.ini";
+		iniFilePath << "config/" << Engine::get()->getGLFWWindows()->getName() << "-imgui.ini";
 
 		static std::string iniFilePathStr;
 		iniFilePathStr = std::filesystem::absolute(iniFilePath.str()).string();
