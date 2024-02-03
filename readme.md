@@ -18,7 +18,7 @@
 
 There exist three branch, dark branch is clean developing branch. Main branch include MMD features. Release branch is stable legacy branch.
 
-![](readme_assets/Snipaste_2024-02-03_15-32-23.png)
+![](capture/Snipaste_2024_02_03_15_32_23.png)
 
 **Dark branch design UI and realtime rendering in 4k, so run in 1k or 2k, maybe need to change configs smaller:**
 
