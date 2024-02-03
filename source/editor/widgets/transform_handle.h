@@ -1,13 +1,6 @@
 #pragma once
 
-#include "../widget.h"
-#include <imgui/imgui.h>
-#include <imgui/imgui_internal.h>
-#include <asset/asset.h>
-#include <utf8/cpp17.h>
-#include <util/camera_interface.h>
-#include <renderer/deferred_renderer.h>
-#include <imgui/gizmo/ImGuizmo.h>
+#include <ui/imgui/ImGuizmo.h>
 
 struct TransformHandle
 {

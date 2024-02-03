@@ -1,168 +1,171 @@
 #include "asset_common.h"
-#include <asset/asset_system.h>
+
+#include <lz4.h>
+
+#include <rttr/registration>
+#include "asset_manager.h"
 
 namespace engine
 {
-    bool isEngineMetaAsset(const std::string& extension)
+    const uint32_t engine::kAssetVersion = 6;
+
+    AssetSaveInfo::AssetSaveInfo(const u8str& name, const u8str& storeFolder)
+        : m_name(name), m_storeFolder(storeFolder)
     {
-		return
-			isAssetTextureMeta(extension)    ||
-			isAssetStaticMeshMeta(extension) ||
-			isAssetMaterialMeta(extension)   ||
-			isAssetSceneMeta(extension)      ||
-			isAssetPMXMeta(extension)        ||
-			isAssetVMDMeta(extension)        ||
-			isAssetWaveMeta(extension);
+        updateStorePath();
     }
 
-	bool isAssetTextureMeta(const std::string& extension)
-	{
-		return extension == ".image";
-	}
-	bool isAssetStaticMeshMeta(const std::string& extension)
-	{
-		return extension == ".staticmesh";
-	}
-	bool isAssetMaterialMeta(const std::string& extension)
-	{
-		return extension == ".material";
-	}
-	bool isAssetSceneMeta(const std::string& extension)
-	{
-		return extension == ".scene";
-	}
-	bool isAssetPMXMeta(const std::string& extension)
-	{
-		return extension == ".assetpmx";
-	}
 
-	bool isAssetVMDMeta(const std::string& extension)
-	{
-		return extension == ".assetvmd";
-	}
-
-	bool isAssetWaveMeta(const std::string& extension)
-	{
-		return extension == ".assetwave";
-	}
-
-	bool AssetInterface::saveAction()
-	{
-		if (!isDirty())
-		{
-			return false;
-		}
-
-		if (savePathUnvalid())
-		{
-			LOG_ERROR("Try save un-path asset!");
-			return false;
-		}
-
-		bool bSaveResult = saveActionImpl();
-		if (bSaveResult)
-		{
-			m_bDirty = false;
-		}
-
-		return bSaveResult;
-	}
-
-	void AssetInterface::buildSnapshot(uint32_t width, uint32_t height, const uint8_t* buffer)
+    const std::filesystem::path AssetSaveInfo::toPath() const
     {
-        m_widthSnapShot = width;
-        m_heightSnapShot = height;
-
-        m_snapshotData.resize(m_widthSnapShot * m_heightSnapShot * 4);
-        memcpy(m_snapshotData.data(), buffer, m_snapshotData.size());
+        return std::filesystem::path(getAssetManager()->getProjectConfig().assetPath) / getStorePath();
     }
 
-	std::shared_ptr<GPUImageAsset> AssetInterface::getOrCreateLRUSnapShot(VulkanContext* ct)
-	{
-		if (!ct->getLRU()->contain(m_snapshotUUID))
-		{
-			auto newTask = SnapshotAssetTextureLoadTask::build(ct, shared_from_this());
-			ct->getAsyncUploader().addTask(newTask);
-		}
+    void AssetSaveInfo::setName(const u8str& newValue)
+    {
+        m_name = newValue;
+        updateStorePath();
+    }
 
-		return std::dynamic_pointer_cast<GPUImageAsset>(ct->getLRU()->tryGet(m_snapshotUUID));
-	}
+    void AssetSaveInfo::setStoreFolder(const u8str& newValue)
+    {
+        m_storeFolder = newValue;
+        updateStorePath();
+    }
 
-	bool AssetInterface::setDirty(bool bDirty)
-	{
-		if (m_bDirty != bDirty)
-		{
-			m_bDirty = bDirty;
+    const u8str AssetSaveInfo::kTempFolderStartChar = "*";
+    const u8str AssetSaveInfo::kBuiltinFileStartChar = "~";
 
-			if (m_bDirty)
-			{
-				getAssetSystem()->onAssetDirty.broadcast(shared_from_this());
-			}
+    AssetSaveInfo AssetSaveInfo::buildTemp(const u8str& name)
+    {
+        return AssetSaveInfo(name, kTempFolderStartChar + buildUUID());
+    }
 
-			return true;
-		}
-		return false;
-	}
+    AssetSaveInfo AssetSaveInfo::buildRelativeProject(const std::filesystem::path& savePath)
+    {
+        auto fileName = savePath.filename();
 
-	std::filesystem::path AssetInterface::getSavePath() const
-	{
-		auto path = m_assetRelativePathUtf8;
+        auto saveFolder = savePath;
+        saveFolder.remove_filename();
 
-		auto savePath = getAssetSystem()->getProjectRootPath();
-		auto filePath = "\\." + m_assetRelativePathUtf8;
-		savePath += filePath;
+        const auto relativePath = buildRelativePathUtf8(getAssetManager()->getProjectConfig().assetPath, saveFolder);
 
-		return savePath;
-	}
+        return AssetSaveInfo(utf8::utf16to8(fileName.u16string()), relativePath);
+    }
 
-	void SnapshotAssetTextureLoadTask::uploadFunction(
-		uint32_t stageBufferOffset,
-		void* bufferPtrStart,
-		RHICommandBufferBase& commandBuffer,
-		VulkanBuffer& stageBuffer)
-	{
-		CHECK(cacheAsset->existSnapshot());
-		memcpy(bufferPtrStart, cacheAsset->getSnapshotData().data(), uploadSize());
+    bool AssetSaveInfo::isTemp() const
+    {
+        return m_storeFolder.starts_with(kTempFolderStartChar);
+    }
 
-		imageAssetGPU->prepareToUpload(commandBuffer, buildBasicImageSubresource());
+    bool AssetSaveInfo::isBuiltin() const
+    {
+        return isTemp() && m_name.starts_with(kBuiltinFileStartChar);
+    }
 
-		VkBufferImageCopy region{};
-		region.bufferOffset = stageBufferOffset;
-		region.bufferRowLength = 0;
-		region.bufferImageHeight = 0;
-		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		region.imageSubresource.mipLevel = 0;
-		region.imageSubresource.baseArrayLayer = 0;
-		region.imageSubresource.layerCount = 1;
-		region.imageOffset = { 0, 0, 0 };
-		region.imageExtent = imageAssetGPU->getImage().getExtent();
 
-		vkCmdCopyBufferToImage(commandBuffer.cmd, stageBuffer, imageAssetGPU->getImage().getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-		imageAssetGPU->finishUpload(commandBuffer, buildBasicImageSubresource());
-	}
+    bool AssetSaveInfo::canUseForCreateNewAsset() const
+    {
+        if (empty() || alreadyInDisk())
+        {
+            return false;
+        }
 
-	std::shared_ptr<SnapshotAssetTextureLoadTask> SnapshotAssetTextureLoadTask::build(
-		VulkanContext* context, std::shared_ptr<AssetInterface> inAsset)
-	{
-		auto* fallbackWhite = context->getEngineTextureWhite().get();
-		ASSERT(fallbackWhite, "Fallback texture must be valid, you forget init engine texture before init.");
+        // Find memory exist or not.
+        return !getAssetManager()->isAssetSavePathExist(*this);
+    }
 
-		auto newAsset = std::make_shared<GPUImageAsset>(
-			context,
-			fallbackWhite,
-			VK_FORMAT_R8G8B8A8_UNORM, // All snapshot is unorm.
-			inAsset->getNameUtf8(),
-			1,
-			inAsset->getSnapshotWidth(),
-			inAsset->getSnapshotHeight(),
-			1
-		);
+    bool AssetSaveInfo::alreadyInDisk() const
+    {
+        CHECK(getAssetManager()->isProjectSetup());
 
-		context->insertGPUAsset(inAsset->getSnapshotUUID(), newAsset);
+        // Find disk exist or not.
+        std::filesystem::path path = getAssetManager()->getProjectConfig().assetPath;
+        path /= this->getStorePath();
 
-		auto newTask = std::make_shared<SnapshotAssetTextureLoadTask>(inAsset);
-		newTask->imageAssetGPU = newAsset;
+        return std::filesystem::exists(path);
+    }
 
-		return newTask;
-	}
+
+
+    void AssetSaveInfo::updateStorePath()
+    {
+        ZoneScoped;
+        if (m_storeFolder.starts_with("\\") || m_storeFolder.starts_with("/"))
+        {
+            m_storeFolder = m_storeFolder.erase(0, 1);
+        }
+
+        const std::filesystem::path storeFolder = utf8::utf8to16(m_storeFolder);
+        const std::filesystem::path storeName = utf8::utf8to16(m_name);
+
+        m_storePath = utf8::utf16to8((storeFolder / storeName).u16string());
+    }
+
+
+
+    bool engine::loadAssetBinaryWithDecompression(
+        std::vector<uint8_t>& out, 
+        const std::filesystem::path& rawSavePath)
+    {
+        ZoneScoped;
+        if (!std::filesystem::exists(rawSavePath))
+        {
+            LOG_ERROR("Binary data {} miss!", utf8::utf16to8(rawSavePath.u16string()));
+            return false;
+        }
+
+        std::ifstream is(rawSavePath, std::ios::binary);
+        cereal::BinaryInputArchive archive(is);
+
+        AssetCompressionHelper sizeHelper;
+
+        std::vector<uint8_t> compressionData;
+        archive(sizeHelper, compressionData);
+
+        // Resize to src data.
+        out.resize(sizeHelper.originalSize);
+
+        LZ4_decompress_safe((const char*)compressionData.data(), (char*)out.data(), sizeHelper.compressionSize, sizeHelper.originalSize);
+        return true;
+    }
+
+    bool engine::saveAssetBinaryWithCompression(
+        const uint8_t* out, 
+        int size, 
+        const std::filesystem::path& savePath, 
+        const char* suffix)
+    {
+        ZoneScoped;
+        std::filesystem::path rawSavePath = savePath;
+        rawSavePath += suffix;
+
+        if (std::filesystem::exists(rawSavePath))
+        {
+            LOG_ERROR("Binary data {} already exist, make sure never import save resource at same folder!", utf8::utf16to8(rawSavePath.u16string()));
+            return false;
+        }
+
+        // Save to disk.
+        std::ofstream os(rawSavePath, std::ios::binary);
+        cereal::BinaryOutputArchive archive(os);
+
+        // LZ4 compression.
+        std::vector<uint8_t> compressionData;
+
+        // Compress and shrink.
+        auto compressStaging = LZ4_compressBound(size);
+        compressionData.resize(compressStaging);
+        auto compressedSize = LZ4_compress_default((const char*)out, (char*)compressionData.data(), size, compressStaging);
+        compressionData.resize(compressedSize);
+
+        AssetCompressionHelper sizeHelper
+        {
+            .originalSize = size,
+            .compressionSize = compressedSize,
+        };
+
+        archive(sizeHelper, compressionData);
+        return true;
+    }
 }

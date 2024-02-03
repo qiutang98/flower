@@ -1,25 +1,19 @@
 #include "detail.h"
-#include "imgui/ui.h"
-#include "imgui/region_string.h"
-#include "../editor.h"
-#include "scene_outliner.h"
+
 #include <scene/component.h>
-#include "component_draw/component_draw.h"
-#include <scene/component/static_mesh.h>
-#include <scene/component/terrain.h>
-#include <scene/component/spotlight.h>
 
 using namespace engine;
 using namespace engine::ui;
 
-RegionStringInit Detail_Title("Detail_Title", "Detail", "Detail");
-const static std::string ICON_DETAIL = ICON_FA_LIST;
+const static std::string kIconDetail = ICON_FA_LIST;
 
 static const std::string DETAIL_SearchIcon = ICON_FA_MAGNIFYING_GLASS;
 static const std::string DETAIL_AddIcon    = std::string("  ") + ICON_FA_SQUARE_PLUS + std::string("  ADD  ");
 
-WidgetDetail::WidgetDetail(Editor* editor)
-	: Widget(editor, "Detail")
+WidgetDetail::WidgetDetail(size_t index)
+	: WidgetBase(
+		combineIcon("Detail", kIconDetail).c_str(),
+		combineIcon(combineIndex("Detail", index), kIconDetail).c_str())
 {
 
 }
@@ -31,12 +25,12 @@ WidgetDetail::~WidgetDetail() noexcept
 
 void WidgetDetail::onInit() 
 {
-	m_name = combineIcon(Detail_Title, ICON_DETAIL);
+	m_onSelectorChange = Editor::get()->onOutlinerSelectionChange.addRaw(this, &WidgetDetail::onOutlinerSelectionChange);
 }
 
 void WidgetDetail::onRelease() 
 {
-
+	Editor::get()->onOutlinerSelectionChange.remove(m_onSelectorChange);
 }
 
 void WidgetDetail::onTick(const RuntimeModuleTickData& tickData, VulkanContext* context)
@@ -47,22 +41,24 @@ void WidgetDetail::onTick(const RuntimeModuleTickData& tickData, VulkanContext* 
 
 void WidgetDetail::onVisibleTick(const RuntimeModuleTickData& tickData)
 {
+	ZoneScoped;
+
 	ImGui::Spacing();
 
-	if (m_editor->getSceneNodeSelected().empty())
+	if (!m_selector || m_selector->empty())
 	{
 		ImGui::TextDisabled("No selected node to inspect.");
 		return;
 	}
 
-	if (m_editor->getSceneNodeSelected().size() > 1)
+	if (m_selector->getNum() > 1)
 	{
 		ImGui::TextDisabled("Multi node detail inspect still no support.");
 		return;
 	}
 
 	std::shared_ptr<SceneNode> selectedNode;
-	for (auto node : m_editor->getSceneNodeSelected()) 
+	for (const auto& node : m_selector->getSelections())
 	{
 		if (node)
 		{
@@ -78,30 +74,13 @@ void WidgetDetail::onVisibleTick(const RuntimeModuleTickData& tickData)
 	}
 
 	// Print detail info.
-	ImGui::TextDisabled("%s with runtime ID %d and depth %d.", selectedNode->getName().c_str(), selectedNode->getId(), selectedNode->getDepth());
+	ImGui::TextDisabled("Inspecting %s with runtime ID %d.", 
+		selectedNode->getName().c_str(), selectedNode->getId());
 
 	ImGui::Separator();
 	ImGui::Spacing();
 
-	 
-	auto transform = selectedNode->getTransform();
-
-	const float sizeLable = ImGui::GetFontSize() * 1.5f;
-
-	bool bChangeTransform = false;
-	math::vec3 anglesRotate = math::degrees(transform->getRotation());
-
-	bChangeTransform |= ui::drawVector3("  P  ", transform->getTranslation(), math::vec3(0.0f), sizeLable);
-	bChangeTransform |= ui::drawVector3("  R  ", anglesRotate, math::vec3(0.0f), sizeLable);
-	bChangeTransform |= ui::drawVector3("  S  ", transform->getScale(), math::vec3(1.0f), sizeLable);
-
-
-	if (bChangeTransform)
-	{
-		transform->getRotation() = math::radians(anglesRotate);
-		transform->invalidateWorldMatrix();
-	}
-
+	selectedNode->getTransform()->uiDrawComponent();
 	ImGui::Spacing();
 
 	ui::helpMarker(
@@ -120,7 +99,6 @@ void WidgetDetail::onVisibleTick(const RuntimeModuleTickData& tickData)
 	{
 		if (ImGui::Checkbox("Show", &bVisibleState))
 		{
-			SceneGraphUndoRecord("Change scene node visibility.");
 			selectedNode->setVisibility(!selectedNode->getVisibility());
 		}
 		ui::hoverTip("Scene node visibility state.");
@@ -132,7 +110,6 @@ void WidgetDetail::onVisibleTick(const RuntimeModuleTickData& tickData)
 	{
 		if (ImGui::Checkbox("Movable", &bMovableState))
 		{
-			SceneGraphUndoRecord("Change scene node static state.");
 			selectedNode->setStatic(!selectedNode->getStatic());
 		}
 		ui::hoverTip("Entity movable state.");
@@ -145,6 +122,8 @@ void WidgetDetail::onVisibleTick(const RuntimeModuleTickData& tickData)
 
 void WidgetDetail::drawComponent(std::shared_ptr<SceneNode> node)
 {
+	auto assetList = rttr::type::get<Component>().get_derived_classes();
+
 	if (ImGui::BeginTable("Add UIC##", 2))
 	{
 		const float sizeLable = ImGui::GetFontSize();
@@ -164,30 +143,37 @@ void WidgetDetail::drawComponent(std::shared_ptr<SceneNode> node)
 			ImGui::Separator();
 
 			bool bExistOneNewComponent = false;
-
-			auto drawAddNode = [&]<typename T>(const std::string & showName)
+			for (auto& assetType : assetList)
 			{
-				const bool bShouldAdd = !node->hasComponent<T>();
-
-				if (bShouldAdd)
+				const auto& method = assetType.get_method("uiComponentReflection");
+				if (method.is_static() && method.is_valid())
 				{
-					bExistOneNewComponent = true;
-					ImGui::PushID(typeid(T).name());
-					if (ImGui::Selectable(showName.c_str()))
+					rttr::variant returnValue = method.invoke({});
+					if (returnValue.is_valid() && returnValue.is_type<UIComponentReflectionDetailed>())
 					{
-						node->getScene()->addComponent<T>(std::make_shared<T>(), node);
-					}
-					ImGui::PopID();
-				}
-			};
+						const auto& meta = returnValue.get_value<UIComponentReflectionDetailed>();
+						if (meta.bOptionalCreated)
+						{
+							std::string typeName = assetType.get_name().data();
+							const bool bShouldAdd = !node->hasComponent(typeName);
+							if (bShouldAdd)
+							{
+								bExistOneNewComponent = true;
+								ImGui::PushID(typeName.c_str());
+								if (ImGui::Selectable(meta.iconCreated.c_str()))
+								{
+									auto newComp = assetType.create();
+									std::shared_ptr<Component> comp = newComp.get_value<std::shared_ptr<Component>>();
+									node->getScene()->addComponent(typeName, comp, node);
 
-			drawAddNode.template operator()<PMXComponent>(kIconPMX);
-			drawAddNode.template operator()<MMDCameraComponent>(kIconMMDCamera);
-			drawAddNode.template operator()<StaticMeshComponent>(kIconStaticMesh);
-			drawAddNode.template operator()<SkyComponent>(kIconSky);
-			drawAddNode.template operator()<SpotLightComponent>(kIconSpotlight);
-			drawAddNode.template operator()<PostprocessVolumeComponent>(kIconPostprocess);
-			drawAddNode.template operator()<TerrainComponent>(kIconTerrain);
+									CHECK(comp->isValid());
+								}
+								ImGui::PopID();
+							}
+						}
+					}
+				}
+			}
 
 			if (!bExistOneNewComponent)
 			{
@@ -213,51 +199,64 @@ void WidgetDetail::drawComponent(std::shared_ptr<SceneNode> node)
 		ImGuiTreeNodeFlags_AllowItemOverlap |
 		ImGuiTreeNodeFlags_FramePadding;
 
-	for (auto& [showName, drawer] : kDrawComponentMap)
+	for (auto& assetType : assetList)
 	{
-		if (node->hasComponent(drawer.typeName))
+		const auto& method = assetType.get_method("uiComponentReflection");
+		if (method.is_static() && method.is_valid())
 		{
-			ImGui::PushID(drawer.typeName);
-
-			ImVec2 contentRegionAvailable = ImGui::GetContentRegionAvail();
-			float lineHeight = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.0f;
-			ImGui::Spacing();
-			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{ 4.0f, 4.0f });
-			bool open = ImGui::TreeNodeEx("TreeNodeForComp", treeNodeFlags, showName.c_str());
-			ImGui::PopStyleVar();
-
-			ImGui::SameLine(contentRegionAvailable.x - lineHeight + GImGui->Style.FramePadding.x);
-			if (ImGui::Button(ICON_FA_XMARK, ImVec2{ lineHeight, lineHeight }))
+			rttr::variant returnValue = method.invoke({});
+			if (returnValue.is_valid() && returnValue.is_type<UIComponentReflectionDetailed>())
 			{
-				node->getScene()->removeComponent(node, drawer.typeName);
-
-				if (open)
+				const auto& meta = returnValue.get_value<UIComponentReflectionDetailed>();
+				std::string typeName = assetType.get_name().data();
+				if (meta.bOptionalCreated && node->hasComponent(typeName))
 				{
-					ImGui::TreePop();
+					ImGui::PushID(meta.iconCreated.c_str());
+
+					ImVec2 contentRegionAvailable = ImGui::GetContentRegionAvail();
+					float lineHeight = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.0f;
+					ImGui::Spacing();
+					ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2{ 4.0f, 4.0f });
+					bool open = ImGui::TreeNodeEx("TreeNodeForComp", treeNodeFlags, meta.iconCreated.c_str());
+					ImGui::PopStyleVar();
+
+					ImGui::SameLine(contentRegionAvailable.x - lineHeight + GImGui->Style.FramePadding.x);
+					if (ImGui::Button(ICON_FA_XMARK, ImVec2{ lineHeight, lineHeight }))
+					{
+						node->getScene()->removeComponent(node, typeName);
+
+						if (open)
+						{
+							ImGui::TreePop();
+						}
+						ImGui::PopID();
+
+						continue;
+					}
+					ui::hoverTip("Remove component.");
+
+					if (open)
+					{
+						ImGui::PushID("Widget");
+						ImGui::Spacing();
+
+						node->getComponent(typeName)->uiDrawComponent();
+
+						ImGui::Spacing();
+						ImGui::Separator();
+						ImGui::PopID();
+
+						ImGui::TreePop();
+					}
+
+					ImGui::PopID();
 				}
-				ImGui::PopID();
-
-				continue;
 			}
-			ui::hoverTip("Remove component.");
-
-			if (open)
-			{
-				ImGui::PushID("Widget");
-				ImGui::Spacing();
-
-
-				// Draw callback.
-				drawer.drawFunc(node);
-
-				ImGui::Spacing();
-				ImGui::Separator();
-				ImGui::PopID();
-
-				ImGui::TreePop();
-			}
-
-			ImGui::PopID();
 		}
 	}
+}
+
+void WidgetDetail::onOutlinerSelectionChange(Selection<SceneNodeSelctor>& selector)
+{
+	m_selector = &selector;
 }

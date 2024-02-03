@@ -1,78 +1,91 @@
-#include "../renderer_interface.h"
+#include "../deferred_renderer.h"
 #include "../render_scene.h"
 #include "../renderer.h"
 #include "../scene_textures.h"
+#include "../../scene/component/postprocess_component.h"
 
 namespace engine
 {
-	constexpr uint32_t kMaxDownsampleCount = 6;
+    constexpr uint32_t kMaxDownsampleCount = 6;
 
-	struct BloomDownsample
-	{
-		glm::vec4 prefilterFactor;
-		uint32_t mipLevel;
+    struct BloomDownsample
+    {
+        glm::vec4 prefilterFactor;
+        uint32_t mipLevel;
+    };
 
-	};
+    struct BloomPushUpscale
+    {
+        uint32_t bBlurX;
+        uint32_t bFinalBlur = 0u;
+        uint32_t upscaleTime;
+        float    blurRadius;
+    };
 
-	struct BloomPushUpscale
-	{
-		uint32_t bBlurX;
-		uint32_t bFinalBlur = 0u;
-		uint32_t upscaleTime;
-		float blurRadius;
+    class BloomPass : public PassInterface
+    {
+    public:
+        std::unique_ptr<ComputePipeResources> downsamplePipe;
+        std::unique_ptr<ComputePipeResources> upscalePipe;
 
-	};
+    protected:
+        virtual void onInit() override
+        {
+            VkDescriptorSetLayout setLayoutDownSample = VK_NULL_HANDLE;
+            getContext()->descriptorFactoryBegin()
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 0) // in
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1) // out
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 2) // lum
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3)// frame data
+                .buildNoInfoPush(setLayoutDownSample);
 
-	class BloomPass : public PassInterface
-	{
-	public:
-		VkDescriptorSetLayout setLayoutDownSample = VK_NULL_HANDLE;
-		VkDescriptorSetLayout setLayoutUpscale = VK_NULL_HANDLE;
+            VkDescriptorSetLayout setLayoutUpscale = VK_NULL_HANDLE;
+            getContext()->descriptorFactoryBegin()
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 0) // inHdr
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1) // inCurHdr
+                .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2) // out
+                .buildNoInfoPush(setLayoutUpscale);
 
-		std::unique_ptr<ComputePipeResources> downsamplePipe;
-		std::unique_ptr<ComputePipeResources> upscalePipe;
+            std::vector<VkDescriptorSetLayout> setLayoutsDown = { setLayoutDownSample, m_context->getSamplerCache().getCommonDescriptorSetLayout() };
+            std::vector<VkDescriptorSetLayout> setLayoutsUp = { setLayoutUpscale, m_context->getSamplerCache().getCommonDescriptorSetLayout() };
 
-	protected:
-		virtual void onInit() override
-		{
-			getContext()->descriptorFactoryBegin()
-				.bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0) // in
-				.bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1) // out
-				.bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 2) // lum
-				.bindNoInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 3)// frame data
-				.buildNoInfoPush(setLayoutDownSample);
+            ShaderVariant shaderVariant("shader/bloom.glsl");
+            shaderVariant.setStage(EShaderStage::eComputeShader);
 
-			getContext()->descriptorFactoryBegin()
-				.bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0) // inHdr
-				.bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1) // inCurHdr
-				.bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 2) // out
-				.buildNoInfoPush(setLayoutUpscale);
+            {
+                auto copyVariant = shaderVariant;
+                copyVariant.setMacro(L"BLOOM_DOWNSAMPLE_PASS");
+                downsamplePipe = std::make_unique<ComputePipeResources>(copyVariant, sizeof(BloomDownsample), setLayoutsDown);
+            }
 
-			std::vector<VkDescriptorSetLayout> setLayoutsDown = { setLayoutDownSample, m_context->getSamplerCache().getCommonDescriptorSetLayout() };
-			std::vector<VkDescriptorSetLayout> setLayoutsUp = { setLayoutUpscale, m_context->getSamplerCache().getCommonDescriptorSetLayout() };
+            {
+                auto copyVariant = shaderVariant;
+                copyVariant.setMacro(L"BLOOM_UPSCALE_PASS");
+                upscalePipe = std::make_unique<ComputePipeResources>(copyVariant, sizeof(BloomPushUpscale), setLayoutsUp);
+            }
+        }
 
-			downsamplePipe = std::make_unique<ComputePipeResources>("shader/bloom_downsample.comp.spv", sizeof(BloomDownsample), setLayoutsDown);
-			upscalePipe = std::make_unique<ComputePipeResources>("shader/bloom_upscale.comp.spv", sizeof(BloomPushUpscale), setLayoutsUp);
-		}
+        virtual void release() override
+        {
+            downsamplePipe.reset();
+            upscalePipe.reset();
+        }
+    };
 
-		virtual void release() override
-		{
-			downsamplePipe.reset();
-			upscalePipe.reset();
-		}
-	};
-
-    PoolImageSharedRef RendererInterface::renderBloom(
-		VkCommandBuffer cmd,
-		GBufferTextures* inGBuffers,
-		RenderScene* scene,
-		BufferParameterHandle perFrameGPU)
-	{
-		auto* pass = getContext()->getPasses().get<BloomPass>();
-		auto* rtPool = &m_context->getRenderTargetPools();
+    PoolImageSharedRef engine::renderBloom(
+        VkCommandBuffer cmd,
+        GBufferTextures* inGBuffers,
+        RenderScene* scene,
+        BufferParameterHandle perFrameGPU,
+        const PostprocessVolumeSetting& setting,
+        GPUTimestamps* timer,
+        PoolImageSharedRef exposureImage)
+    {
+        auto* pass = getContext()->getPasses().get<BloomPass>();
+        auto* rtPool = &getContext()->getRenderTargetPools();
 
         auto& hdrSceneColor = inGBuffers->hdrSceneColorUpscale->getImage();
-        hdrSceneColor.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+        hdrSceneColor.transitionShaderReadOnly(cmd);
 
         const uint32_t srcHdrColorWidth = hdrSceneColor.getExtent().width;
         const uint32_t srcHdrColorHeight = hdrSceneColor.getExtent().height;
@@ -82,16 +95,15 @@ namespace engine
         const uint32_t mipStartHeight = srcHdrColorHeight >> 1;
 
         const uint32_t downsampleMipCount = glm::min(kMaxDownsampleCount, std::bit_width(glm::min(mipStartWidth, mipStartHeight)) - 1U);
-        
+
 
         std::vector<PoolImageSharedRef> downsampleBlurs;
         downsampleBlurs.resize(downsampleMipCount);
 
         std::vector<VkDescriptorSet> additionalSets =
         {
-            m_context->getSamplerCache().getCommonDescriptorSet()
+            getContext()->getSamplerCache().getCommonDescriptorSet()
         };
-
 
         for (uint32_t i = 0; i < downsampleMipCount; i++)
         {
@@ -105,16 +117,17 @@ namespace engine
 
         PoolImageSharedRef result;
         {
-            ScopePerframeMarker marker(cmd, "Bloom Basic", { 1.0f, 1.0f, 0.0f, 1.0f });
+            ScopePerframeMarker marker(cmd, "Bloom Basic", { 1.0f, 1.0f, 0.0f, 1.0f }, timer);
 
             pass->downsamplePipe->bind(cmd);
             pass->downsamplePipe->bindSet(cmd, additionalSets, 1);
 
             BloomDownsample downsamplePush{};
 
-            const auto& postProcessVolumeSetting = scene->getPostprocessVolumeSetting();
 
-            downsamplePush.prefilterFactor = getBloomPrefilter(postProcessVolumeSetting.bloomThreshold, postProcessVolumeSetting.bloomThresholdSoft);
+            downsamplePush.prefilterFactor = getBloomPrefilter(
+                setting.bloomThreshold,
+                setting.bloomThresholdSoft);
 
             auto frameBufferInfo = perFrameGPU->getBufferInfo();
 
@@ -125,18 +138,16 @@ namespace engine
                 const bool bFirstLevel = (i == 0);
                 downsamplePush.mipLevel = i;
 
-                inImageInfo = RHIDescriptorImageInfoSample((bFirstLevel ? hdrSceneColor : downsampleBlurs[i - 1]->getImage()).getOrCreateView(buildBasicImageSubresource()));
+                inImageInfo = RHIDescriptorImageInfoSample((bFirstLevel ? hdrSceneColor : downsampleBlurs[i - 1]->getImage()).getOrCreateView(buildBasicImageSubresource()).view);
 
                 downsampleBlurs[i]->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
 
-                outImageInfo = RHIDescriptorImageInfoStorage(downsampleBlurs[i]->getImage().getOrCreateView(buildBasicImageSubresource()));
+                outImageInfo = RHIDescriptorImageInfoStorage(downsampleBlurs[i]->getImage().getOrCreateView(buildBasicImageSubresource()).view);
 
-                VkDescriptorImageInfo lumImgInfo = inImageInfo;
-                if (m_averageLum)
-                {
-                    lumImgInfo = RHIDescriptorImageInfoSample(m_averageLum->getImage().getOrCreateView(buildBasicImageSubresource()));
-                }
-
+                VkDescriptorImageInfo lumImgInfo = RHIDescriptorImageInfoSample(
+                    exposureImage ? 
+                    exposureImage->getImage().getOrCreateView(buildBasicImageSubresource()).view :
+                    getContext()->getBuiltinTextureWhite()->getSelfImage().getOrCreateView(buildBasicImageSubresource()).view);
 
                 std::vector<VkWriteDescriptorSet> writes
                 {
@@ -144,8 +155,10 @@ namespace engine
                     RHIPushWriteDescriptorSetImage(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &outImageInfo),
                     RHIPushWriteDescriptorSetImage(2, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &lumImgInfo),
                     RHIPushWriteDescriptorSetBuffer(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &frameBufferInfo)
-                    
                 };
+
+                writes[3].pImageInfo = &lumImgInfo;
+
                 getContext()->pushDescriptorSet(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->downsamplePipe->pipelineLayout, 0, uint32_t(writes.size()), writes.data());
 
                 pass->downsamplePipe->pushConst(cmd, &downsamplePush);
@@ -176,17 +189,17 @@ namespace engine
                     bLowestUpscale ?
                     downsampleBlurs[downsampleMipCount - 1] : // Input from last downsample texture.
                     prevLevelUpscaleResult // Input from prev upscale result.
-                    )->getImage().getOrCreateView(buildBasicImageSubresource()));
+                    )->getImage().getOrCreateView(buildBasicImageSubresource()).view);
 
                 inImageCurInfo = RHIDescriptorImageInfoSample((
                     bHighestUpscale ?
                     hdrSceneColor :
                     downsampleBlurs[workMip - 1]->getImage()
-                    ).getOrCreateView(buildBasicImageSubresource()));
+                    ).getOrCreateView(buildBasicImageSubresource()).view);
 
                 auto blurX = rtPool->createPoolImage("blurX", workWidth, workHeight, hdrSceneColor.getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
 
-                outImageInfo = RHIDescriptorImageInfoStorage(blurX->getImage().getOrCreateView(buildBasicImageSubresource()));
+                outImageInfo = RHIDescriptorImageInfoStorage(blurX->getImage().getOrCreateView(buildBasicImageSubresource()).view);
 
                 std::vector<VkWriteDescriptorSet> writes
                 {
@@ -195,9 +208,7 @@ namespace engine
                     RHIPushWriteDescriptorSetImage(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &outImageInfo),
                 };
 
-                const auto& postProcessVolumeSetting = scene->getPostprocessVolumeSetting();
-
-                BloomPushUpscale upscalePush{ .bBlurX = 1u, .blurRadius = postProcessVolumeSetting.bloomRadius, };
+                BloomPushUpscale upscalePush{ .bBlurX = 1u, .blurRadius = setting.bloomRadius, };
 
                 pass->upscalePipe->pushConst(cmd, &upscalePush);
 
@@ -207,14 +218,20 @@ namespace engine
                 vkCmdDispatch(cmd, getGroupCount(workWidth, 8), getGroupCount(workHeight, 8), 1);
                 blurX->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
 
-                inImageInfo = RHIDescriptorImageInfoSample(blurX->getImage().getOrCreateView(buildBasicImageSubresource()));
+                inImageInfo = RHIDescriptorImageInfoSample(blurX->getImage().getOrCreateView(buildBasicImageSubresource()).view);
 
-                upscalePush = { .bBlurX = 0u, .bFinalBlur = (bHighestUpscale ? 1u : 0u), .upscaleTime = workMip - 1,.blurRadius = postProcessVolumeSetting.bloomRadius, };
+                upscalePush = 
+                { 
+                    .bBlurX = 0u, 
+                    .bFinalBlur = (bHighestUpscale ? 1u : 0u), 
+                    .upscaleTime = workMip - 1,
+                    .blurRadius = setting.bloomRadius,
+                };
                 pass->upscalePipe->pushConst(cmd, &upscalePush);
 
                 auto blurY = rtPool->createPoolImage("blurY", workWidth, workHeight, hdrSceneColor.getFormat(), VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
 
-                outImageInfo = RHIDescriptorImageInfoStorage(blurY->getImage().getOrCreateView(buildBasicImageSubresource()));
+                outImageInfo = RHIDescriptorImageInfoStorage(blurY->getImage().getOrCreateView(buildBasicImageSubresource()).view);
 
                 writes =
                 {
@@ -234,8 +251,6 @@ namespace engine
             result = prevLevelUpscaleResult;
         }
 
-        m_gpuTimer.getTimeStamp(cmd, "Bloom");
-
         return result;
-	}
+    }
 }

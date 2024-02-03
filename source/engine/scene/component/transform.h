@@ -4,18 +4,20 @@
 
 namespace engine
 {
-	class SceneNode;
-
 	class Transform : public Component
 	{
+		REGISTER_BODY_DECLARE(Component);
 	public:
 		Transform() = default;
 		Transform(std::shared_ptr<SceneNode> sceneNode) : Component(sceneNode) { }
 
 		virtual ~Transform() = default;
-		
+
 		// Interface override.
 		virtual void tick(const RuntimeModuleTickData& tickData) override;
+
+		virtual bool uiDrawComponent() override;
+		static const UIComponentReflectionDetailed& uiComponentReflection();
 
 		// Getter.
 		math::vec3& getTranslation() { return m_translation; }
@@ -57,10 +59,8 @@ namespace engine
 		math::mat4 m_prevWorldMatrix = math::mat4(1.0);
 
 	protected:
-		ARCHIVE_DECLARE;
-
 		math::vec3 m_translation = { .0f, .0f, .0f };
-		math::vec3 m_rotation    = { .0f, .0f, .0f };
-		math::vec3 m_scale       = { 1.f, 1.f, 1.f };
+		math::vec3 m_rotation = { .0f, .0f, .0f };
+		math::vec3 m_scale = { 1.f, 1.f, 1.f };
 	};
 }

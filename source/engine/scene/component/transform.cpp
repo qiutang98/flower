@@ -1,5 +1,7 @@
 #include "transform.h"
 #include "../scene_node.h"
+#include <engine/ui/ui.h>
+
 
 namespace engine
 {
@@ -7,6 +9,31 @@ namespace engine
 	{
 		m_prevWorldMatrix = m_worldMatrix;
 		updateWorldTransform();
+	}
+
+	bool Transform::uiDrawComponent()
+	{
+		const float sizeLable = ImGui::GetFontSize() * 1.5f;
+
+		bool bChangeTransform = false;
+		math::vec3 anglesRotate = math::degrees(getRotation());
+
+		bChangeTransform |= ui::drawVector3("  P  ", getTranslation(), math::vec3(0.0f), sizeLable);
+		bChangeTransform |= ui::drawVector3("  R  ", anglesRotate, math::vec3(0.0f), sizeLable);
+		bChangeTransform |= ui::drawVector3("  S  ", getScale(), math::vec3(1.0f), sizeLable);
+
+		if (bChangeTransform)
+		{
+			getRotation() = math::radians(anglesRotate);
+			invalidateWorldMatrix();
+		}
+
+		return bChangeTransform;
+	}
+
+	const UIComponentReflectionDetailed& Transform::uiComponentReflection()
+	{
+		return Component::uiComponentReflection();
 	}
 
 	void Transform::invalidateWorldMatrix()
@@ -25,18 +52,24 @@ namespace engine
 	{
 		m_translation = translation;
 		invalidateWorldMatrix();
+
+		markDirty();
 	}
 
 	void Transform::setRotation(const glm::vec3& rotation)
 	{
 		m_rotation = rotation;
 		invalidateWorldMatrix();
+
+		markDirty();
 	}
 
 	void Transform::setScale(const glm::vec3& scale)
 	{
 		m_scale = scale;
 		invalidateWorldMatrix();
+
+		markDirty();
 	}
 
 	void Transform::setMatrix(const glm::mat4& matrix)
@@ -55,14 +88,14 @@ namespace engine
 			invalidateWorldMatrix();
 		}
 
-
+		markDirty();
 	}
 
 	glm::mat4 Transform::computeLocalMatrix() const
 	{
 		// TRS - style.
-		return 
-			math::translate(glm::mat4(1.0f), m_translation) * 
+		return
+			math::translate(glm::mat4(1.0f), m_translation) *
 			math::toMat4(glm::quat(m_rotation)) *
 			math::scale(glm::mat4(1.0f), m_scale);
 	}

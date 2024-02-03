@@ -1,6 +1,5 @@
 #pragma once
-#include <rhi/rhi.h>
-#include <util/util.h>
+#include "../graphics/context.h"
 
 namespace engine
 {
@@ -43,9 +42,14 @@ namespace engine
 		std::unique_ptr<VulkanImage> brdfLut = nullptr;
 		std::unique_ptr<VulkanImage> cloudBasicNoise = nullptr;
 		std::unique_ptr<VulkanImage> cloudDetailNoise = nullptr;
+		std::unique_ptr<VulkanImage> imageFallback_RGBA16f = nullptr;
+
+		std::unique_ptr<VulkanBuffer> zeroBuffer = nullptr;
+
+		static const uint32_t kUniformGridVertices16x16Count = 16 * 16 * 3 * 2;
+		std::unique_ptr<VulkanBuffer> uniformGridVertices16x16 = nullptr;
 
 		explicit SharedTextures();
-
 	private:
 		void compute(VkCommandBuffer cmd);
 	};
@@ -53,52 +57,71 @@ namespace engine
 	struct AtmosphereTextures
 	{
 		PoolImageSharedRef transmittance = nullptr;
-		PoolImageSharedRef skyView = nullptr;
-		PoolImageSharedRef multiScatter = nullptr;
+		PoolImageSharedRef skyView       = nullptr;
+		PoolImageSharedRef multiScatter  = nullptr;
 		PoolImageSharedRef froxelScatter = nullptr;
-		PoolImageSharedRef envCapture = nullptr;
+		PoolImageSharedRef envCapture    = nullptr;
+
+		PoolImageSharedRef distant       = nullptr;
+		PoolImageSharedRef distantGrid   = nullptr;
 
 		bool isValid()
 		{
 			return
 				transmittance != nullptr &&
-				skyView != nullptr &&
-				multiScatter != nullptr &&
+				skyView       != nullptr &&
+				multiScatter  != nullptr &&
 				froxelScatter != nullptr &&
-				envCapture != nullptr;
+				envCapture    != nullptr && 
+				distant       != nullptr &&
+				distantGrid   != nullptr;
 		}
 	};
 
-	class GBufferTextures
+
+	struct GBufferTextures
 	{
 	public:
-		static GBufferTextures build(class RendererInterface* renderer, VulkanContext* context);
-		void clearValue(VkCommandBuffer graphicsCmd);
-
-		// Id of submesh, used for editor pick select or temporal reproject.
-		PoolImageSharedRef idTexture = nullptr;
-		inline static auto getIdTextureFormat() { return VK_FORMAT_R32_UINT; }
-
-		PoolImageSharedRef selectionOutlineMask = nullptr;
-		inline static auto gbufferSelectionOutlineMaskFormat() { return VK_FORMAT_R8_UNORM; }
-
-		PoolImageSharedRef hdrSceneColor = nullptr; // R16G16B16A16
+		// Scene hdr color.
+		PoolImageSharedRef hdrSceneColor = nullptr;
 		PoolImageSharedRef hdrSceneColorUpscale = nullptr;
-		inline static auto hdrSceneColorFormat() { return VK_FORMAT_R16G16B16A16_SFLOAT;  }
-		PoolImageSharedRef depthTexture  = nullptr; // Scene depth texutre, r32_unorm
-		inline static auto depthTextureFormat() { return VK_FORMAT_D32_SFLOAT; }
+		static auto hdrSceneColorFormat() { return VK_FORMAT_R16G16B16A16_SFLOAT; }
+
+		// Scene depth texutre.
+		PoolImageSharedRef depthTexture = nullptr; 
+		static auto depthTextureFormat() { return VK_FORMAT_D32_SFLOAT; }
 
 		PoolImageSharedRef gbufferA = nullptr; // GBuffer A: r8g8b8a8 unorm, .rgb store base color.
 		inline static auto gbufferAFormat() { return VK_FORMAT_R8G8B8A8_UNORM; }
 
-		PoolImageSharedRef gbufferB = nullptr; // GBuffer B : r16g16b16a16 .rgb store worldspace normal.
-		inline static auto gbufferBFormat() { return VK_FORMAT_R16G16B16A16_SFLOAT; }
+		PoolImageSharedRef gbufferB = nullptr; // GBuffer B : r10g10b10a2 .rgb store worldspace normal pack.
+		inline static auto gbufferBFormat() { return VK_FORMAT_A2B10G10R10_UNORM_PACK32; }
 
 		PoolImageSharedRef gbufferS = nullptr; // GBuffer S: r8g8b8a8 unorm, .r is metal, .g is roughness, .b is mesh ao.
 		inline static auto gbufferSFormat() { return VK_FORMAT_R8G8B8A8_UNORM; }
 
 		PoolImageSharedRef gbufferV = nullptr; // GBuffer V: r16g16 sfloat.
 		inline static auto gbufferVFormat() { return VK_FORMAT_R16G16_SFLOAT; }
+
+		PoolImageSharedRef gbufferId = nullptr; // Gbuffer Id: r16
+		inline static auto gbufferIdFormat() { return VK_FORMAT_R16_UNORM; }
+
+		void clearValue(VkCommandBuffer graphicsCmd);
+
+		PoolImageSharedRef vertexNormal = nullptr;
+		PoolImageSharedRef chessboardHalfDepth = nullptr;
+		PoolImageSharedRef hzbClosest = nullptr;
+		PoolImageSharedRef hzbFurthest = nullptr;
+
+		BufferParameterHandle lensBuffer = nullptr;
+
+		BufferParameterHandle terrainPathDispatchBuffer = nullptr;
+		BufferParameterHandle terrainLodCountBuffer = nullptr;
+		BufferParameterHandle terrainLodNodeBuffer = nullptr;
+		BufferParameterHandle terrainPatchBufferMainView = nullptr;
+		BufferParameterHandle terrainDrawArgsMainView = nullptr;
+
+		PoolImageSharedRef terrainLODPatchMap = nullptr;
 
 		/*
 			In the context of FSR2, the term "reactivity" means how much influence the samples rendered for the current frame have over the production of the final upscaled image. Typically,
@@ -137,5 +160,12 @@ namespace engine
 		*/
 		PoolImageSharedRef gbufferUpscaleTranslucencyAndComposition = nullptr;
 		inline static auto gbufferUpscaleTranslucencyAndCompositionFormat() { return VK_FORMAT_R8_UNORM; }
+
+	public:
+		static GBufferTextures build(
+			uint renderWidth, 
+			uint renderHeight, 
+			uint postWidth, 
+			uint postHeight);
 	};
 }

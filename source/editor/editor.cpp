@@ -1,19 +1,69 @@
 #include "editor.h"
-#include "editor_asset.h"
-#include <utf8.h>
-#include <utf8/cpp17.h>
-#include <imgui/imgui_impl_vulkan.h>
-#include <asset/asset.h>
-#include <scene/scene.h>
-#include <asset/asset_common.h>
-#include <nfd.h>
 
 #if _WIN32
-	#include <Windows.h>
+#include <Windows.h>
 #endif
 
+#include "widgets/hub.h"
+#include "widgets/dockspace.h"
+#include "widgets/downbar.h"
+#include "widgets/console.h"
+#include "widgets/content.h"
+#include "widgets/scene_outliner.h"
+#include "widgets/detail.h"
+#include "builtin_resources.h"
+#include "widgets/viewport.h"
+#include <asset/asset_manager.h>
+#include <ui/imgui/imgui_impl_vulkan.h>
+#include <profile/profile.h>
+
 using namespace engine;
-using namespace engine::ui;
+using EWindowModeType = GLFWWindows::InitConfig::EWindowMode;
+
+bool Editor::init()
+{
+#if _WIN32
+    // Console output set to utf8 encode.
+    SetConsoleOutputCP(CP_UTF8);
+#endif 
+
+    m_renderer = getRenderer();
+
+    // Add hub widget when init.
+    m_hubHandle = m_widgetManager.addWidget<HubWidget>();
+
+    m_tickFunctionHandle = m_renderer->tickFunctions.addRaw(this, &Editor::tick);
+    m_tickCmdFunctionHandle = m_renderer->tickCmdFunctions.addRaw(this, &Editor::tickWithCmd);
+
+    m_onWindowRequireColosedHandle = m_windows.registerClosedEventBody([&](const GLFWWindows* windows)
+    { 
+        return  this->onWindowRequireClosed(windows);
+    });
+
+    m_builtinResources = std::make_unique<EditorBuiltinResource>();
+
+    return true;
+}
+
+bool Editor::release()
+{
+    m_windows.unregisterClosedEventBody(m_onWindowRequireColosedHandle);
+
+    CHECK(m_renderer->tickFunctions.remove(m_tickFunctionHandle));
+    CHECK(m_renderer->tickCmdFunctions.remove(m_tickCmdFunctionHandle));
+
+    m_widgetManager.release();
+
+    getContext()->waitDeviceIdle();
+    m_builtinResources = nullptr;
+
+    if (m_projectContentModel)
+    {
+        m_projectContentModel->release();
+    }
+
+    return true;
+}
 
 Editor* Editor::get()
 {
@@ -21,411 +71,253 @@ Editor* Editor::get()
 	return &editor;
 }
 
-void Editor::initBuiltinResources()
-{
-	auto flushUploadImage = [&](const char* path)
-	{
-		int32_t texWidth, texHeight, texChannels;
-		stbi_uc* pixels = stbi_load(path, &texWidth, &texHeight, &texChannels, 4);
-		ASSERT(pixels, "Load builtin folder image fail, check your install path.");
-
-		auto newImage = std::make_unique<VulkanImage>(
-			m_context,
-			path,
-			buildBasicUploadImageCreateInfo(texWidth, texHeight));
-
-		auto stageBuffer = std::make_unique<VulkanBuffer>( 
-			m_context,
-			"StageUploadBuffer",
-			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-			VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-			texWidth * texHeight * 4,
-			pixels);
-
-		m_context->executeImmediatelyMajorGraphics([&](VkCommandBuffer cmd)
-		{
-			newImage->transitionLayout(cmd, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, buildBasicImageSubresource());
-
-			VkBufferImageCopy region{};
-			region.bufferOffset = 0;
-			region.bufferRowLength = 0;
-			region.bufferImageHeight = 0;
-			region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			region.imageSubresource.mipLevel = 0;
-			region.imageSubresource.baseArrayLayer = 0;
-			region.imageSubresource.layerCount = 1;
-			region.imageOffset = { 0, 0, 0 };
-			region.imageExtent = newImage->getExtent();
-			vkCmdCopyBufferToImage(cmd, stageBuffer->getVkBuffer(), newImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-
-			newImage->transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-		});
-
-		stbi_image_free(pixels);
-		return std::move(newImage);
-	};
-
-	m_builtinResources.folderImage = flushUploadImage("image/folder.png");
-	m_builtinResources.fileImage   = flushUploadImage("image/file.png");
-	m_builtinResources.materialImage = flushUploadImage("image/material.png");
-	m_builtinResources.sceneImage = flushUploadImage("image/scene.png");
-	m_builtinResources.meshImage = flushUploadImage("image/mesh.png");
-
-	m_builtinResources.sunImage = flushUploadImage("image/sun.png");
-	m_builtinResources.userImage = flushUploadImage("image/user.png");
-	m_builtinResources.effectImage = flushUploadImage("image/effects.png");
-	m_builtinResources.postImage = flushUploadImage("image/post.png");
-}
-
-void Editor::releaseBuiltinResources()
-{
-	// Clear all reference.
-	m_builtinResources = {};
-}
-
-void Editor::shortcutHandle()
-{
-	// Handle undo shortcut. ctrl_z and ctrl_y.
-	if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl))
-	{
-		if (ImGui::IsKeyPressed(ImGuiKey_Z))
-		{
-			if (m_undo->undo()) {}
-		}
-		else if (ImGui::IsKeyPressed(ImGuiKey_Y))
-		{
-			if (m_undo->redo()) {}
-		}
-		else if (ImGui::IsKeyPressed(ImGuiKey_S))
-		{
-			if (!m_dirtyAssets.empty())
-			{
-				saveDirtyAssetActions();
-			}
-		}
-	}
-}
-
-void Editor::saveDirtyAssetActions()
-{
-	const auto& typeNameMap = EditorAsset::get()->getTypeNameMap();
-	const auto& assetMap = EditorAsset::get()->getRegisterMap();
-
-	std::vector<engine::UUID> saveSets; 
-
-	// Save dirty asset to disk.
-	for (auto& assetPair : m_dirtyAssets)
-	{
-		auto asset = assetPair.second.lock();
-		if (!asset)
-		{
-			continue;
-		}
-
-		if (asset->savePathUnvalid())
-		{
-			std::string path;
-
-			nfdchar_t* outPathChars;
-
-			std::string suffix = std::string(asset->getSuffix()).erase(0, 1) + "\0";
-			nfdchar_t* filterList = suffix.data();
-			nfdresult_t result = NFD_SaveDialog(filterList, getProjectAssetPathUtf8().c_str(), &outPathChars);
-			
-			if (result == NFD_OKAY)
-			{
-				path = outPathChars;
-				free(outPathChars);
-			}
-
-			auto u16PathString = utf8::utf8to16(path);
-			std::filesystem::path fp(u16PathString);
-			if (!path.empty())
-			{
-				std::filesystem::path assetName = fp.filename();
-				std::string assetNameUtf8 = utf8::utf16to8(assetName.u16string());
-
-				const auto relativePath = buildRelativePathUtf8(getProjectRootPathUtf16(), fp);
-				asset->setNameUtf8(assetNameUtf8);
-				asset->setRelativePathUtf8(relativePath);
-			}
-		}
-
-		if (asset->saveAction())
-		{
-			saveSets.push_back(asset->getUUID());
-		}
-		else
-		{
-			LOG_ERROR("Fail to save asset {}!", asset->getNameUtf8());
-		}
-	}
-
-	m_dirtyAssets.clear();
-	setupProjectDirectory(m_projectFilePathUtf16);
-}
-
-
-
 int Editor::run(int argc, char** argv)
 {
-	// Prepare config.
-	Config config;
-	config.appName = "flower";
-	config.bConsole = false;
-	config.bEnableLogFileOut = true;
-	config.logFolder = "log";
-	config.configFolder = "config";
-	config.iconPath = "image/icon.png";
-	config.windowInfo.bResizeable = false;
-	config.windowInfo.initWidth = 800;
-	config.windowInfo.initHeight = 450;
-	config.windowInfo.windowShowMode = Config::InitWindowInfo::EWindowMode::Free;
+    // Init log infos.
+    LoggerSystem::initBasicConfig(
+    {
+        .bOutputLog = true,
+        .outputLogPath = "editor",
+    });
 
-	// Framework init and register module.
-	Framework* app = Framework::get();
-	app->initFramework(config);
-	{
-		app->getEngine().registerRuntimeModule<VulkanContext>();
-		app->getEngine().registerRuntimeModule<SceneManager>();
-		app->getEngine().registerRuntimeModule<Renderer>();
-		app->getEngine().registerRuntimeModule<AssetSystem>();
-	}
+    LOG_TRACE("Init reflection compile trace uuid {}.", kRelfectionCompilePlayHolder);
 
-	// Try init app.
-	if (app->init())
-	{
-		// Init widgets.
-		init();
+    // Init cvar configs.
+    initBasicCVarConfigs();
 
-		// Run app loop if available.
-		app->loop();
+    // Install engine hook.
+    Engine::get()->initGLFWWindowsHook(m_windows);
 
-		// Release widgets.
-		release();
+    GLFWWindows::InitConfig windowInitConfig =
+    {
+        .appName        = "dark editor",
+        .appIcon        = "image/editorIcon.png",
+        .windowShowMode = EWindowModeType::Free,
+        .bResizable     = false,
+        .initWidth      = 1600U,
+        .initHeight     = 900U,
+    };
 
-		// Release app when loop end.
-		app->release();
-	}
+    // Windows init.
+    if (m_windows.init(windowInitConfig))
+    {
+        // Editor init after windows init.
+        ASSERT(this->init(), "Fail to init editor!");
+
+        // Windows loop.
+        m_windows.loop();
+
+        // Editor release before windows exit.
+        ASSERT(this->release(), "Fail to release editor!");
+
+        // Windows exit.
+        ASSERT(m_windows.release(), "Fail to release all part of application!");
+    }
+
+    // Uninstall engine hook.
+    Engine::get()->releaseGLFWWindowsHook();
 
 	return 0;
 }
 
-void Editor::setTitleName() const
+void Editor::setTitleName(const std::u16string& name) const
 {
-	auto activeScene = m_sceneManager->getActiveScene();
+    std::string newTitleName = Engine::get()->getGLFWWindows()->getName() + " - " + utf8::utf16to8(name);
 
-	std::string newTitleName = Framework::get()->getConfig().appName + " - " + m_projectNameUtf8 + " - " + activeScene->getNameUtf8();
-
-	if (activeScene->isDirty())
-	{
-		newTitleName += " * ";
-	}
-
-	glfwSetWindowTitle(Framework::get()->getWindow(), newTitleName.c_str());
+    glfwSetWindowTitle(Engine::get()->getGLFWWindows()->getGLFWWindowHandle(), newTitleName.c_str());
 }
 
-void Editor::setupProjectDirectory(const std::filesystem::path& inProjectPath)
+ImTextureID Editor::getImGuiTexture(VulkanImage* image, const VkSamplerCreateInfo& sampler)
 {
-	m_projectRootPathUtf8 = utf8::utf16to8(inProjectPath.parent_path().u16string());
-	m_projectFilePathUtf8 = utf8::utf16to8(inProjectPath.u16string());
-	m_projectNameUtf8     = utf8::utf16to8(inProjectPath.filename().replace_extension().u16string());
-	m_projectAssetPathUtf8 = utf8::utf16to8((inProjectPath.parent_path() / "asset").u16string());
+    size_t hash;
+    {
+        hash = (size_t)crc::crc32(&sampler, sizeof(sampler));
+        hash = hashCombine(hash, std::hash<UUID64u>{}(image->getRuntimeUUID()));
+    }
 
-	m_projectRootPathUtf16 = inProjectPath.parent_path().u16string();
-	m_projectFilePathUtf16 = inProjectPath.u16string();
-	m_projectNameUtf16     = inProjectPath.filename().replace_extension().u16string();
-	m_projectAssetPathUtf16 = (inProjectPath.parent_path() / "asset").u16string();
+    if (VK_NULL_HANDLE == m_cacheImGuiImage[hash].view || VK_NULL_HANDLE == m_cacheImGuiImage[hash].sampler)
+    {
+        m_cacheImGuiImage[hash].view = image->getOrCreateView(buildBasicImageSubresource()).view;
+        m_cacheImGuiImage[hash].sampler = getContext()->getSamplerCache().createSampler(sampler);
+    }
 
-	setTitleName();
-
-	m_assetSystem->setupProject(inProjectPath);
-	m_projectContent->setupProject(inProjectPath);
+    return &m_cacheImGuiImage.at(hash);
 }
 
-void Editor::onAssetDirty(std::shared_ptr<engine::AssetInterface> asset)
+ImTextureID Editor::getClampToTransparentBorderImGuiTexture(VulkanImage* image)
 {
-	m_dirtyAssets[asset->getUUID()] = asset;
-
-	if (asset->getType() == EAssetType::Scene)
-	{
-		auto scene = std::static_pointer_cast<Scene>(asset);
-		if (scene == m_sceneManager->getActiveScene())
-		{
-			setTitleName();
-		}
-	}
+    static const VkSamplerCreateInfo info = SamplerFactory::pointClampBorder0000();
+    return getImGuiTexture(image, info);
 }
 
-VkDescriptorSet Editor::getSet(VulkanImage* image, const VkSamplerCreateInfo& sampler)
+void Editor::updateApplicationTitle()
 {
-	const auto& uuid = image->getRuntimeUUID();
-	if (!m_cacheImageSet[uuid])
-	{
-		m_cacheImageSet[uuid] = ImGui_ImplVulkan_AddTexture(
-			m_context->getSamplerCache().createSampler(sampler), 
-			image->getOrCreateView(buildBasicImageSubresource()),
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-		);
-	}
+    ZoneScopedN("Editor::updateApplicationTitle()");
+    
+    const auto& projectConfig = getAssetManager()->getProjectConfig();
+    if (!projectConfig.projectName.empty())
+    {
+        auto activeScene = getSceneManager()->getActiveScene();
 
-	return m_cacheImageSet.at(uuid);
+        std::u16string showName = projectConfig.projectName + u" - " + utf8::utf8to16(activeScene->getName());
+        if (activeScene->isDirty())
+        {
+            showName += u"*";
+        }
+
+        // Update title name.
+        Editor::get()->setTitleName(showName);
+    }
 }
 
-VkDescriptorSet Editor::getClampToTransparentBorderSet(engine::VulkanImage* image)
+void Editor::shortcutHandle()
 {
-	static const VkSamplerCreateInfo info = SamplerFactory::pointClampBorder0000();
-
-	return getSet(image, info);
+    ZoneScopedN("Editor::shortcutHandle()");
+    // Handle undo shortcut. ctrl_z and ctrl_y.
+    if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl))
+    {
+        if (ImGui::IsKeyPressed(ImGuiKey_S))
+        {
+            if (!getAssetManager()->getDirtyAsset<Scene>().empty())
+            {
+                m_dockSpace->sceneAssetSave.open();
+            }
+        }
+    }
 }
 
-void Editor::init()
+void Editor::closedHubWidget()
 {
-#if _WIN32
-	SetConsoleOutputCP(CP_UTF8);
-#endif // _WIN32
+    ZoneScopedN("Editor::closedHubWidget()");
 
-	m_engine = Framework::get()->getEnginePtr();
+    if (m_hubHandle)
+    {
+        onceEventAfterTick.add([&]() 
+        {
+            CHECK(m_widgetManager.removeWidget(m_hubHandle));
+            m_hubHandle = nullptr;
 
-	m_context = m_engine->getRuntimeModule<VulkanContext>();
-	ASSERT(m_context, "You must register one vulkan context module when require widget ui.");
+            // Then create all widgets.
+            m_dockSpace = m_widgetManager.addWidget<MainViewportDockspaceAndMenu>();
+            CHECK(m_widgetManager.addWidget<DownbarWidget>());
 
-	m_renderer = m_engine->getRuntimeModule<Renderer>();
-	ASSERT(m_renderer, "You must register one renderer module when require widget ui.");
+            // Console.
+            {
+                m_consoleHandle = m_widgetManager.addWidget<WidgetConsole>();
 
-	m_sceneManager = m_engine->getRuntimeModule<SceneManager>();
-	ASSERT(m_sceneManager, "You must register one scene module when require widget ui.");
+                // Register console in view.
+                {
+                    WidgetInView consoleView = { .bMultiWindow = false, .widgets = { m_consoleHandle } };
+                    m_dockSpace->widgetInView.add(consoleView);
+                }
+            }
 
-	m_assetSystem = m_engine->getRuntimeModule<AssetSystem>();
-	ASSERT(m_assetSystem, "You must register one assetsystem module when require widget ui.");
+            // Content
+            {
+                m_projectContentModel = std::make_unique<ProjectContentModel>();
 
-	constexpr size_t kMaxUndoItem = 100;
-	m_undo = std::make_unique<Undo>(kMaxUndoItem);
+                WidgetInView contentView = { .bMultiWindow = true };
+                for (size_t i = 0; i < kMultiWidgetMaxNum; i++)
+                {
+                    m_contents[i] = m_widgetManager.addWidget<WidgetContent>(i, m_projectContentModel.get());
+                    contentView.widgets[i] = m_contents[i];
+                }
+                m_contents[0]->setVisible(true);
 
-	initBuiltinResources();
+                m_dockSpace->widgetInView.add(contentView);
+            }
 
-	// Register asset delegates
-	{
-		m_onAssetDirtyHandle = m_assetSystem->onAssetDirty.addRaw(this, &Editor::onAssetDirty);
-	}
+            // Outliner
+            {
+                m_outliner = m_widgetManager.addWidget<SceneOutlinerWidget>();
 
-	// Create widgets.
-	{
-		m_mainDockspace = std::make_unique<MainViewportDockspaceAndMenu>(this);
-		m_mainDockspace->init();
+                // Register console in view.
+                {
+                    WidgetInView outlinerView = { .bMultiWindow = false, .widgets = { m_outliner } };
+                    m_dockSpace->widgetInView.add(outlinerView);
+                }
+            }
 
-		m_downbar = std::make_unique<DownbarWidget>(this);
-		m_downbar->init();
+            // Detail
+            {
+                WidgetInView detailView = { .bMultiWindow = true };
+                for (size_t i = 0; i < kMultiWidgetMaxNum; i++)
+                {
+                    m_details[i] = m_widgetManager.addWidget<WidgetDetail>(i);
+                    detailView.widgets[i] = m_details[i];
+                    m_details[i]->setVisible(false);
+                }
+                m_details[0]->setVisible(true);
 
-		// Render Manager before viewport to ensure change value work.
-		m_renderManager = std::make_unique<RenderManagerWidget>(this);
-		m_renderManager->init();
+                m_dockSpace->widgetInView.add(detailView);
+            }
 
+            // Viewport
+            {
+                WidgetInView viewportView = { .bMultiWindow = true };
+                for (size_t i = 0; i < kMultiWidgetMaxNum; i++)
+                {
+                    m_viewports[i] = m_widgetManager.addWidget<ViewportWidget>(i);
+                    viewportView.widgets[i] = m_viewports[i];
+                    m_viewports[i]->setVisible(false);
+                }
+                m_viewports[0]->setVisible(true);
 
-		m_console = std::make_unique<WidgetConsole>(this);
-		m_console->init();
-
-		m_hubWidget = std::make_unique<HubWidget>(this);
-		m_hubWidget->init();
-
-		m_projectContent = std::make_unique<ProjectContentWidget>(this);
-		m_projectContent->init();
-
-		m_outlinerWidget = std::make_unique<SceneOutlinerWidget>(this);
-		m_outlinerWidget->init();
-
-		m_viewport = std::make_unique<ViewportWidget>(this);
-		m_viewport->init();
-
-		m_detail = std::make_unique<WidgetDetail>(this);
-		m_detail->init();
-
-
-		m_assetConfigs = std::make_unique<AssetConfigWidgetManager>(this);
-	}
-
-	// Register tick function on renderer delegate.
-	m_tickFunctionHandle = m_renderer->tickFunctions.addRaw(this, &Editor::tick);
-	m_tickCmdFunctionHandle = m_renderer->tickCmdFunctions.addRaw(this, &Editor::tickWithCmd);
-
-
-}
-
-void Editor::release()
-{
-	// unregister tick function.
-	CHECK(m_renderer->tickFunctions.remove(m_tickFunctionHandle));
-	CHECK(m_renderer->tickCmdFunctions.remove(m_tickCmdFunctionHandle));
-	CHECK(m_assetSystem->onAssetDirty.remove(m_onAssetDirtyHandle));
-
-	m_context->waitDeviceIdle();
-
-	// Release widgets.
-	m_mainDockspace->release();
-	m_console->release();
-	m_downbar->release();
-	m_hubWidget->release();
-	m_projectContent->release();
-	m_outlinerWidget->release();
-	m_viewport->release();
-	m_detail->release();
-	m_renderManager->release();
-
-	m_assetConfigs->release();
-
-	releaseBuiltinResources();
+                m_dockSpace->widgetInView.add(viewportView);
+            }
+        });
+    }
 }
 
 void Editor::tick(const RuntimeModuleTickData& tickData, VulkanContext* context)
 {
-	if (m_bShouldSetFocus)
-	{
-		m_bShouldSetFocus = false;
-		ImGui::SetWindowFocus(m_focusWindow.c_str());
-	}
+    ZoneScopedN("Editor::tick(const RuntimeModuleTickData&, VulkanContext*)");
 
-	if (m_bHubWidgetActive)
-	{
-		m_hubWidget->tick(tickData, context);
-	}
-	else
-	{
-		m_mainDockspace->tick(tickData, context);
-		m_console->tick(tickData, context);
-		m_downbar->tick(tickData, context);
-		m_projectContent->tick(tickData, context);
-		m_outlinerWidget->tick(tickData, context);
-		m_viewport->tick(tickData, context);
-		m_detail->tick(tickData, context);
-		m_renderManager->tick(tickData, context);
-		m_assetConfigs->tick(tickData, context);
-	}
+    // Clear cache imgui image before tick.
+    m_cacheImGuiImage.clear();
 
-	tickFunctions.broadcast(tickData, context);
+    if (m_projectContentModel)
+    {
+        m_projectContentModel->tick();
+    }
 
-	shortcutHandle();
+    m_widgetManager.tick(tickData, context);
+    tickFunctions.broadcast(tickData, context);
 
+    updateApplicationTitle();
 
+    shortcutHandle();
 }
 
 void Editor::tickWithCmd(const RuntimeModuleTickData& tickData, VkCommandBuffer cmd, VulkanContext* context)
 {
-	if (m_bHubWidgetActive)
-	{
-		m_hubWidget->tickWithCmd(tickData, cmd, context);
-	}
-	else
-	{
-		m_mainDockspace->tickWithCmd(tickData, cmd, context);
-		m_console->tickWithCmd(tickData, cmd, context);
-		m_downbar->tickWithCmd(tickData, cmd, context);
-		m_projectContent->tickWithCmd(tickData, cmd, context);
-		m_outlinerWidget->tickWithCmd(tickData, cmd, context);
-		m_viewport->tickWithCmd(tickData, cmd, context);
-		m_detail->tickWithCmd(tickData, cmd, context);
-		m_renderManager->tickWithCmd(tickData, cmd, context);
-		m_assetConfigs->tickCmd(tickData, cmd, context);
-	}
+    m_widgetManager.tickWithCmd(tickData, cmd, context);
+    tickCmdFunctions.broadcast(tickData, cmd, context);
 
-	tickCmdFunctions.broadcast(tickData, cmd, context);
+    onceEventAfterTick.brocast();
+}
+
+bool Editor::onWindowRequireClosed(const GLFWWindows* windows)
+{
+    if (!getAssetManager()->isProjectSetup())
+    {
+        return false;
+    }
+
+    bool bContinue = false;
+
+    if (!getAssetManager()->getDirtyAsset<Scene>().empty())
+    {
+        bContinue = true;
+        if (m_dockSpace->sceneAssetSave.open())
+        {
+            CHECK(!m_dockSpace->sceneAssetSave.afterEventAccept);
+            m_dockSpace->sceneAssetSave.afterEventAccept = [windows]()
+            {
+                glfwSetWindowShouldClose(windows->getGLFWWindowHandle(), 1);
+            };
+        }
+    }
+
+    return bContinue;
 }

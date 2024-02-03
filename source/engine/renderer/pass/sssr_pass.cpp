@@ -1,4 +1,4 @@
-#include "../renderer_interface.h"
+#include "../deferred_renderer.h"
 #include "../render_scene.h"
 #include "../renderer.h"
 #include "../scene_textures.h"
@@ -7,12 +7,32 @@ namespace engine
 {
     struct SSSRPush
     {
+        vec3  probe0Pos;
+        float probe0ValidFactor;
+        vec3  probe1Pos;
+        float probe1ValidFactor;
+
+        vec4  boxExtentData0;
+        vec4  boxExtentData1;
+        vec4  boxExtentData2;
+
         uint32_t samplesPerQuad;
         uint32_t temporalVarianceGuidedTracingEnabled;
         uint32_t mostDetailedMip = 0;
-        float roughnessThreshold; // Max roughness stop to reflection sample.
+
+        // Max roughness stop to reflection sample.
+        float roughnessThreshold; 
         float temporalVarianceThreshold;
     };
+
+    struct GPUDispatchIndirectCommand
+    {
+        uint32_t x;
+        uint32_t y;
+        uint32_t z;
+        uint32_t pad;
+    };
+    static_assert(sizeof(GPUDispatchIndirectCommand) % (4 * sizeof(float)) == 0);
 
     struct SSSRRayCounterSSBO
     {
@@ -33,71 +53,81 @@ namespace engine
 
         VkDescriptorSetLayout setLayout = VK_NULL_HANDLE;
 
-        std::vector<VkDescriptorSet> m_sets;
+        // std::vector<VkDescriptorSet> m_sets;
     public:
-        virtual void onInit() override
+        VkDescriptorSet allocateSet()
         {
-            m_sets.resize(getContext()->getSwapchain().getBackbufferCount());
-
-            for (size_t i = 0; i < m_sets.size(); i++)
+            VkDescriptorSet set;
             {
                 getContext()->descriptorFactoryBegin()
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0) // inHiz
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1) // inDepth
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 2) // inGbufferA
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 3) // inGbufferB
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 4) // inGbufferS
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 5) // in Velocity
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 6) // inPrevDepth
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 7) // inPrevGBufferB
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 8) // inHDRSceneColor
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 9) // inBRDFLut
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 10) // SSRRayCounterSSBO
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 11) // SSRRayListSSBO
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 12) // SSRDenoiseTileListSSBO
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 13) // HDRSceneColorImage
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 14) // inCubeGlobalPrefilter
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 15) // inGTAO
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 16) // SSRIntersectCmdSSBO
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 17) // SSRDenoiseCmdSSBO
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 18) // SSRExtractRoughness
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 19) // inSSRExtractRoughness
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 20) // SSRIntersection
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 21) // inSSRIntersection
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 22) // SSR prev frame roughness
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 23) // SSR prev frame radiance
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 24) // SSR prev frame sample count
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 25) // SSR reproject radiance
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 26) // SSR average radiance
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 27) // SSR variance
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 28) // SSR sample count
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 29) // in SSR reproject radiance
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 30) // in SSR average radiance
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 31) // in SSR variance
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 32) // in SSR variance history
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 33) // SSR prefilter radiance
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 34) // SSR prefilter variance
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 35) // in SSR prefilter radiance
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 36) // in SSR prefilter variance
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 37) // SSR temporal radiance
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 38) // SSR temporal variance
-                    .bindNoInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 39) // Uniform buffer
-                    .buildNoInfo(setLayout, m_sets[i]);
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 0) // inHiz
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1) // inDepth
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 2) // inGbufferA
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 3) // inGbufferB
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 4) // inGbufferS
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 5) // in Velocity
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 6) // inPrevDepth
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 7) // inPrevGBufferB
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 8) // inHDRSceneColor
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 9) // inBRDFLut
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10) // SSRRayCounterSSBO
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 11) // SSRRayListSSBO
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 12) // SSRDenoiseTileListSSBO
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 13) // HDRSceneColorImage
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 14) // inCubeGlobalPrefilter
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 15) // inGTAO
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 16) // SSRIntersectCmdSSBO
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 17) // SSRDenoiseCmdSSBO
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 18) // SSRExtractRoughness
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 19) // inSSRExtractRoughness
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 20) // SSRIntersection
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 21) // inSSRIntersection
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 22) // SSR prev frame roughness
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 23) // SSR prev frame radiance
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 24) // SSR prev frame sample count
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 25) // SSR reproject radiance
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 26) // SSR average radiance
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 27) // SSR variance
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 28) // SSR sample count
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 29) // in SSR reproject radiance
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 30) // in SSR average radiance
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 31) // in SSR variance
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 32) // in SSR variance history
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 33) // SSR prefilter radiance
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 34) // SSR prefilter variance
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 35) // in SSR prefilter radiance
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 36) // in SSR prefilter variance
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 37) // SSR temporal radiance
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 38) // SSR temporal variance
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 39) // Uniform buffer
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 40)
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 41)
+                    .buildNoInfo(setLayout, set);
             }
+            return set;
+        }
+
+        virtual void onInit() override
+        {
+            // m_sets.resize(getContext()->getSwapchain().getBackbufferCount());
+            allocateSet();
+
+            // for (size_t i = 0; i < m_sets.size(); i++)
+
             std::vector<VkDescriptorSetLayout> setLayouts = {
-                setLayout, 
+                setLayout,
                 getContext()->getSamplerCache().getCommonDescriptorSetLayout(),
                 getRenderer()->getBlueNoise().spp_1_buffer.setLayouts
             };
             uint32_t pushSize = (uint32_t)sizeof(SSSRPush);
 
-            tileClassifyPipeline = std::make_unique<ComputePipeResources>("shader/sssr_tile.comp.spv", pushSize, setLayouts);
-            argsPrepare = std::make_unique<ComputePipeResources>("shader/sssr_intersect_args.comp.spv", pushSize, setLayouts);
-            intersect = std::make_unique<ComputePipeResources>("shader/sssr_intersect.comp.spv", pushSize, setLayouts);
-            reproject = std::make_unique<ComputePipeResources>("shader/sssr_reproject.comp.spv", pushSize, setLayouts);
-            prefilter = std::make_unique<ComputePipeResources>("shader/sssr_prefilter.comp.spv", pushSize, setLayouts);
-            temporal = std::make_unique<ComputePipeResources>("shader/sssr_temporal.comp.spv", pushSize, setLayouts);
-            apply = std::make_unique<ComputePipeResources>("shader/sssr_apply.comp.spv", pushSize, setLayouts);
+            tileClassifyPipeline = std::make_unique<ComputePipeResources>("shader/sssr_tile.glsl", pushSize, setLayouts);
+            argsPrepare = std::make_unique<ComputePipeResources>("shader/sssr_intersect_args.glsl", pushSize, setLayouts);
+            intersect = std::make_unique<ComputePipeResources>("shader/sssr_intersect.glsl", pushSize, setLayouts);
+            reproject = std::make_unique<ComputePipeResources>("shader/sssr_reproject.glsl", pushSize, setLayouts);
+            prefilter = std::make_unique<ComputePipeResources>("shader/sssr_prefilter.glsl", pushSize, setLayouts);
+            temporal = std::make_unique<ComputePipeResources>("shader/sssr_temporal.glsl", pushSize, setLayouts);
+            apply = std::make_unique<ComputePipeResources>("shader/sssr_apply.glsl", pushSize, setLayouts);
         }
 
         virtual void release() override
@@ -112,16 +142,23 @@ namespace engine
         }
     };
 
-    void RendererInterface::renderSSSR(
+    void DeferredRenderer::renderSSSR(
         VkCommandBuffer cmd,
         GBufferTextures* inGBuffers,
         RenderScene* scene,
         BufferParameterHandle perFrameGPU,
         PoolImageSharedRef inHiz,
-        PoolImageSharedRef inGTAO)
+        PoolImageSharedRef inSSAOBentNormal,
+        const SkyLightRenderContext& inSky,
+        ReflectionProbeContext& reflectionProbeContext)
     {
+        if (!inSky.skylightReflection || !m_history.prevDepth || !m_history.prevGBufferB || !m_history.prevHdrBeforeAA)
+        {
+            return;
+        }
+
         auto* pass = getContext()->getPasses().get<SSSRPass>();
-        auto* rtPool = &m_context->getRenderTargetPools();
+        auto* rtPool = &getContext()->getRenderTargetPools();
 
         auto& hdrSceneColor = inGBuffers->hdrSceneColor->getImage();
         auto& gbufferA = inGBuffers->gbufferA->getImage();
@@ -129,7 +166,7 @@ namespace engine
         auto& gbufferS = inGBuffers->gbufferS->getImage();
         auto& gbufferV = inGBuffers->gbufferV->getImage();
         auto& sceneDepthZ = inGBuffers->depthTexture->getImage();
-        auto& skyPrefilterImage = m_skylightReflection->getImage();
+        auto& skyPrefilterImage = inSky.skylightReflection->getImage();
 
         hdrSceneColor.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
         gbufferA.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
@@ -140,34 +177,34 @@ namespace engine
         skyPrefilterImage.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresourceCube());
         inHiz->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
 
-        VkDescriptorImageInfo hizInfo = RHIDescriptorImageInfoSample(inHiz->getImage().getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo depthInfo = RHIDescriptorImageInfoSample(sceneDepthZ.getOrCreateView(RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT)));
-        VkDescriptorImageInfo gbufferAInfo = RHIDescriptorImageInfoSample(gbufferA.getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo gbufferBInfo = RHIDescriptorImageInfoSample(gbufferB.getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo gbufferSInfo = RHIDescriptorImageInfoSample(gbufferS.getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo gbufferVInfo = RHIDescriptorImageInfoSample(gbufferV.getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo brdfLutInfo = RHIDescriptorImageInfoSample(m_renderer->getSharedTextures().brdfLut->getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo prevDepthInfo = depthInfo;
-        if (m_prevDepth)
-        {
-            prevDepthInfo = RHIDescriptorImageInfoSample(m_prevDepth->getImage().getOrCreateView(RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT)));
-        }
+        VkDescriptorImageInfo hizInfo = RHIDescriptorImageInfoSample(inHiz->getImage().getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo depthInfo = RHIDescriptorImageInfoSample(sceneDepthZ.getOrCreateView(RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT)).view);
+        VkDescriptorImageInfo gbufferAInfo = RHIDescriptorImageInfoSample(gbufferA.getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo gbufferBInfo = RHIDescriptorImageInfoSample(gbufferB.getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo gbufferSInfo = RHIDescriptorImageInfoSample(gbufferS.getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo gbufferVInfo = RHIDescriptorImageInfoSample(gbufferV.getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo brdfLutInfo = RHIDescriptorImageInfoSample(getRenderer()->getSharedTextures().brdfLut->getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo prevDepthInfo = RHIDescriptorImageInfoSample(m_history.prevDepth->getImage().getOrCreateView(RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT)).view);
 
-        VkDescriptorImageInfo preGBufferBInfo = gbufferBInfo;
-        if (m_prevGBufferB)
-        {
-            preGBufferBInfo = RHIDescriptorImageInfoSample(m_prevGBufferB->getImage().getOrCreateView(buildBasicImageSubresource()));
-        }
+        VkDescriptorImageInfo preGBufferBInfo = RHIDescriptorImageInfoSample(m_history.prevGBufferB->getImage().getOrCreateView(buildBasicImageSubresource()).view);
 
-        VkImageView globalPrefilterView = skyPrefilterImage.getOrCreateView(buildBasicImageSubresourceCube(), VK_IMAGE_VIEW_TYPE_CUBE);
+        VkImageView globalPrefilterView = skyPrefilterImage.getOrCreateView(buildBasicImageSubresourceCube(), VK_IMAGE_VIEW_TYPE_CUBE).view;
         VkDescriptorImageInfo globalPrefilterInfo = RHIDescriptorImageInfoSample(globalPrefilterView);
 
-        VkDescriptorImageInfo hdrImageInfo = RHIDescriptorImageInfoStorage(hdrSceneColor.getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo hdrSampleInfo = RHIDescriptorImageInfoSample(hdrSceneColor.getOrCreateView(buildBasicImageSubresource()));
-        if (m_prevHDR)
+        VkDescriptorImageInfo probe0Info = RHIDescriptorImageInfoSample(globalPrefilterView);
+        VkDescriptorImageInfo probe1Info = RHIDescriptorImageInfoSample(globalPrefilterView);
+
+        if (reflectionProbeContext.probe0)
         {
-            hdrSampleInfo = RHIDescriptorImageInfoSample(m_prevHDR->getImage().getOrCreateView(buildBasicImageSubresource()));
+            probe0Info = RHIDescriptorImageInfoSample(reflectionProbeContext.probe0->getImage().getOrCreateView(buildBasicImageSubresourceCube(), VK_IMAGE_VIEW_TYPE_CUBE).view);
         }
+        if (reflectionProbeContext.probe1)
+        {
+            probe1Info = RHIDescriptorImageInfoSample(reflectionProbeContext.probe1->getImage().getOrCreateView(buildBasicImageSubresourceCube(), VK_IMAGE_VIEW_TYPE_CUBE).view);
+        }
+
+        VkDescriptorImageInfo hdrImageInfo = RHIDescriptorImageInfoStorage(hdrSceneColor.getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo hdrSampleInfo = RHIDescriptorImageInfoSample(m_history.prevHdrBeforeAA->getImage().getOrCreateView(buildBasicImageSubresource()).view);
 
         // Prepare rts.
         auto updateRts = [&]()
@@ -176,11 +213,11 @@ namespace engine
             uint32_t width = sceneDepthZ.getExtent().width;
             uint32_t height = sceneDepthZ.getExtent().height;
 
-            if (m_sssrRts.rt_ssrReproject == nullptr)
+            if (m_history.sssrResources.rt_ssrReproject == nullptr)
             {
                 bShouldRebuild = true;
             }
-            else if (m_sssrRts.rt_ssrReproject->getImage().getExtent().width != width || m_sssrRts.rt_ssrReproject->getImage().getExtent().height != height)
+            else if (m_history.sssrResources.rt_ssrReproject->getImage().getExtent().width != width || m_history.sssrResources.rt_ssrReproject->getImage().getExtent().height != height)
             {
                 bShouldRebuild = true;
             }
@@ -190,21 +227,21 @@ namespace engine
                 return;
             }
 
-            m_sssrRts.rt_ssrRadiance = rtPool->createPoolImage(
+            m_history.sssrResources.rt_ssrRadiance = rtPool->createPoolImage(
                 "SSR Radiance 0",
                 width,
                 height,
                 VK_FORMAT_R16G16B16A16_SFLOAT,
                 VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
-            m_sssrRts.rt_ssrPrevRadiance = rtPool->createPoolImage(
+            m_history.sssrResources.rt_ssrPrevRadiance = rtPool->createPoolImage(
                 "SSR Radiance 0",
                 width,
                 height,
                 VK_FORMAT_R16G16B16A16_SFLOAT,
                 VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
-            m_sssrRts.rt_ssrReproject = rtPool->createPoolImage(
+            m_history.sssrResources.rt_ssrReproject = rtPool->createPoolImage(
                 "SSR reproject",
                 width,
                 height,
@@ -212,65 +249,65 @@ namespace engine
                 VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
 
-            m_sssrRts.rt_ssrAverageRadiance = rtPool->createPoolImage(
+            m_history.sssrResources.rt_ssrAverageRadiance = rtPool->createPoolImage(
                 "SSR Average Radiance",
                 divideRoundingUp(width, 8u),
                 divideRoundingUp(height, 8u),
                 VK_FORMAT_B10G11R11_UFLOAT_PACK32,
                 VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
-            m_sssrRts.rt_ssrRoughness = rtPool->createPoolImage(
+            m_history.sssrResources.rt_ssrRoughness = rtPool->createPoolImage(
                 "SSRExtractRoughness 0",
                 width,
                 height,
                 VK_FORMAT_R8_UNORM,
                 VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
-            m_sssrRts.rt_ssrPrevRoughness = rtPool->createPoolImage(
+            m_history.sssrResources.rt_ssrPrevRoughness = rtPool->createPoolImage(
                 "SSRExtractRoughness - 1",
                 width,
                 height,
                 VK_FORMAT_R8_UNORM,
                 VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
-            m_sssrRts.rt_ssrVariance = rtPool->createPoolImage(
+            m_history.sssrResources.rt_ssrVariance = rtPool->createPoolImage(
                 "SSR Variance 0",
                 width,
                 height,
                 VK_FORMAT_R16_SFLOAT,
                 VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
-            m_sssrRts.rt_ssrPrevVariance = rtPool->createPoolImage(
+            m_history.sssrResources.rt_ssrPrevVariance = rtPool->createPoolImage(
                 "SSR Variance - 1",
                 width,
                 height,
                 VK_FORMAT_R16_SFLOAT,
                 VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
-            m_sssrRts.rt_ssrSampleCount = rtPool->createPoolImage(
+            m_history.sssrResources.rt_ssrSampleCount = rtPool->createPoolImage(
                 "SSR SampleCount",
                 width,
                 height,
                 VK_FORMAT_R16_SFLOAT,
                 VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
-            m_sssrRts.rt_ssrPrevSampleCount = rtPool->createPoolImage(
+            m_history.sssrResources.rt_ssrPrevSampleCount = rtPool->createPoolImage(
                 "SSR SampleCount - 1",
                 width,
                 height,
                 VK_FORMAT_R16_SFLOAT,
                 VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
-            m_sssrRts.rt_ssrRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrPrevRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrReproject->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrAverageRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrPrevRoughness->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrRoughness->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrVariance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrPrevVariance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrSampleCount->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrPrevSampleCount->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrPrevRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrReproject->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrAverageRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrPrevRoughness->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrRoughness->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrVariance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrPrevVariance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrSampleCount->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrPrevSampleCount->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
 
             VkClearColorValue clearValue = {};
             clearValue.float32[0] = 0;
@@ -281,57 +318,57 @@ namespace engine
             VkImageSubresourceRange subresourceRange = buildBasicImageSubresource();
 
             // Initial resource clears
-            vkCmdClearColorImage(cmd, m_sssrRts.rt_ssrRadiance->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &subresourceRange);
-            vkCmdClearColorImage(cmd, m_sssrRts.rt_ssrPrevRadiance->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &subresourceRange);
-            vkCmdClearColorImage(cmd, m_sssrRts.rt_ssrReproject->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &subresourceRange);
-            vkCmdClearColorImage(cmd, m_sssrRts.rt_ssrAverageRadiance->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &subresourceRange);
-            vkCmdClearColorImage(cmd, m_sssrRts.rt_ssrPrevRoughness->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &subresourceRange);
-            vkCmdClearColorImage(cmd, m_sssrRts.rt_ssrRoughness->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &subresourceRange);
-            vkCmdClearColorImage(cmd, m_sssrRts.rt_ssrVariance->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &subresourceRange);
-            vkCmdClearColorImage(cmd, m_sssrRts.rt_ssrPrevVariance->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &subresourceRange);
-            vkCmdClearColorImage(cmd, m_sssrRts.rt_ssrSampleCount->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &subresourceRange);
-            vkCmdClearColorImage(cmd, m_sssrRts.rt_ssrPrevSampleCount->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &subresourceRange);
+            vkCmdClearColorImage(cmd, m_history.sssrResources.rt_ssrRadiance->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &subresourceRange);
+            vkCmdClearColorImage(cmd, m_history.sssrResources.rt_ssrPrevRadiance->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &subresourceRange);
+            vkCmdClearColorImage(cmd, m_history.sssrResources.rt_ssrReproject->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &subresourceRange);
+            vkCmdClearColorImage(cmd, m_history.sssrResources.rt_ssrAverageRadiance->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &subresourceRange);
+            vkCmdClearColorImage(cmd, m_history.sssrResources.rt_ssrPrevRoughness->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &subresourceRange);
+            vkCmdClearColorImage(cmd, m_history.sssrResources.rt_ssrRoughness->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &subresourceRange);
+            vkCmdClearColorImage(cmd, m_history.sssrResources.rt_ssrVariance->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &subresourceRange);
+            vkCmdClearColorImage(cmd, m_history.sssrResources.rt_ssrPrevVariance->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &subresourceRange);
+            vkCmdClearColorImage(cmd, m_history.sssrResources.rt_ssrSampleCount->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &subresourceRange);
+            vkCmdClearColorImage(cmd, m_history.sssrResources.rt_ssrPrevSampleCount->getImage().getImage(), VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &subresourceRange);
 
 
-            m_sssrRts.rt_ssrRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrPrevRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrReproject->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrAverageRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrPrevRoughness->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrRoughness->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrVariance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrPrevVariance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrSampleCount->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrPrevSampleCount->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrPrevRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrReproject->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrAverageRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrPrevRoughness->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrRoughness->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrVariance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrPrevVariance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrSampleCount->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrPrevSampleCount->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
         };
         updateRts();
 
-        VkDescriptorImageInfo ssrReprojectImageInfo = RHIDescriptorImageInfoStorage(m_sssrRts.rt_ssrReproject->getImage().getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo ssrReprojectInfo = RHIDescriptorImageInfoSample(m_sssrRts.rt_ssrReproject->getImage().getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo ssrVarianceImageInfo = RHIDescriptorImageInfoStorage(m_sssrRts.rt_ssrVariance->getImage().getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo ssrVarianceInfo = RHIDescriptorImageInfoSample(m_sssrRts.rt_ssrVariance->getImage().getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo ssrVarianceHistoryImageInfo = RHIDescriptorImageInfoStorage(m_sssrRts.rt_ssrPrevVariance->getImage().getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo ssrVarianceHistoryInfo = RHIDescriptorImageInfoSample(m_sssrRts.rt_ssrPrevVariance->getImage().getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo ssrSampleCountImageInfo = RHIDescriptorImageInfoStorage(m_sssrRts.rt_ssrSampleCount->getImage().getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo ssrSampleCountHistoryInfo = RHIDescriptorImageInfoSample(m_sssrRts.rt_ssrPrevSampleCount->getImage().getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo ssrIntersectImageInfo = RHIDescriptorImageInfoStorage(m_sssrRts.rt_ssrRadiance->getImage().getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo ssrIntersectInfo = RHIDescriptorImageInfoSample(m_sssrRts.rt_ssrRadiance->getImage().getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo ssrIntersectHistoryImageInfo = RHIDescriptorImageInfoStorage(m_sssrRts.rt_ssrPrevRadiance->getImage().getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo ssrIntersectHistoryInfo = RHIDescriptorImageInfoSample(m_sssrRts.rt_ssrPrevRadiance->getImage().getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo ssrAverageImageInfo = RHIDescriptorImageInfoStorage(m_sssrRts.rt_ssrAverageRadiance->getImage().getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo ssrAverageInfo = RHIDescriptorImageInfoSample(m_sssrRts.rt_ssrAverageRadiance->getImage().getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo roughnessExtractHistoryInfo = RHIDescriptorImageInfoSample(m_sssrRts.rt_ssrPrevRoughness->getImage().getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo roughnessExtractImageInfo = RHIDescriptorImageInfoStorage(m_sssrRts.rt_ssrRoughness->getImage().getOrCreateView(buildBasicImageSubresource()));
-        VkDescriptorImageInfo roughnessExtractInfo = RHIDescriptorImageInfoSample(m_sssrRts.rt_ssrRoughness->getImage().getOrCreateView(buildBasicImageSubresource()));
+        VkDescriptorImageInfo ssrReprojectImageInfo = RHIDescriptorImageInfoStorage(m_history.sssrResources.rt_ssrReproject->getImage().getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo ssrReprojectInfo = RHIDescriptorImageInfoSample(m_history.sssrResources.rt_ssrReproject->getImage().getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo ssrVarianceImageInfo = RHIDescriptorImageInfoStorage(m_history.sssrResources.rt_ssrVariance->getImage().getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo ssrVarianceInfo = RHIDescriptorImageInfoSample(m_history.sssrResources.rt_ssrVariance->getImage().getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo ssrVarianceHistoryImageInfo = RHIDescriptorImageInfoStorage(m_history.sssrResources.rt_ssrPrevVariance->getImage().getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo ssrVarianceHistoryInfo = RHIDescriptorImageInfoSample(m_history.sssrResources.rt_ssrPrevVariance->getImage().getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo ssrSampleCountImageInfo = RHIDescriptorImageInfoStorage(m_history.sssrResources.rt_ssrSampleCount->getImage().getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo ssrSampleCountHistoryInfo = RHIDescriptorImageInfoSample(m_history.sssrResources.rt_ssrPrevSampleCount->getImage().getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo ssrIntersectImageInfo = RHIDescriptorImageInfoStorage(m_history.sssrResources.rt_ssrRadiance->getImage().getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo ssrIntersectInfo = RHIDescriptorImageInfoSample(m_history.sssrResources.rt_ssrRadiance->getImage().getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo ssrIntersectHistoryImageInfo = RHIDescriptorImageInfoStorage(m_history.sssrResources.rt_ssrPrevRadiance->getImage().getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo ssrIntersectHistoryInfo = RHIDescriptorImageInfoSample(m_history.sssrResources.rt_ssrPrevRadiance->getImage().getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo ssrAverageImageInfo = RHIDescriptorImageInfoStorage(m_history.sssrResources.rt_ssrAverageRadiance->getImage().getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo ssrAverageInfo = RHIDescriptorImageInfoSample(m_history.sssrResources.rt_ssrAverageRadiance->getImage().getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo roughnessExtractHistoryInfo = RHIDescriptorImageInfoSample(m_history.sssrResources.rt_ssrPrevRoughness->getImage().getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo roughnessExtractImageInfo = RHIDescriptorImageInfoStorage(m_history.sssrResources.rt_ssrRoughness->getImage().getOrCreateView(buildBasicImageSubresource()).view);
+        VkDescriptorImageInfo roughnessExtractInfo = RHIDescriptorImageInfoSample(m_history.sssrResources.rt_ssrRoughness->getImage().getOrCreateView(buildBasicImageSubresource()).view);
 
         const uint32_t maxRayCount = sceneDepthZ.getExtent().width * sceneDepthZ.getExtent().height; // Max case is one pixel one ray.
         const uint32_t maxDenoiseListCount = maxRayCount / (8 * 8) + 1; // Tile run in 8x8.
 
-        auto ssboCounterBuffer = m_context->getBufferParameters().getStaticStorage("ssrCounterBuffer", sizeof(SSSRRayCounterSSBO));
-        auto ssboRayListBuffer = m_context->getBufferParameters().getStaticStorage("ssrRayListBuffer", sizeof(uint32_t) * maxRayCount);
-        auto ssboDenoiseListBuffer = m_context->getBufferParameters().getStaticStorage("ssrDenoiseListBuffer", sizeof(uint32_t) * maxDenoiseListCount);
-        auto ssboIntersectCmdBuffer = m_context->getBufferParameters().getIndirectStorage("ssboIntersectCmdBuffer", sizeof(GPUDispatchIndirectCommand));
-        auto ssboDenoiseCmdBuffer = m_context->getBufferParameters().getIndirectStorage("ssboDenoiseCmdBuffer", sizeof(GPUDispatchIndirectCommand));
+        auto ssboCounterBuffer = getContext()->getBufferParameters().getStaticStorage("ssrCounterBuffer", sizeof(SSSRRayCounterSSBO));
+        auto ssboRayListBuffer = getContext()->getBufferParameters().getStaticStorage("ssrRayListBuffer", sizeof(uint32_t) * maxRayCount);
+        auto ssboDenoiseListBuffer = getContext()->getBufferParameters().getStaticStorage("ssrDenoiseListBuffer", sizeof(uint32_t) * maxDenoiseListCount);
+        auto ssboIntersectCmdBuffer = getContext()->getBufferParameters().getIndirectStorage("ssboIntersectCmdBuffer", sizeof(GPUDispatchIndirectCommand));
+        auto ssboDenoiseCmdBuffer = getContext()->getBufferParameters().getIndirectStorage("ssboDenoiseCmdBuffer", sizeof(GPUDispatchIndirectCommand));
 
 
         // Clear count buffer. list buffer don't care and it will update by thread.
@@ -349,7 +386,7 @@ namespace engine
         VkDescriptorBufferInfo ssboDenoiseListBufferInfo = ssboDenoiseListBuffer->getBufferInfo();
         VkDescriptorBufferInfo ssboArgsIntersectInfo = ssboIntersectCmdBuffer->getBufferInfo();
         VkDescriptorBufferInfo ssboArgsDenoiseInfo = ssboDenoiseCmdBuffer->getBufferInfo();
-        VkDescriptorImageInfo gtaoInfo = RHIDescriptorImageInfoSample(inGTAO->getImage().getOrCreateView(buildBasicImageSubresource()));
+        VkDescriptorImageInfo gtaoInfo = RHIDescriptorImageInfoSample(inSSAOBentNormal->getImage().getOrCreateView(buildBasicImageSubresource()).view);
         VkDescriptorBufferInfo frameBufferInfo = perFrameGPU->getBufferInfo();
         std::vector<VkWriteDescriptorSet> writes
         {
@@ -359,10 +396,10 @@ namespace engine
             RHIPushWriteDescriptorSetImage(3, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &gbufferBInfo),
             RHIPushWriteDescriptorSetImage(4, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &gbufferSInfo),
             RHIPushWriteDescriptorSetImage(5, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &gbufferVInfo),
-            RHIPushWriteDescriptorSetImage(6, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &prevDepthInfo),
-            RHIPushWriteDescriptorSetImage(7, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &preGBufferBInfo),
-            RHIPushWriteDescriptorSetImage(8, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &hdrSampleInfo),
-            RHIPushWriteDescriptorSetImage(9, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &brdfLutInfo),
+            RHIPushWriteDescriptorSetImage(6, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,  &prevDepthInfo),
+            RHIPushWriteDescriptorSetImage(7, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,   &preGBufferBInfo),
+            RHIPushWriteDescriptorSetImage(8, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,   &hdrSampleInfo),
+            RHIPushWriteDescriptorSetImage(9, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,   &brdfLutInfo),
             RHIPushWriteDescriptorSetBuffer(10, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &ssboCounterBufferInfo),
             RHIPushWriteDescriptorSetBuffer(11, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &ssboRayListBufferInfo),
             RHIPushWriteDescriptorSetBuffer(12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &ssboDenoiseListBufferInfo),
@@ -393,21 +430,32 @@ namespace engine
             RHIPushWriteDescriptorSetImage(37, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &ssrIntersectImageInfo), // ssr temporal radiance.
             RHIPushWriteDescriptorSetImage(38, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &ssrVarianceImageInfo), // ssr temporal variance.
             RHIPushWriteDescriptorSetBuffer(39, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &frameBufferInfo), // framebuffer info.
+            RHIPushWriteDescriptorSetImage(40, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &probe0Info),
+            RHIPushWriteDescriptorSetImage(41, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, &probe1Info),
         };
 
-        auto& setActive = pass->m_sets[m_renderIndex % pass->m_sets.size()];
+        if (m_history.sssrResources.sets.empty())
+        {
+            m_history.sssrResources.sets.resize(getContext()->getSwapchain().getBackbufferCount());
+            for (size_t i = 0; i < getContext()->getSwapchain().getBackbufferCount(); i++)
+            {
+                m_history.sssrResources.sets[i] = pass->allocateSet();
+            }
+        }
+
+        auto& setActive = m_history.sssrResources.sets[m_renderIndex % getContext()->getSwapchain().getBackbufferCount()];
 
         for (auto& write : writes)
         {
             write.dstSet = setActive;
         }
-        vkUpdateDescriptorSets(m_context->getDevice(), (uint32_t)writes.size(), writes.data(), 0, nullptr);
+        vkUpdateDescriptorSets(getContext()->getDevice(), (uint32_t)writes.size(), writes.data(), 0, nullptr);
 
         std::vector<VkDescriptorSet> passSets =
         {
             setActive,
-            m_context->getSamplerCache().getCommonDescriptorSet(), // samplers.
-            m_renderer->getBlueNoise().spp_1_buffer.set
+            getContext()->getSamplerCache().getCommonDescriptorSet(), // samplers.
+            getRenderer()->getBlueNoise().spp_1_buffer.set
         };
 
         SSSRPush pushConst =
@@ -419,19 +467,27 @@ namespace engine
             .temporalVarianceThreshold = 0.0f,
         };
 
+        pushConst.probe0ValidFactor = reflectionProbeContext.probe0ValidState;
+        pushConst.probe1ValidFactor = reflectionProbeContext.probe1ValidState;
+        pushConst.probe0Pos = reflectionProbeContext.probe0Position;
+        pushConst.probe1Pos = reflectionProbeContext.probe1Position;
+        pushConst.boxExtentData0 = vec4(reflectionProbeContext.probe0MinExtent, reflectionProbeContext.probe1MinExtent.x);
+        pushConst.boxExtentData1 = vec4(reflectionProbeContext.probe0MaxExtent, reflectionProbeContext.probe1MinExtent.y);
+        pushConst.boxExtentData2 = vec4(reflectionProbeContext.probe1MaxExtent, reflectionProbeContext.probe1MinExtent.z);
+
         pass->intersect->bindAndPushConst(cmd, &pushConst);
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pass->intersect->pipelineLayout, 0, (uint32_t)passSets.size(), passSets.data(), 0, nullptr);
         {
-            ScopePerframeMarker marker(cmd, "classify ssr", { 1.0f, 1.0f, 0.0f, 1.0f });
+            ScopePerframeMarker marker(cmd, "classify ssr", { 1.0f, 1.0f, 0.0f, 1.0f }, nullptr);
 
-            m_sssrRts.rt_ssrRoughness->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrRoughness->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
             pass->tileClassifyPipeline->bind(cmd);
 
-            vkCmdDispatch(cmd, getGroupCount(m_sssrRts.rt_ssrRadiance->getImage().getExtent().width, 8), getGroupCount(m_sssrRts.rt_ssrRadiance->getImage().getExtent().height, 8), 1);
+            vkCmdDispatch(cmd, getGroupCount(m_history.sssrResources.rt_ssrRadiance->getImage().getExtent().width, 8), getGroupCount(m_history.sssrResources.rt_ssrRadiance->getImage().getExtent().height, 8), 1);
 
-            m_sssrRts.rt_ssrRoughness->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrRoughness->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
 
             // 
             std::array<VkBufferMemoryBarrier2, 3> endBufferBarriers
@@ -452,7 +508,7 @@ namespace engine
         }
 
         {
-            ScopePerframeMarker marker(cmd, "ssr prepare args", { 1.0f, 1.0f, 0.0f, 1.0f });
+            ScopePerframeMarker marker(cmd, "ssr prepare args", { 1.0f, 1.0f, 0.0f, 1.0f }, nullptr);
             pass->argsPrepare->bind(cmd);
             vkCmdDispatch(cmd, 1, 1, 1);
 
@@ -471,59 +527,59 @@ namespace engine
         }
 
         {
-            ScopePerframeMarker marker(cmd, "ssr intersect", { 1.0f, 1.0f, 0.0f, 1.0f });
+            ScopePerframeMarker marker(cmd, "ssr intersect", { 1.0f, 1.0f, 0.0f, 1.0f }, nullptr);
 
-            m_sssrRts.rt_ssrRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
             pass->intersect->bind(cmd);
 
             vkCmdDispatchIndirect(cmd, ssboIntersectCmdBuffer->getBuffer()->getVkBuffer(), 0);
 
-            m_sssrRts.rt_ssrRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
         }
-
+        m_gpuTimer.getTimeStamp(cmd, "SSSR-Hit");
         {
-            ScopePerframeMarker marker(cmd, "ssr reproject", { 1.0f, 1.0f, 0.0f, 1.0f });
+            ScopePerframeMarker marker(cmd, "ssr reproject", { 1.0f, 1.0f, 0.0f, 1.0f }, nullptr);
 
-            m_sssrRts.rt_ssrReproject->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrAverageRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrVariance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrSampleCount->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrReproject->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrAverageRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrVariance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrSampleCount->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
             pass->reproject->bind(cmd);
             vkCmdDispatchIndirect(cmd, ssboDenoiseCmdBuffer->getBuffer()->getVkBuffer(), 0);
 
 
-            m_sssrRts.rt_ssrReproject->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrAverageRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrVariance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrSampleCount->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrReproject->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrAverageRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrVariance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrSampleCount->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
         }
 
         {
-            ScopePerframeMarker marker(cmd, "ssr prefilter", { 1.0f, 1.0f, 0.0f, 1.0f });
+            ScopePerframeMarker marker(cmd, "ssr prefilter", { 1.0f, 1.0f, 0.0f, 1.0f }, nullptr);
 
-            m_sssrRts.rt_ssrPrevRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrPrevVariance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrPrevRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrPrevVariance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
             pass->prefilter->bind(cmd);
             vkCmdDispatchIndirect(cmd, ssboDenoiseCmdBuffer->getBuffer()->getVkBuffer(), 0);
 
-            m_sssrRts.rt_ssrPrevRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrPrevVariance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrPrevRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrPrevVariance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
         }
 
         {
-            ScopePerframeMarker marker(cmd, "ssr temporal", { 1.0f, 1.0f, 0.0f, 1.0f });
+            ScopePerframeMarker marker(cmd, "ssr temporal", { 1.0f, 1.0f, 0.0f, 1.0f }, nullptr);
 
-            m_sssrRts.rt_ssrRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrVariance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrVariance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
             pass->temporal->bind(cmd);
             vkCmdDispatchIndirect(cmd, ssboDenoiseCmdBuffer->getBuffer()->getVkBuffer(), 0);
 
-            m_sssrRts.rt_ssrRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-            m_sssrRts.rt_ssrVariance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrRadiance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
+            m_history.sssrResources.rt_ssrVariance->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
         }
 
         {
-            ScopePerframeMarker marker(cmd, "ssr apply", { 1.0f, 1.0f, 0.0f, 1.0f });
+            ScopePerframeMarker marker(cmd, "ssr apply", { 1.0f, 1.0f, 0.0f, 1.0f }, nullptr);
 
             hdrSceneColor.transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, buildBasicImageSubresource());
             pass->apply->bind(cmd);
@@ -533,21 +589,21 @@ namespace engine
         }
 
         {
-            auto tempRadiance = m_sssrRts.rt_ssrPrevRadiance;
-            auto tempVariance = m_sssrRts.rt_ssrPrevVariance;
-            auto tempRoughness = m_sssrRts.rt_ssrPrevRoughness;
-            auto tempSampleCount = m_sssrRts.rt_ssrPrevSampleCount;
+            auto tempRadiance = m_history.sssrResources.rt_ssrPrevRadiance;
+            auto tempVariance = m_history.sssrResources.rt_ssrPrevVariance;
+            auto tempRoughness = m_history.sssrResources.rt_ssrPrevRoughness;
+            auto tempSampleCount = m_history.sssrResources.rt_ssrPrevSampleCount;
 
-            m_sssrRts.rt_ssrPrevRadiance = m_sssrRts.rt_ssrRadiance;
-            m_sssrRts.rt_ssrPrevVariance = m_sssrRts.rt_ssrVariance;
-            m_sssrRts.rt_ssrPrevRoughness = m_sssrRts.rt_ssrRoughness;
-            m_sssrRts.rt_ssrPrevSampleCount = m_sssrRts.rt_ssrSampleCount;
+            m_history.sssrResources.rt_ssrPrevRadiance = m_history.sssrResources.rt_ssrRadiance;
+            m_history.sssrResources.rt_ssrPrevVariance = m_history.sssrResources.rt_ssrVariance;
+            m_history.sssrResources.rt_ssrPrevRoughness = m_history.sssrResources.rt_ssrRoughness;
+            m_history.sssrResources.rt_ssrPrevSampleCount = m_history.sssrResources.rt_ssrSampleCount;
 
-            m_sssrRts.rt_ssrRadiance = tempRadiance;
-            m_sssrRts.rt_ssrVariance = tempVariance;
-            m_sssrRts.rt_ssrRoughness = tempRoughness;
-            m_sssrRts.rt_ssrSampleCount = tempSampleCount;
+            m_history.sssrResources.rt_ssrRadiance = tempRadiance;
+            m_history.sssrResources.rt_ssrVariance = tempVariance;
+            m_history.sssrResources.rt_ssrRoughness = tempRoughness;
+            m_history.sssrResources.rt_ssrSampleCount = tempSampleCount;
         }
-        m_gpuTimer.getTimeStamp(cmd, "SSSR");
+        m_gpuTimer.getTimeStamp(cmd, "SSSR-Filter");
     }
 }

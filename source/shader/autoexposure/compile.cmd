@@ -1,2 +1,0 @@
-%~dp0/../glslc.exe -fshader-stage=comp --target-env=vulkan1.3 %~dp0/exposure_average.glsl -O -o %~dp0/../../../install/shader/exposure_average.comp.spv
-%~dp0/../glslc.exe -fshader-stage=comp --target-env=vulkan1.3 %~dp0/exposure_histogram.glsl -O -o %~dp0/../../../install/shader/exposure_histogram.comp.spv

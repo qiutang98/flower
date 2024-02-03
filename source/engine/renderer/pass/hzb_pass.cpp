@@ -1,4 +1,4 @@
-#include "../renderer_interface.h"
+#include "../deferred_renderer.h"
 #include "../render_scene.h"
 #include "../renderer.h"
 #include "../scene_textures.h"
@@ -13,46 +13,63 @@ namespace engine
     class HzbPass : public PassInterface
     {
     public:
-        VkDescriptorSetLayout setLayout = VK_NULL_HANDLE;
         std::unique_ptr<ComputePipeResources> pipe;
+        std::unique_ptr<ComputePipeResources> chessboardPipe;
 
     public:
         virtual void onInit() override
         {
-            // Config code.
-            getContext()->descriptorFactoryBegin()
-                .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0) // hizClosestImage
-                .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1) // hizFurthestImage
-                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 2) // inDepth
-                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 3) // inSrcHizClosest
-                .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 4) // inSrcHizFurthest
-                .buildNoInfoPush(setLayout);
+            {
+                // Config code.
+                VkDescriptorSetLayout setLayout = VK_NULL_HANDLE;
+                getContext()->descriptorFactoryBegin()
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0) // hizClosestImage
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1) // hizFurthestImage
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 2) // inDepth
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 3) // inSrcHizClosest
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 4) // inSrcHizFurthest
+                    .buildNoInfoPush(setLayout);
 
-            pipe = std::make_unique<ComputePipeResources>("shader/hzb.comp.spv", (uint32_t)sizeof(HzbPassPush), std::vector<VkDescriptorSetLayout>{ setLayout });
+                pipe = std::make_unique<ComputePipeResources>("shader/hzb.glsl", (uint32_t)sizeof(HzbPassPush), std::vector<VkDescriptorSetLayout>{ setLayout });
+            }
+
+            {
+                // Config code.
+                VkDescriptorSetLayout setLayout = VK_NULL_HANDLE;
+                getContext()->descriptorFactoryBegin()
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0) // hizClosestImage
+                    .bindNoInfo(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1) // inDepth
+                    .buildNoInfoPush(setLayout);
+
+                chessboardPipe = std::make_unique<ComputePipeResources>(
+                    "shader/depth_downsample_chessboard.glsl", 0, std::vector<VkDescriptorSetLayout>{ setLayout });
+            }
         }
 
         virtual void release() override
         {
             pipe.reset();
+
+            chessboardPipe.reset();
         }
     };
 
-
-	void RendererInterface::renderHzb(
+    void engine::renderHzb(
         PoolImageSharedRef& outClosed,
         PoolImageSharedRef& outFurthest,
-        VkCommandBuffer cmd, 
+        VkCommandBuffer cmd,
         GBufferTextures* inGBuffers,
-        RenderScene* scene, 
-        BufferParameterHandle perFrameGPU)
-	{
+        RenderScene* scene,
+        BufferParameterHandle perFrameGPU,
+        GPUTimestamps* timer)
+    {
         auto* pass = getContext()->getPasses().get<HzbPass>();
-        auto* rtPool = &m_context->getRenderTargetPools();
+        auto* rtPool = &getContext()->getRenderTargetPools();
 
         auto& depthTex = inGBuffers->depthTexture->getImage();
         depthTex.transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT));
 
-        uint32_t mipStartWidth  = depthTex.getExtent().width;
+        uint32_t mipStartWidth = depthTex.getExtent().width;
         uint32_t mipStartHeight = depthTex.getExtent().height;
 
         auto hizMipChainCloest = rtPool->createPoolImage(
@@ -72,10 +89,10 @@ namespace engine
             kRenderTextureFullMip);
 
         {
-            ScopePerframeMarker marker(cmd, "Hzb", { 0.8f, 1.0f, 0.0f, 1.0f });
+            ScopePerframeMarker marker(cmd, "Hzb", { 0.8f, 1.0f, 0.0f, 1.0f }, timer);
 
             pass->pipe->bind(cmd);
-            
+
             // Build from src.
             HzbPassPush push{ .bFromSrcDepth = 1 };
             pass->pipe->pushConst(cmd, &push);
@@ -103,7 +120,7 @@ namespace engine
             pass->pipe->pushConst(cmd, &push);
             if (hizMipChainCloest->getImage().getInfo().mipLevels > 1)
             {
-                uint32_t loopWidth  = mipStartWidth;
+                uint32_t loopWidth = mipStartWidth;
                 uint32_t loopHeight = mipStartHeight;
 
                 for (uint32_t i = 1; i < hizMipChainCloest->getImage().getInfo().mipLevels; i++)
@@ -117,14 +134,14 @@ namespace engine
                     hizMipChainFurthest->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_GENERAL, rangeMipN);
 
                     PushSetBuilder(cmd)
-                        .addUAV(hizMipChainCloest,   rangeMipN)
+                        .addUAV(hizMipChainCloest, rangeMipN)
                         .addUAV(hizMipChainFurthest, rangeMipN)
-                        .addSRV(hizMipChainCloest,   rangeMipN_1)
-                        .addSRV(hizMipChainCloest,   rangeMipN_1)
+                        .addSRV(hizMipChainCloest, rangeMipN_1)
+                        .addSRV(hizMipChainCloest, rangeMipN_1)
                         .addSRV(hizMipChainFurthest, rangeMipN_1)
                         .push(pass->pipe.get());
 
-                    loopWidth  = math::max(1u, loopWidth  / 2);
+                    loopWidth = math::max(1u, loopWidth / 2);
                     loopHeight = math::max(1u, loopHeight / 2);
 
                     vkCmdDispatch(cmd, getGroupCount(loopWidth, 8), getGroupCount(loopHeight, 8), 1);
@@ -133,10 +150,41 @@ namespace engine
 
             hizMipChainCloest->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
             hizMipChainFurthest->getImage().transitionLayout(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, buildBasicImageSubresource());
-            m_gpuTimer.getTimeStamp(cmd, "Hzbuild");
         }
 
         outClosed = hizMipChainCloest;
         outFurthest = hizMipChainFurthest;
-	}
+
+        inGBuffers->hzbClosest = hizMipChainCloest;
+        inGBuffers->hzbFurthest = hizMipChainFurthest;
+
+        {
+            auto chessboardHalfDepth = rtPool->createPoolImage(
+                "chessboardHalfDepth",
+                depthTex.getExtent().width / 2,
+                depthTex.getExtent().height / 2,
+                VK_FORMAT_R32_SFLOAT,
+                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
+
+            chessboardHalfDepth->getImage().transitionGeneral(cmd);
+
+            pass->chessboardPipe->bind(cmd);
+
+            PushSetBuilder(cmd)
+                .addUAV(chessboardHalfDepth)
+                .addSRV(depthTex, RHIDefaultImageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT))
+                .push(pass->chessboardPipe.get());
+
+            vkCmdDispatch(cmd, 
+                getGroupCount(chessboardHalfDepth->getImage().getExtent().width, 8), 
+                getGroupCount(chessboardHalfDepth->getImage().getExtent().height, 8), 1);
+
+            chessboardHalfDepth->getImage().transitionShaderReadOnly(cmd);
+
+
+            inGBuffers->chessboardHalfDepth = chessboardHalfDepth;
+        }
+
+
+    }
 }

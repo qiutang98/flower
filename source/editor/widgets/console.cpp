@@ -1,53 +1,18 @@
 #include "console.h"
-#include "imgui/ui.h"
-#include "imgui/region_string.h"
 
 using namespace engine;
 using namespace engine::ui;
 
 #pragma warning(disable: 4996)
 
-#include <imgui/imgui.h>
 #include <regex>
-#include "../editor.h"
-
-RegionStringInit Console_Title(    "Console_Title",     "Console",          "Console");
-RegionStringInit Console_Filter(   "Console_Filter",    "Filter",           "Console");
-RegionStringInit Console_LogTrace( "Console_LogTrace",  "Trace",          "Console");
-RegionStringInit Console_LogInfo(  "Console_LogInfo",   "Info",           "Console");
-RegionStringInit Console_LogWarn(  "Console_LogWarn",   "Warn",           "Console");
-RegionStringInit Console_LogError( "Console_LogError",  "Error",          "Console");
-RegionStringInit Console_LogOther( "Console_LogOther",  "Other",          "Console");
-RegionStringInit Console_CVarIn(   "Console_CVarIn",    "CVar Input ",     "Console");
-RegionStringInit Console_ClearAll( "Console_ClearAll",  "Clear  All ", "Console");
-RegionStringInit Console_CopyItem( "Console_CopyItem",  " Copy  Item ", "Console");
+#include "dockspace.h"
 
 
-const static std::string ICON_CONSOLE_CLONE         = ICON_FA_COPY;
-const static std::string ICON_CONSOLE_CLEAR         = ICON_NONE;
-const static std::string ICON_CONSOLE_CONSOLE_TITLE = ICON_FA_COMMENT;
-const static std::string ICON_CONSOLE_FILTER        = ICON_FA_MAGNIFYING_GLASS;
-
-
-static AutoCVarCmd cmdExportEnglishUIStrins("cmd.ui.exportStrings", "Export ui string to ini files.");
-static AutoCVarCmd cmdExportCVars("cmd.exportCVars", "Export all cvars to ini files.");
-
-void execCmdCallback()
-{
-	CVarCmdHandle(cmdExportEnglishUIStrins, []()
-	{
-		std::filesystem::path p = Framework::get()->getConfig().configFolder;
-		p /= "editor-ui-string-english.ini";
-		RegionStringManager::get()->exportEnglishRegionConfigs(p.string());
-	});
-
-	CVarCmdHandle(cmdExportCVars, []()
-	{
-		std::filesystem::path p = Framework::get()->getConfig().configFolder;
-		p /= "cvars.ini";
-		CVarSystem::get()->exportAllConfig(p.string());
-	});
-}
+const static std::string kIconConsoleClone  = ICON_FA_COPY;
+const static std::string kIconConsoleClear  = ICON_NONE;
+const static std::string kIconConsoleTitle  = ICON_FA_COMMENT;
+const static std::string kIconConsoleFilter = ICON_FA_MAGNIFYING_GLASS;
 
 class Console
 {
@@ -162,13 +127,15 @@ private:
 
 	void addLog(std::string info, ELogType type)
 	{
-		m_logTypeCount[size_t(type)] ++;
-		m_logItems.push_back({ info, type });
-
-		if (static_cast<uint32_t>(m_logItems.size()) >= kMaxLogsItemNum)
+		if (static_cast<uint32_t>(m_logItems.size()) == kMaxLogsItemNum - 1)
 		{
 			m_logItems.pop_front();
 		}
+
+		m_logTypeCount[size_t(type)] ++;
+		m_logItems.push_back({ info, type });
+
+
 	}
 
 	void addLog(const char* fmt, ...)
@@ -222,7 +189,6 @@ private:
 				if (tokens[0].rfind(cmdbeginStr, 0) == 0)
 				{
 					CVarSystem::get()->getArray<bool>().setCurrent(true, arrayIndex);
-					execCmdCallback();
 				}
 				else
 				{
@@ -504,11 +470,13 @@ public:
 		m_bAutoScroll = true;
 		m_bScrollToBottom = false;
 
-		m_logCacheHandle = LoggerSystem::getDefaultLoggerSystem()->pushCallback([&](const std::string& info, ELogType type)
+		m_logCacheHandle = LoggerSystem::get()->pushCallback([&](const std::string& info, ELogType type)
 		{
 			this->addLog(info, type);
 		});
 	}
+
+	std::string Console_Title = "Console";
 
 	void draw()
 	{
@@ -524,24 +492,24 @@ public:
 				ImGui::Checkbox(std::format(" {} [{}] ", Name, numCount).c_str(), &visibility);
 			};
 
-			const std::string sFilterName = combineIcon(Console_Filter, ICON_CONSOLE_FILTER);
+			const std::string sFilterName = combineIcon("Filter", kIconConsoleFilter);
 			
 			m_filter.Draw(sFilterName.c_str(), 180);
 			ImGui::SameLine();
 
-			buttonLogTypeVisibilityToggle(ELogType::Trace, Console_LogTrace.imgui());
+			buttonLogTypeVisibilityToggle(ELogType::Trace, "Trace");
 			ImGui::SameLine();
 
-			buttonLogTypeVisibilityToggle(ELogType::Info, Console_LogInfo.imgui());
+			buttonLogTypeVisibilityToggle(ELogType::Info,  "Info");
 			ImGui::SameLine();
 
-			buttonLogTypeVisibilityToggle(ELogType::Warn, Console_LogWarn.imgui());
+			buttonLogTypeVisibilityToggle(ELogType::Warn, "Warn");
 			ImGui::SameLine();
 
-			buttonLogTypeVisibilityToggle(ELogType::Error, Console_LogError.imgui());
+			buttonLogTypeVisibilityToggle(ELogType::Error, "Error");
 			ImGui::SameLine();
 
-			buttonLogTypeVisibilityToggle(ELogType::Other, Console_LogOther.imgui());
+			buttonLogTypeVisibilityToggle(ELogType::Other, "Other");
 		}
 
 		ImGui::Separator();
@@ -562,7 +530,7 @@ public:
 		for (int i = 0; i < m_logItems.size(); i++)
 		{
 			const char* item = m_logItems[i].first.c_str();
-			if (!m_filter.PassFilter(item))
+			if (item == "" || !m_filter.PassFilter(item))
 				continue;
 
 			ImVec4 color;
@@ -638,8 +606,8 @@ public:
 		{
 			m_bLogItemMenuPopup = true;
 
-			std::string sCopyName = combineIcon(Console_CopyItem, ICON_CONSOLE_CLONE);
-			std::string sClearName = combineIcon(Console_ClearAll, ICON_CONSOLE_CLEAR);
+			std::string sCopyName  = combineIcon(" Copy  Item ", kIconConsoleClone);
+			std::string sClearName = combineIcon("Clear  All ", kIconConsoleClear);
 			if (ImGui::Selectable(sClearName.c_str()))
 			{
 				clearLog();
@@ -693,7 +661,7 @@ public:
 		TipPos.y = TipPos.y + WindowHeight - (m_activeCommands.size() + 2.5f) * ItemSize;
 
 		// CVar Input.
-		if (ImGui::InputText(Console_CVarIn.imgui(), m_inputBuffer, IM_ARRAYSIZE(m_inputBuffer), input_text_flags, &textEditCallbackStub, (void*)this))
+		if (ImGui::InputText("CVar Input", m_inputBuffer, IM_ARRAYSIZE(m_inputBuffer), input_text_flags, &textEditCallbackStub, (void*)this))
 		{
 			char* s = m_inputBuffer;
 			myStrtrim(s);
@@ -734,7 +702,7 @@ public:
 
 	void release()
 	{
-		LoggerSystem::getDefaultLoggerSystem()->popCallback(m_logCacheHandle);
+		LoggerSystem::get()->popCallback(m_logCacheHandle);
 
 		clearLog();
 		for (int i = 0; i < m_historyCommands.Size; i++)
@@ -771,9 +739,15 @@ public:
 
 // Widget console.
 
-WidgetConsole::WidgetConsole(Editor* editor) : Widget(editor, "Console")
+WidgetConsole::WidgetConsole() : WidgetBase(combineIcon("Console", kIconConsoleTitle).c_str(), combineIcon("Console", kIconConsoleTitle).c_str())
 {
 	m_console = std::make_unique<Console>();
+}
+
+const std::string& WidgetConsole::getShowName()
+{
+	static const auto name = combineIcon("Console", kIconConsoleTitle);
+	return name;
 }
 
 void WidgetConsole::onInit()
@@ -788,11 +762,12 @@ void WidgetConsole::onRelease()
 
 void WidgetConsole::onTick(const RuntimeModuleTickData& tickData, VulkanContext* context) 
 {
-	m_name = combineIcon(Console_Title, ICON_CONSOLE_CONSOLE_TITLE);
+	m_name = getShowName();
 }
 
 
 void WidgetConsole::onVisibleTick(const RuntimeModuleTickData& tickData)
 {
+	ZoneScoped;
 	m_console->draw();
 }

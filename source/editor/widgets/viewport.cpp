@@ -1,45 +1,51 @@
 #include "viewport.h"
-#include "imgui/ui.h"
-#include "imgui/region_string.h"
-#include "../editor.h"
-#include <imgui/imgui_impl_vulkan.h>
-#include <renderer/renderer_interface.h>
-#include <imgui/gizmo/ImGuizmo.h>
-#include <renderer/render_scene.h>
+#include "scene_outliner.h"
+#include "../selection.h"
+#include <scene/scene_manager.h>
+#include <scene/scene.h>
+#include "../builtin_resources.h"
 
 using namespace engine;
 using namespace engine::ui;
 
-RegionStringInit Viewport_Title("Viewport_Title", "Viewport", "Viewport");
-const static std::string ICON_VIEWPORT = ICON_FA_EARTH_ASIA;
+const static std::string kIconViewport = ICON_FA_EARTH_ASIA;
 
 static AutoCVarInt32 cVarEnableStatUnit("stat.unit", "Enable stat unit frame.", "stat", 1, CVarFlags::ReadAndWrite);
 static AutoCVarInt32 cVarEnableStatFrameGraph("stat.frameGraph", "Enable stat frame graph.", "stat", 1, CVarFlags::ReadAndWrite);
 
-ViewportWidget::ViewportWidget(Editor* editor)
-	: Widget(editor, "Viewport")
+
+
+static AutoCVarFloat cVarScreenPercentage(
+	"r.viewport.screenpercentage",
+	"set all deferred renderer screen percentage.",
+	"Render",
+	1.0f,
+	CVarFlags::ReadAndWrite);
+static float sCacheScreenPercentage = cVarScreenPercentage.get();
+
+ViewportWidget::ViewportWidget(size_t index)
+	: WidgetBase(
+		combineIcon("Viewport", kIconViewport).c_str(),
+		combineIcon(combineIndex("Viewport", index), kIconViewport).c_str())
 {
 
 }
 
 void ViewportWidget::onInit()
 {
-	m_name = combineIcon(Viewport_Title, ICON_VIEWPORT);
-
-	// Sampler prepare.
-	m_viewportImageSampler = m_context->getSamplerCache().createSampler(SamplerFactory::pointClampBorder0000());
-
 	// Camera prepare.
 	m_camera = std::make_unique<ViewportCamera>(this);
 
 	// Viewport renderer.
-	m_viewportRenderer = std::make_unique<DeferredRenderer>("ViewportRenderer", m_context, m_camera.get());
-	m_viewportRenderer->init();
-	m_viewportRendererDelegate = m_renderer->tickCmdFunctions.addLambda([this](const RuntimeModuleTickData& tickData, VkCommandBuffer graphicsCmd, VulkanContext*)
-	{
-		m_viewportRenderer->tick(tickData, graphicsCmd);
-	});
+	m_deferredRenderer = std::make_unique<DeferredRenderer>();
 
+	m_deferredRendererDelegate = m_renderer->tickCmdFunctions.addLambda([this](const RuntimeModuleTickData& tickData, VkCommandBuffer graphicsCmd, VulkanContext*)
+	{
+		if(m_bShow)
+		{
+			m_deferredRenderer->tick(tickData, graphicsCmd, m_camera.get());
+		}
+	});
 
 	m_flags = ImGuiWindowFlags_NoScrollWithMouse;
 }
@@ -52,11 +58,8 @@ void ViewportWidget::onTick(const engine::RuntimeModuleTickData& tickData, engin
 void ViewportWidget::onRelease()
 {
 	// Clear renderer.
-	m_renderer->tickCmdFunctions.remove(m_viewportRendererDelegate);
-	m_viewportRenderer->release();
-	m_viewportRenderer.reset();
-
-
+	m_renderer->tickCmdFunctions.remove(m_deferredRendererDelegate);
+	m_deferredRenderer.reset();
 }
 
 void ViewportWidget::beforeTick(const engine::RuntimeModuleTickData& tickData)
@@ -69,55 +72,12 @@ void ViewportWidget::afterTick(const engine::RuntimeModuleTickData& tickData)
 	ImGui::PopStyleVar(1);
 }
 
-void ViewportWidget::tryReleaseDescriptorSet(uint64_t tickTime)
+void ViewportWidget::drawProfileViewer(uint32_t width, uint32_t height)
 {
-	if (m_descriptorSet != VK_NULL_HANDLE)
-	{
-		m_lazyDestroy.push_back({ tickTime, m_descriptorSet });
-		m_descriptorSet = VK_NULL_HANDLE;
-	}
-
-	auto it = m_lazyDestroy.begin();
-	while (it != m_lazyDestroy.end())
-	{
-		if (it->tickTime + m_context->getSwapchain().getBackbufferCount() < tickTime)
-		{
-			ImGui_ImplVulkan_RemoveTexture(it->set);
-			it = m_lazyDestroy.erase(it);
-		}
-		else
-		{
-			++it;
-		}
-	}
-}
-
-void ViewportWidget::onVisibleTick(const engine::RuntimeModuleTickData& tickData)
-{
-	float width = math::ceil(ImGui::GetContentRegionAvail().x);
-	float height = math::ceil(ImGui::GetContentRegionAvail().y);
-	ImGui::BeginChild("ViewportChild", { width, height }, false, ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoDecoration);
-
-
-	ImVec2 startPos = ImGui::GetCursorPos();
-
-	ImGui::Image(m_descriptorSet, ImVec2(width, height));
-
-	bool bClickViewport = ImGui::IsItemClicked();
-	const auto minPos = ImGui::GetItemRectMin();
-	const auto maxPos = ImGui::GetItemRectMax();
-	const auto mousePos = ImGui::GetMousePos();
-
-	m_bMouseInViewport = ImGui::IsItemHovered();
-
-	m_camera->tick(tickData);
-	ImGui::SetCursorPos(startPos);
-	ImGui::NewLine();
-
 	ImGui::Indent(2.0f);
 	if (cVarEnableStatUnit.get() > 0)
 	{
-		const auto& timeStamps = m_viewportRenderer->getTimingValues();
+		const auto& timeStamps = m_deferredRenderer->getTimingValues();
 		const bool bTimeStampsAvailable = timeStamps.size() > 0;
 		if (bTimeStampsAvailable)
 		{
@@ -199,7 +159,6 @@ void ViewportWidget::onVisibleTick(const engine::RuntimeModuleTickData& tickData
 			ui::endGroupPanel();
 		};
 
-
 		const auto srcPos = ImGui::GetCursorPos();
 		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.0f);
 		ImGui::BeginDisabled();
@@ -211,184 +170,204 @@ void ViewportWidget::onVisibleTick(const engine::RuntimeModuleTickData& tickData
 		frameGraphView();
 	}
 	ImGui::Unindent();
+}
 
-	// Change viewport size, need rebuild set.
-	if (m_cacheWidth != width || m_cacheHeight != height || m_bShouldResize)
+void ViewportWidget::onVisibleTick(const engine::RuntimeModuleTickData& tickData)
+{
+	ZoneScoped;
+
+	float width = math::ceil(ImGui::GetContentRegionAvail().x);
+	float height = math::ceil(ImGui::GetContentRegionAvail().y);
+	ImGui::BeginChild("ViewportChild", { width, height }, false, ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoDecoration);
 	{
-		if (!ImGui::IsMouseDragging(0) || m_bShouldResize)
+		ImVec2 startPos = ImGui::GetCursorPos();
+
 		{
-			m_cacheWidth = width;
-			m_cacheHeight = height;
-			m_viewportRenderer->updateRenderSize(
-				uint32_t(width), uint32_t(height), m_viewportRenderer->getRenderPercentage(), 1.0f);
-
-			tryReleaseDescriptorSet(tickData.tickCount);
-
-			m_descriptorSet = ImGui_ImplVulkan_AddTexture(
-				m_viewportImageSampler,
-				m_viewportRenderer->getDisplayOrDebugOutput().getOrCreateView(buildBasicImageSubresource()),
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-			);
+			auto viewImageSet = Editor::get()->getClampToTransparentBorderImGuiTexture(&m_deferredRenderer->getOutputVulkanImage());
+			ImGui::Image(viewImageSet, ImVec2(width, height));
 		}
-	}
 
-	// Draw icons for special components.
-	bool bClickIcon = false;
-	{
-		const auto& projection = m_camera->getProjectMatrix();
-		const auto& view = m_camera->getViewMatrix();
-		const auto camViewProj = projection * view;
+		bool bClickViewport = ImGui::IsItemClicked();
+		const auto minPos = ImGui::GetItemRectMin();
+		const auto maxPos = ImGui::GetItemRectMax();
+		const auto mousePos = ImGui::GetMousePos();
 
-		const float kIconDim = 60.0f;
+		m_bMouseInViewport = ImGui::IsItemHovered();
 
-		auto scene = m_sceneManager->getActiveScene();
-		scene->loopNodeTopToDown([&](std::shared_ptr<SceneNode> node)
+		auto prevCamPos = m_camera->getPosition();
+		m_camera->tick(tickData);
+		if (m_camera->getPosition() != prevCamPos)
 		{
-			if(node->isRoot())
+			Editor::get()->setActiveViewportCameraPos(m_camera->getPosition());
+		}
+
+		ImGui::SetCursorPos(startPos);
+		ImGui::NewLine();
+
+		// Draw profile viewer.
+		drawProfileViewer(width, height);
+
+		// Change viewport size, need notify renderer change render size.
+		if (m_cacheWidth != width || m_cacheHeight != height || sCacheScreenPercentage != cVarScreenPercentage.get())
+		{
+			if (!ImGui::IsMouseDragging(0))
 			{
-				return;
+				m_cacheWidth = width;
+				m_cacheHeight = height;
+
+	
+
+				sCacheScreenPercentage = cVarScreenPercentage.get();
+				sCacheScreenPercentage = math::clamp(sCacheScreenPercentage, 1.0f, 3.0f);
+				cVarScreenPercentage.set(sCacheScreenPercentage);
+				m_deferredRenderer->updateDimension(uint32_t(width), uint32_t(height), sCacheScreenPercentage, 1.0f);
 			}
+		}
 
-			const math::vec4 worldPos = node->getTransform()->getWorldMatrix() * math::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-			math::vec4 projPos = camViewProj * worldPos;
+		// Draw icons for special components.
+		bool bClickIcon = false;
+		{
+			const auto& projection = m_camera->getProjectMatrix();
+			const auto& view = m_camera->getViewMatrix();
+			const auto camViewProj = projection * view;
 
-			projPos.x = projPos.x / projPos.w;
-			projPos.y = projPos.y / projPos.w;
-			projPos.z = projPos.z / projPos.w;
-			projPos.x = projPos.x * 0.5f + 0.5f;
-			projPos.y = projPos.y * 0.5f + 0.5f;
+			const float kIconDim = 60.0f;
+			const auto* builtinResources = Editor::get()->getBuiltinResources();
 
-			if (projPos.z > 0.0f && projPos.z < 1.0f)
+			auto scene = getSceneManager()->getActiveScene();
+
+			ImTextureID image = Editor::get()->getClampToTransparentBorderImGuiTexture(
+				builtinResources->pawnImage.get());
+			scene->loopNodeTopToDown([&](std::shared_ptr<SceneNode> node)
 			{
-				int32_t screenPosX = int32_t(projPos.x * width + startPos.x);
-				int32_t screenPosY = int32_t((1.0 - projPos.y) * height + startPos.y);
-
-				ImGui::SetCursorPosX(screenPosX - kIconDim * 0.5);
-				ImGui::SetCursorPosY(screenPosY - kIconDim * 0.5);
-
-				VkDescriptorSet set;
-				if (node->getType() == SceneNode::EType::Default)
+				if (node->isRoot())
 				{
-					set = Editor::get()->getClampToTransparentBorderSet(Editor::get()->getBuiltinAssets()->userImage.get());
-				}
-				else if (node->getType() == SceneNode::EType::Sky)
-				{
-					set = Editor::get()->getClampToTransparentBorderSet(Editor::get()->getBuiltinAssets()->sunImage.get());
-				}
-				else if (node->getType() == SceneNode::EType::Postprocess)
-				{
-					set = Editor::get()->getClampToTransparentBorderSet(Editor::get()->getBuiltinAssets()->postImage.get());
-				}
-				else
-				{
-					CHECK_ENTRY();
+					return;
 				}
 
-
-				ImGui::BeginGroup();
-				ImGui::Image(set, { kIconDim, kIconDim });
-				ImGui::EndGroup();
-				if (ImGui::IsItemClicked())
+				auto drawImage = image;
+				if (node->getName().starts_with("Postprocess"))
 				{
-					m_editor->getSceneNodeSelections().clearSelections();
-					m_editor->getSceneNodeSelections().addSelected(SceneNodeSelctor(node));
-					bClickIcon = true;
+					drawImage = Editor::get()->getClampToTransparentBorderImGuiTexture(
+						builtinResources->postImage.get());
 				}
-			}
-		}, scene->getRootNode());
-	}
+				else if (node->getName().starts_with("Sky"))
+				{
+					drawImage = Editor::get()->getClampToTransparentBorderImGuiTexture(
+						builtinResources->sunImage.get());
+				}
 
-	if (bClickViewport && (!bClickIcon) && (!ImGuizmo::IsUsing()) && (!ImGuizmo::IsOver()))
-	{
-		math::ivec2 samplePos = { mousePos.x - minPos.x, mousePos.y - minPos.y };
-		samplePos.x = math::clamp(samplePos.x, 0, int32_t(width) - 1);
-		samplePos.y = math::clamp(samplePos.y, 0, int32_t(height) - 1);
+				const math::vec4 worldPos = node->getTransform()->getWorldMatrix() * math::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+				math::vec4 projPos = camViewProj * worldPos;
 
-		m_viewportRenderer->markCurrentFramePick(samplePos, [&](uint32_t pickId)
+				projPos.x = projPos.x / projPos.w;
+				projPos.y = projPos.y / projPos.w;
+				projPos.z = projPos.z / projPos.w;
+				projPos.x = projPos.x * 0.5f + 0.5f;
+				projPos.y = projPos.y * 0.5f + 0.5f;
+
+				if (projPos.z > 0.0f && projPos.z < 1.0f)
+				{
+					int32_t screenPosX = int32_t(projPos.x * width + startPos.x);
+					int32_t screenPosY = int32_t((1.0 - projPos.y) * height + startPos.y);
+
+					ImGui::SetCursorPosX(screenPosX - kIconDim * 0.5);
+					ImGui::SetCursorPosY(screenPosY - kIconDim * 0.5);
+
+					ImGui::BeginGroup();
+					ImGui::Image(drawImage, { kIconDim, kIconDim });
+					ImGui::EndGroup();
+					if (ImGui::IsItemClicked())
+					{
+						Editor::get()->getSceneOutlineWidegt()->getSelection().clear();
+						Editor::get()->getSceneOutlineWidegt()->getSelection().add(SceneNodeSelctor(node));
+						bClickIcon = true;
+					}
+				}
+			}, scene->getRootNode());
+		}
+
+		if (bClickViewport && (!bClickIcon) && (!ImGuizmo::IsUsing()) && (!ImGuizmo::IsOver()))
+		{
+			math::ivec2 samplePos = { mousePos.x - minPos.x, mousePos.y - minPos.y };
+			samplePos.x = math::clamp(samplePos.x, 0, int32_t(width) - 1);
+			samplePos.y = math::clamp(samplePos.y, 0, int32_t(height) - 1);
+
+			m_deferredRenderer->markCurrentFramePick(samplePos, [&](uint32_t pickId)
 			{
-				m_editor->getSceneNodeSelections().clearSelections();
+				Editor::get()->getSceneOutlineWidegt()->clearSelection();
 
 				if (pickId != 0)
 				{
-					auto node = m_sceneManager->getActiveScene()->getNodeById(pickId);
+					auto node = getSceneManager()->getActiveScene()->getNode(pickId);
 					if (node)
 					{
-						m_editor->getSceneNodeSelections().addSelected(SceneNodeSelctor(node));
+						Editor::get()->getSceneOutlineWidegt()->getSelection().add(SceneNodeSelctor(node));
 					}
 				}
 			});
-	}
+		}
 
-	// Draw transform handle when scene node selected.
-	if (m_editor->getSceneNodeSelected().size() == 1)
-	{
-		// Mode switch.
-		if (!m_camera->isControlingCamera())
+		// Draw transform handle when scene node selected.
+		if (Editor::get()->getSceneOutlineWidegt()->getSelection().getNum() == 1)
 		{
-			if (ImGui::IsKeyPressed(ImGuiKey_W))
+			// Mode switch.
+			if (!m_camera->isControlingCamera())
 			{
-				m_transformHandler.operation = ImGuizmo::TRANSLATE;
+				if (ImGui::IsKeyPressed(ImGuiKey_W))
+				{
+					m_transformHandler.operation = ImGuizmo::TRANSLATE;
+				}
+				else if (ImGui::IsKeyPressed(ImGuiKey_E))
+				{
+					m_transformHandler.operation = ImGuizmo::ROTATE;
+				}
+				else if (ImGui::IsKeyPressed(ImGuiKey_R))
+				{
+					m_transformHandler.operation = ImGuizmo::SCALE;
+				}
 			}
-			else if (ImGui::IsKeyPressed(ImGuiKey_E))
+
+			m_transformHandler.mode = ImGuizmo::WORLD;
+
+			ImGuizmo::SetOrthographic(m_transformHandler.bOrthographic);
+			ImGuizmo::SetDrawlist();
+			ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, width, height);
+
+			// Get some data
+			const auto& projection = m_camera->getImGizmoProjectMatrix();
+			const auto& view = m_camera->getViewMatrix();
+
+			const bool bShiftDown = ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_RightShift);
+			const float snapValue = m_transformHandler.getSnap();
+			const float snapValues[3] = { snapValue, snapValue, snapValue };
+
+			if (auto node = Editor::get()->getSceneOutlineWidegt()->getSelection().getElem(0).node.lock())
 			{
-				m_transformHandler.operation = ImGuizmo::ROTATE;
-			}
-			else if (ImGui::IsKeyPressed(ImGuiKey_R))
-			{
-				m_transformHandler.operation = ImGuizmo::SCALE;
+				math::mat4 transform = node->getTransform()->getWorldMatrix();
+
+				ImGuizmo::Manipulate(glm::value_ptr(view),
+					glm::value_ptr(projection),
+					m_transformHandler.operation,
+					m_transformHandler.mode,
+					glm::value_ptr(transform),
+					nullptr,
+					bShiftDown ? snapValues : nullptr);
+
+				if (ImGuizmo::IsUsing())
+				{
+					node->getTransform()->setMatrix(transform);
+				}
 			}
 		}
 
-		m_transformHandler.mode = ImGuizmo::WORLD;
 
-		ImGuizmo::SetOrthographic(m_transformHandler.bOrthographic);
-		ImGuizmo::SetDrawlist();
-		ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, width, height);
-
-		// Get some data
-		const auto& projection = m_camera->getImGizmoProjectMatrix();
-		const auto& view = m_camera->getViewMatrix();
-
-		const bool bShiftDown = ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_RightShift);
-		const float snapValue = m_transformHandler.getSnap();
-		const float snapValues[3] = { snapValue, snapValue, snapValue };
-
-		if (auto node = m_editor->getSceneNodeSelected()[0].node.lock())
-		{
-			math::mat4 transform = node->getTransform()->getWorldMatrix();
-
-
-			ImGuizmo::Manipulate(glm::value_ptr(view),
-				glm::value_ptr(projection),
-				m_transformHandler.operation,
-				m_transformHandler.mode,
-				glm::value_ptr(transform),
-				nullptr,
-				bShiftDown ? snapValues : nullptr);
-
-			if (ImGuizmo::IsUsing())
-			{
-				node->getTransform()->setMatrix(transform);
-			}
-		}
 	}
-
 	ImGui::EndChild();
-
-
-	m_bShouldResize = false;
 }
 
 
-struct EditTransformWidget
-{
-	ImGuizmo::OPERATION operation = ImGuizmo::TRANSLATE;
-	ImGuizmo::MODE mode = ImGuizmo::WORLD;
-
-};
-
-////////////////////////////////////////////////////////////////////
-
+//////////////////////////////////////////////////////////////////////////////////
 // Viewport camera.
 void ViewportCamera::updateCameraVectors()
 {
@@ -471,7 +450,7 @@ void ViewportCamera::tick(const RuntimeModuleTickData& tickData)
 	size_t renderWidth = size_t(m_viewport->getRenderWidth());
 	size_t renderHeight = size_t(m_viewport->getRenderHeight());
 
-	const auto& windowData = Framework::get()->getWindowData();
+	const auto& windowData = Engine::get()->getGLFWWindows()->getData();
 	float dt = tickData.deltaTime;
 
 	// prepare view size.
@@ -542,7 +521,7 @@ void ViewportCamera::tick(const RuntimeModuleTickData& tickData)
 		m_lastY = windowData.getMouseY();
 
 		processMouseMovement(xoffset, yoffset);
-		processMouseScroll(windowData.getScrollOffset().y);
+		processMouseScroll(ImGui::GetIO().MouseWheel);
 
 		if (windowData.isKeyPressed(Key::W))
 		{
@@ -575,7 +554,7 @@ void ViewportCamera::updateMatrixMisc()
 	// reverse z.
 	m_projectMatrix = math::perspective(m_fovy, getAspect(), m_zFar, m_zNear);
 
-
+	// Prepare project matrix for imgui gizmo.
 	m_imgizmoProjection = math::perspectiveRH_NO(
 		m_fovy,
 		getAspect(),

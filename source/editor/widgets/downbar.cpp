@@ -1,24 +1,15 @@
 #include "downbar.h"
 
-#include "../editor.h"
-
-#include <imgui/region_string.h>
-
 using namespace engine;
 using namespace engine::ui;
 
 #pragma warning(disable: 4996)
 
-#include <imgui/imgui.h>
-#include <imgui/imgui_internal.h>
-
-DownbarWidget::DownbarWidget(Editor* editor)
-	: Widget(editor, "##Downbar")
+DownbarWidget::DownbarWidget()
+	: WidgetBase("##Downbar", "##Downbar")
 {
 	m_bShow = false;
 }
-
-
 
 using TimePoint = std::chrono::system_clock::time_point;
 inline std::string downbarSerializeTimePoint(const TimePoint& time, const std::string& format)
@@ -29,8 +20,6 @@ inline std::string downbarSerializeTimePoint(const TimePoint& time, const std::s
 	ss << std::put_time(&tm, format.c_str());
 	return ss.str();
 }
-
-
 
 bool beginDownBar(float heightScale, const char* name)
 {
@@ -71,6 +60,8 @@ void endDownBar()
 
 void DownbarWidget::draw(bool bNewWindow, const engine::RuntimeModuleTickData& tickData, engine::VulkanContext* context, const std::string& name, ImGuiID ID)
 {
+	ZoneScoped;
+
 	bool hide = true;
 
 	static ImGuiWindowFlags flag =
@@ -106,9 +97,12 @@ void DownbarWidget::draw(bool bNewWindow, const engine::RuntimeModuleTickData& t
 		fps = glm::clamp(tickData.smoothFps, 0.0f, 999.0f);
 		std::stringstream ss;
 		ss << std::setw(4) << std::left << std::setfill(' ') << std::fixed << std::setprecision(0) << fps;
-		fpsText = "Studio Ticking " + ss.str() + "FPS";
+		fpsText = "Studio Ticking: " + ss.str() + "FPS";
 	}
 
+	ImGui::PushStyleColor(ImGuiCol_FrameBg, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+	ImGui::PushStyleColor(ImGuiCol_Border, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
+	ImGui::PushStyleColor(ImGuiCol_BorderShadow, ImGui::GetStyleColorVec4(ImGuiCol_MenuBarBg));
 	if (beginDownBar(0.98f, std::format("##ViewportName: {}", name).c_str()))
 	{
 		// draw engine info
@@ -116,7 +110,7 @@ void DownbarWidget::draw(bool bNewWindow, const engine::RuntimeModuleTickData& t
 			TimePoint input = std::chrono::system_clock::now();
 			std::string name = downbarSerializeTimePoint(input, "%Y/%m/%d %H:%M:%S");
 
-			static const std::string sDevName = "MikuMikuStudio-Alpha-Ver0.0.0";
+			static const std::string sDevName = "DarkEngine-Alpha-Ver0.0.0";
 			ImGui::Text(sDevName.c_str());
 			ImGui::Text(name.c_str());
 		}
@@ -160,8 +154,10 @@ void DownbarWidget::draw(bool bNewWindow, const engine::RuntimeModuleTickData& t
 			}
 		}
 
+		ImGui::PopStyleColor(3);
 		endDownBar();
 	}
+
 
 	if (bNewWindow)
 	{

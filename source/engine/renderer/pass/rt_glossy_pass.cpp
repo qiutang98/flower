@@ -1,1 +1,0 @@
-// Glossy reflection using hardware ray tracing.

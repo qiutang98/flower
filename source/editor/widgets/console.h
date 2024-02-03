@@ -1,12 +1,14 @@
 #pragma once
-#include "../widget.h"
+#include "../editor.h"
 
 class Console;
 
-class WidgetConsole : public Widget
+class WidgetConsole : public engine::WidgetBase
 {
 public:
-	WidgetConsole(Editor* editor);
+	WidgetConsole();
+
+	static const std::string& getShowName();
 
 protected:
 	// event init.

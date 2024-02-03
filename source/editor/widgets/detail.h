@@ -1,15 +1,13 @@
 #pragma once
 
-#include "../widget.h"
-#include <imgui/imgui.h>
-#include <imgui/imgui_internal.h>
-#include <asset/asset.h>
-#include <utf8/cpp17.h>
 
-class WidgetDetail : public Widget
+#include "../editor.h"
+#include "scene_outliner.h"
+
+class WidgetDetail : public engine::WidgetBase
 {
 public:
-	WidgetDetail(Editor* editor);
+	WidgetDetail(size_t index);
 	virtual ~WidgetDetail() noexcept;
 
 protected:
@@ -28,6 +26,14 @@ protected:
 	void drawComponent(std::shared_ptr<engine::SceneNode> node);
 
 private:
+	void onOutlinerSelectionChange(Selection<SceneNodeSelctor>& selector);
+
+private:
 	ImGuiTextFilter m_filter;
+
+
+	Selection<SceneNodeSelctor>* m_selector = nullptr;
+
+	engine::DelegateHandle m_onSelectorChange;
 };
 

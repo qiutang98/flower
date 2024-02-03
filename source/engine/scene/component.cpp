@@ -1,9 +1,16 @@
 #include "component.h"
 #include "scene_node.h"
-#include "scene_graph.h"
+#include "scene.h"
 
 namespace engine
 {
+	const UIComponentReflectionDetailed& 
+	Component::uiComponentReflection()
+	{
+		static UIComponentReflectionDetailed reflection { };
+		return reflection;
+	}
+
 	void Component::setNode(std::weak_ptr<SceneNode> node)
 	{
 		m_node = node;
@@ -21,6 +28,6 @@ namespace engine
 
 	void Component::markDirty()
 	{
-		m_node.lock()->getScene()->setDirty(true);
+		m_node.lock()->getScene()->markDirty();
 	}
 }

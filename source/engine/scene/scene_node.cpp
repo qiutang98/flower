@@ -1,24 +1,23 @@
 #include "scene_node.h"
-#include "scene_graph.h"
+#include "scene.h"
+#include <editor/widgets/scene_outliner.h>
+#include <editor/selection.h>
+#include <editor/editor.h>
 
 namespace engine
 {
     SceneNode::~SceneNode()
     {
         LOG_TRACE("SceneNode {0} with GUID {1} destroy.", m_name.c_str(), m_id);
-        if (auto scene = m_scene.lock())
-        {
-            scene->m_nodeCount--;
-        }
     }
 
-    std::shared_ptr<SceneNode> SceneNode::create(const size_t id, const std::string& name, std::shared_ptr<Scene> scene)
+    std::shared_ptr<SceneNode> SceneNode::create(
+        const size_t id, const std::string& name, std::shared_ptr<Scene> scene)
     {
         auto res = std::make_shared<SceneNode>();
 
         res->m_id = id;
         res->m_name = name;
-        res->m_runTimeIdName = std::to_string(id);
 
         res->setComponent(std::make_shared<Transform>(res));
         res->m_scene = scene;
@@ -42,6 +41,7 @@ namespace engine
             comp.second->onGameBegin();
         }
     }
+
     void SceneNode::onGameStop()
     {
         for (auto& comp : m_components)
@@ -49,6 +49,7 @@ namespace engine
             comp.second->onGameStop();
         }
     }
+
     void SceneNode::onGameContinue()
     {
         for (auto& comp : m_components)
@@ -56,6 +57,7 @@ namespace engine
             comp.second->onGameContinue();
         }
     }
+
     void SceneNode::onGamePause()
     {
         for (auto& comp : m_components)
@@ -64,14 +66,15 @@ namespace engine
         }
     }
 
-    void SceneNode::removeComponent(const char* type)
+    void SceneNode::removeComponent(const std::string& id)
     {
-        m_components.erase(type);
+        m_components.erase(id);
+        markDirty();
     }
 
     void SceneNode::markDirty()
     {
-        m_scene.lock()->setDirty();
+        m_scene.lock()->markDirty();
     }
 
     bool SceneNode::canSetNewVisibility()
@@ -104,6 +107,8 @@ namespace engine
             {
                 child->setVisibilityImpl(bState, true);
             }
+
+            markDirty();
         }
     }
 
@@ -125,6 +130,8 @@ namespace engine
             {
                 child->setStaticImpl(bState, true);
             }
+
+            markDirty();
         }
     }
 
@@ -133,9 +140,14 @@ namespace engine
         return m_id == Scene::kRootId;
     }
 
-    std::shared_ptr<Component> SceneNode::getComponent(const char* id)
+    bool SceneNode::editorSelected()
     {
-        if(m_components.contains(id))
+        return Editor::get()->getSceneOutlineWidegt()->getSelection().isSelected(SceneNodeSelctor(shared_from_this()));
+    }
+
+    std::shared_ptr<Component> SceneNode::getComponent(const std::string& id)
+    {
+        if (m_components.contains(id))
         {
             return m_components[id];
         }
@@ -145,7 +157,7 @@ namespace engine
         }
     }
 
-    bool SceneNode::hasComponent(const char* id)
+    bool SceneNode::hasComponent(const std::string& id) const
     {
         return m_components.count(id) > 0;
     }
@@ -153,19 +165,19 @@ namespace engine
     bool SceneNode::setName(const std::string& in)
     {
         auto scene = m_scene.lock();
-        CHECK(scene && "scene can't be null if node still alive.");
+        ASSERT(scene, "scene can't be null if node still alive.");
 
         if (in != m_name)
         {
             m_name = in;
-            scene->setDirty();
+            scene->markDirty();
             return true;
         }
         return false;
     }
 
     // node is son of this node?
-    bool SceneNode::isSon(std::shared_ptr<SceneNode> node)
+    bool SceneNode::isSon(std::shared_ptr<SceneNode> node) const
     {
         if (node->isRoot())
         {
@@ -190,7 +202,7 @@ namespace engine
     }
 
     // node is the direct son of this node.
-    bool SceneNode::isSonDirectly(std::shared_ptr<SceneNode> node)
+    bool SceneNode::isSonDirectly(std::shared_ptr<SceneNode> node) const
     {
         if (node->isRoot())
         {
@@ -201,23 +213,10 @@ namespace engine
         return nodeP->getId() == m_id;
     }
 
-    void SceneNode::updateDepth()
-    {
-        if (auto parent = m_parent.lock())
-        {
-            m_depth = parent->m_depth + 1;
-            for (auto& child : m_children)
-            {
-                child->updateDepth();
-            }
-        }
-    }
-
     void SceneNode::addChild(std::shared_ptr<SceneNode> child)
     {
         m_children.push_back(child);
-        auto scene = m_scene.lock();
-        scene->setDirty();
+        markDirty();
     }
 
     // Set p as this node's new parent.
@@ -251,10 +250,9 @@ namespace engine
         p->addChild(shared_from_this());
 
         // Only update this node depth.
-        updateDepth();
         getTransform()->invalidateWorldMatrix();
 
-        m_scene.lock()->setDirty();
+        markDirty();
     }
 
     void SceneNode::removeChild(std::shared_ptr<SceneNode> o)
@@ -277,16 +275,22 @@ namespace engine
             m_children.pop_back();
         }
 
-        m_scene.lock()->setDirty();
+        markDirty();
     }
 
-    void SceneNode::selfDelete()
+
+    bool SceneNode::unparent()
     {
-        // when the parent's child ownership lost.
-        // this node will reset automatically and all it's children reset recursive.
         if (auto parent = m_parent.lock())
         {
+            markDirty();
+
             parent->removeChild(getId());
+            m_parent = {};
+
+            return true;
         }
+
+        return false;
     }
 }

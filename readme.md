@@ -1,5 +1,7 @@
 # Miku Fan-Made Free MikuMikuDacne Renderer
 
+![](readme_assets/Snipaste_2024-02-03_15-32-23.png)
+
 ![](capture/Snipaste_2023-06-24_19-26-36.png)
 
 ![](capture/Snipaste_2023-02-06_10-39-57.png)
@@ -33,8 +35,6 @@
 ![](capture/20221231.png)
 
 ![](capture/Snipaste_2022-02-07_21-56-08.png)
-
-![](capture/Snipaste_2022-12-20_00-58-17.png)
 
 ![](capture/Snipaste_2022-05-18_23-56-08.png)
 

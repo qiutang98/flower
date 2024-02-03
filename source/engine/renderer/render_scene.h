@@ -1,85 +1,118 @@
 #pragma once
-
-#include <util/util.h>
-#include <rhi/rhi.h>
-#include <scene/scene_archive.h>
+#include "../utils/utils.h"
+#include "../graphics/context.h"
+#include "../utils/camera_interface.h"
+#include <common_header.h>
 
 namespace engine
 {
-    class SceneManager;
-    class RenderScene : NonCopyable
-    {
-    public:
-        RenderScene(VulkanContext* context, SceneManager* sceneManager);
-        ~RenderScene();
+	class SkyComponent;
+	class PostprocessComponent;
+	class ReflectionProbeComponent;
+	class LandscapeComponent;
 
-        // Upadte collect scene infos. often called before all renderer logic.
-        void tick(const RuntimeModuleTickData& tickData, VkCommandBuffer cmd);
+	extern int32_t getShadowDepthDimTerrain();
+	extern int32_t getShadowDepthDimCloud();
 
-        // Static mesh infos.
-        bool isStaticMeshExist() const { return !m_staticmeshObjects.empty(); }
-        const auto& getStaticMeshObjects() const { return m_staticmeshObjects; }
-        BufferParameterHandle& getStaticMeshObjectsGPU() { return m_staticmeshObjectsGPU; }
-        const BufferParameterHandle& getStaticMeshObjectsGPU() const { return m_staticmeshObjectsGPU; }
+	struct AABBBounds
+	{
+		AABBBounds()
+		{
+			min = vec3(std::numeric_limits<float>::max());
+			max = vec3(std::numeric_limits<float>::lowest());
+		}
 
-        // Sky infos.
-        bool isSkyExist() const { return m_sky.lock() != nullptr; }
-        std::shared_ptr<SkyComponent> getSky() { return m_sky.lock(); }
-        const auto& getSkyGPU() const { return m_skyGPU; }
+		void transform(mat4 transformMatrix);
 
-        bool shouldRenderSDSM() const;
+		vec3 min;
+		vec3 max;
+	};
 
-        const auto& getPostprocessVolumeSetting() const
-        {
-            return m_postprocessVolumeInfo;
-        }
+	// Render scene collect perframe scene info.
+	class RenderScene : NonCopyable
+	{
+	public:
+		void tick(const RuntimeModuleTickData& tickData, VkCommandBuffer cmd);
 
-        bool isTerrainExist() const { return !m_terrainComponents.empty(); }
-        auto& getTerrains() { return m_terrainComponents; }
+		// Get objects.
+		auto& getObjectCollector() { return m_perFrameCollect.objects; }
 
-        bool isPMXExist() const { return !m_collectPMXes.empty(); }
-        auto& getPMXes() { return m_collectPMXes; }
+		const auto& getObjectCollector() const { return m_perFrameCollect.objects; }
 
-        bool isASValid() const;
-        TLASBuilder* getAS() { return &m_tlas; }
-        void unvalidAS() { m_tlas.destroy(); }
+		BufferParameterHandle getObjectBufferGPU() const { return m_perFrameCollect.objectsBufferGPU; }
 
-        bool isMMDCameraExist() const { return m_mmdCamera.lock() != nullptr; }
-        void fillMMDCameraInfo(GPUPerFrameData& data, float width, float height);
+		// Get sky.
+		SkyComponent* getSkyComponent() const { return m_perFrameCollect.skyComponent; }
 
-    private:
-        void renderObjectCollect(const RuntimeModuleTickData& tickData, class Scene* scene, VkCommandBuffer cmd);
+		// Get post.
+		PostprocessComponent* getPostprocessComponent() const 
+		{ 
+			return m_perFrameCollect.postprocessingComponent; 
+		}
 
-        void lightCollect(class Scene* scene, VkCommandBuffer cmd);
+		// Get landscape.
+		LandscapeComponent* getLandscape() const
+		{
+			return m_perFrameCollect.landscape;
+		}
 
-        void tlasPrepare(const RuntimeModuleTickData& tickData, class Scene* scene, VkCommandBuffer cmd);
+		const auto& getReflections() const { return m_perFrameCollect.reflections; }
 
-    private:
-        VulkanContext* m_context;
-        SceneManager* m_sceneManager;
+		// Accelerate struct valid or not.
+		bool isTLASValid() const;
 
-        // Static mesh object info in scene.
-        std::vector<GPUStaticMeshPerObjectData> m_staticmeshObjects;
-        BufferParameterHandle m_staticmeshObjectsGPU;
+		TLASBuilder* getTLAS() { return &m_tlas; }
 
-        // Sky object info in scene. current only support one sky.
-        GPUSkyInfo m_skyGPU;
-        std::weak_ptr<SkyComponent> m_sky;
+		// Unvalid Accelerate struct.
+		void unvalidTLAS() { m_tlas.destroy(); }
 
-        // Submesh map scene nodes, only collect when require pick.
-        std::unordered_map<uint32_t, class SceneNode*> m_submeshIdMapNodes;
+		auto& getBLASObjectCollector() { return m_perFrameCollect.cacheASInstances; }
 
-        // Scene postprocessing volume info.
-        PostprocessVolumeSetting m_postprocessVolumeInfo;
+		void markTLASFullRebuild() { m_perFrameCollect.bTLASFullRebuild = true; }
 
-        std::vector<std::weak_ptr<TerrainComponent>> m_terrainComponents;
+		void fillPerframe(PerFrameData& inout, const RuntimeModuleTickData& tickData);
+		auto& getAABBBounds() { return m_perFrameCollect.sceneStaticMeshAABB; }
 
-        // PMX collect components.
-        std::vector<std::weak_ptr<PMXComponent>> m_collectPMXes;
+		auto& getDebugLineDrawer() { return m_perFrameCollect.drawLineCPU; }
 
-        TLASBuilder m_tlas;
-        std::vector<VkAccelerationStructureInstanceKHR> m_cacheASInstances;
+		void drawAABB(vec3 center, vec3 extents);
+		void drawAABBminMax(vec3 min, vec3 max);
 
-        std::weak_ptr<MMDCameraComponent> m_mmdCamera;
-    };
+		void clearAllReflectionCapture() { m_bClearAllRelfectionInThisLoop = true; }
+
+	private:
+		void tlasPrepare(const RuntimeModuleTickData& tickData, class Scene* scene, VkCommandBuffer cmd);
+
+
+	private:
+		struct PerFrameCollect
+		{
+			// Collect scene objects.
+			std::vector<PerObjectInfo> objects = {};
+			AABBBounds sceneStaticMeshAABB = {};
+
+			std::vector<vec4> drawLineCPU = {};
+
+			BufferParameterHandle objectsBufferGPU = nullptr;
+
+			// Sky component used for rendering.
+			SkyComponent* skyComponent = nullptr;
+
+			// Postprocessing component.
+			PostprocessComponent* postprocessingComponent = nullptr;
+
+			bool bTLASFullRebuild = false;
+			std::vector<VkAccelerationStructureInstanceKHR> cacheASInstances = {};
+
+			std::vector<ReflectionProbeComponent*> reflections;
+
+			LandscapeComponent* landscape;
+
+		} m_perFrameCollect;
+
+
+		TLASBuilder m_tlas;
+		bool m_bClearAllRelfectionInThisLoop = true;
+
+	};
 }

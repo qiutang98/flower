@@ -1,105 +1,309 @@
 #include "scene.h"
-#include <asset/asset_system.h>
+#include <rttr/registration.h>
+#include "../ui/ui.h"
+
+#include "../serialization/serialization.h"
 
 namespace engine
 {
-	void SceneManager::registerCheck(Engine* engine)
+
+	Scene::Scene(const AssetSaveInfo& saveInfo)
+		: AssetInterface(saveInfo)
 	{
 
 	}
 
-	bool SceneManager::init()
+	const Scene* Scene::getCDO()
 	{
-		m_onGameBeginHandle = m_engine->onGameStart.addLambda([this] { onGameBegin(); });
-		m_onGamePauseHandle = m_engine->onGamePause.addLambda([this] { onGamePause(); });
-		m_onGameContinueHandle = m_engine->onGameContinue.addLambda([this] { onGameContinue(); });
-		m_onGameEndHandle = m_engine->onGameStop.addLambda([this] { onGameStop(); });
-		return true;
+		static const Scene kSceneCDO = {};
+		return &kSceneCDO;
 	}
 
-	bool SceneManager::tick(const RuntimeModuleTickData& tickData)
+	void Scene::onPostAssetConstruct()
 	{
-		getActiveScene()->tick(tickData);
-
-		return true;
+		m_root = createNode(kRootId, "Root");
 	}
 
-	void SceneManager::release()
+	VulkanImage* Scene::getSnapshotImage()
 	{
-		releaseScene();
+		static auto* icon = &getContext()->getBuiltinTexture(EBuiltinTextures::sceneIcon)->getSelfImage();
 
-		m_engine->onGameStart.remove(m_onGameBeginHandle);
-		m_engine->onGamePause.remove(m_onGamePauseHandle);
-		m_engine->onGameContinue.remove(m_onGameContinueHandle);
-		m_engine->onGameStop.remove(m_onGameEndHandle);
-
+		return icon;
 	}
 
-	void SceneManager::onGameBegin()
+	const AssetReflectionInfo& Scene::uiGetAssetReflectionInfo()
 	{
-		getActiveScene()->onGameBegin();
-	}
-
-	void SceneManager::onGamePause()
-	{
-		getActiveScene()->onGamePause();
-	}
-
-	void SceneManager::onGameStop()
-	{
-		getActiveScene()->onGameStop();
-	}
-
-
-	void SceneManager::onGameContinue()
-	{
-		getActiveScene()->onGameContinue();
-	}
-
-
-	std::shared_ptr<Scene> SceneManager::getActiveScene()
-	{
-		if (m_scene == nullptr)
+		const static AssetReflectionInfo kInfo =
 		{
-			m_scene = Scene::create();
-			m_scene->init();
-			m_scene->setDirty(false);
+			.name = "Scene",
+			.icon = ICON_FA_CHESS_KING,
+			.decoratedName = std::string("  ") + ICON_FA_CHESS_KING + std::string("     Scene"),
+			.importConfig = { .bImportable = false, }
+		};
+		return kInfo;
+	}
+
+	bool Scene::assetIsScene(const char* ext)
+	{
+		if (ext == getCDO()->getSuffix())
+		{
+			return true;
+		}
+		return false;
+	}
+
+	std::shared_ptr<SceneNode> Scene::createNode(size_t id, const std::string& name)
+	{
+		auto node = SceneNode::create(id, name, getptr<Scene>());
+		CHECK(!m_sceneNodes[node->getId()].lock());
+		m_sceneNodes[node->getId()] = node;
+
+		return node;
+	}
+
+	size_t Scene::requireSceneNodeId()
+	{
+		ASSERT(m_currentId < std::numeric_limits<uint>::max(), "GUID max than max object id value.");
+
+		m_currentId++;
+		return m_currentId;
+	}
+
+	void Scene::tick(const RuntimeModuleTickData& tickData)
+	{
+		// All node tick.
+		loopNodeTopToDown([tickData](std::shared_ptr<SceneNode> node)
+			{
+				node->tick(tickData);
+			}, m_root);
+	}
+
+	void Scene::onGameBegin()
+	{
+		loopNodeTopToDown([](std::shared_ptr<SceneNode> node)
+			{
+				node->onGameBegin();
+			}, m_root);
+	}
+
+	void Scene::onGameStop()
+	{
+		loopNodeTopToDown([](std::shared_ptr<SceneNode> node)
+			{
+				node->onGameStop();
+			}, m_root);
+	}
+
+	void Scene::onGameContinue()
+	{
+		loopNodeTopToDown([](std::shared_ptr<SceneNode> node)
+			{
+				node->onGameContinue();
+			}, m_root);
+	}
+
+	void Scene::onGamePause()
+	{
+		loopNodeTopToDown([](std::shared_ptr<SceneNode> node)
+			{
+				node->onGamePause();
+			}, m_root);
+	}
+
+	void Scene::deleteNode(std::shared_ptr<SceneNode> node)
+	{
+		// Delete node will erase node loop from top to down.
+		loopNodeTopToDown(
+			[&](std::shared_ptr<SceneNode> nodeLoop)
+			{
+				m_sceneNodes.erase(nodeLoop->getId());
+			},
+			node);
+
+		// Cancel node's parent relationship.
+		node->unparent();
+
+		markDirty();
+	}
+
+	std::shared_ptr<SceneNode> Scene::createNode(const std::string& name, std::shared_ptr<SceneNode> parent)
+	{
+		// Use require id to avoid guid repeat problem.
+		auto result = createNode(requireSceneNodeId(), name);
+
+		setParent(parent ? parent : m_root, result);
+		markDirty();
+		return result;
+	}
+
+	void Scene::addChild(std::shared_ptr<SceneNode> child)
+	{
+		m_root->addChild(child);
+	}
+
+	void Scene::loopNodeDownToTop(
+		const std::function<void(std::shared_ptr<SceneNode>)>& func,
+		std::shared_ptr<SceneNode> node)
+	{
+		auto& children = node->getChildren();
+		for (auto& child : children)
+		{
+			loopNodeDownToTop(func, child);
 		}
 
-		return m_scene;
+		func(node);
 	}
 
-	void SceneManager::releaseScene()
+	void Scene::loopNodeTopToDown(
+		const std::function<void(std::shared_ptr<SceneNode>)>& func,
+		std::shared_ptr<SceneNode> node)
 	{
-		m_scene = nullptr;
-	}
+		func(node);
 
-
-	bool SceneManager::saveScene(bool bBinary, const std::filesystem::path& relativeProjectRootPath)
-	{
-		return true;
-	}
-
-	bool SceneManager::loadScene(const std::filesystem::path& loadPath)
-	{
-		// Reload active scene.
-		if (!getActiveScene()->savePathUnvalid())
+		auto& children = node->getChildren();
+		for (auto& child : children)
 		{
-			getAssetSystem()->reloadAsset<Scene>(getActiveScene());
+			loopNodeTopToDown(func, child);
+		}
+	}
+
+	std::shared_ptr<SceneNode> Scene::findNode(const std::string& name) const
+	{
+		if (name == m_root->getName())
+		{
+			return m_root;
 		}
 
-
-		auto copyPath = loadPath;
-		const auto relativePath = buildRelativePathUtf8(getAssetSystem()->getProjectRootPath(), copyPath.replace_extension());
-
-		auto newScene = std::static_pointer_cast<Scene>(getAssetSystem()->getAssetByRelativeMap(relativePath));
-		if (newScene)
+		for (auto& rootChild : m_root->getChildren())
 		{
-			m_scene = newScene;
+			std::queue<std::shared_ptr<SceneNode>> traverseNodes{};
+			traverseNodes.push(rootChild);
+
+			while (!traverseNodes.empty())
+			{
+				auto& node = traverseNodes.front();
+				traverseNodes.pop();
+
+				if (node->getName() == name)
+				{
+					return node;
+				}
+
+				for (auto& childNode : node->getChildren())
+				{
+					traverseNodes.push(childNode);
+				}
+			}
+		}
+
+		return nullptr;
+	}
+
+	std::vector<std::shared_ptr<SceneNode>> Scene::findNodes(const std::string& name) const
+	{
+		std::vector<std::shared_ptr<SceneNode>> results{ };
+
+		for (auto& rootChild : m_root->getChildren())
+		{
+			std::queue<std::shared_ptr<SceneNode>> traverseNodes{};
+			traverseNodes.push(rootChild);
+
+			while (!traverseNodes.empty())
+			{
+				auto& node = traverseNodes.front();
+				traverseNodes.pop();
+
+				if (node->getName() == name)
+				{
+					results.push_back(node);
+				}
+
+				for (auto& childNode : node->getChildren())
+				{
+					traverseNodes.push(childNode);
+				}
+			}
+		}
+
+		if (name == m_root->getName())
+		{
+			results.push_back(m_root);
+		}
+
+		return results;
+	}
+
+	bool Scene::setParent(std::shared_ptr<SceneNode> parent, std::shared_ptr<SceneNode> son)
+	{
+		bool bNeedSet = false;
+
+		if (parent == son)
+		{
+			return false;
+		}
+
+		auto oldP = son->getParent();
+
+		if (oldP == nullptr || (!son->isSon(parent) && parent->getId() != oldP->getId()))
+		{
+			bNeedSet = true;
+		}
+
+		if (bNeedSet)
+		{
+			son->setParent(parent);
 			return true;
 		}
 
+		return false;
+	}
+
+	// Sync scene node tree's transform form top to down to get current result.
+	void Scene::flushSceneNodeTransform()
+	{
+		loopNodeTopToDown([](std::shared_ptr<SceneNode> node)
+			{
+				node->getTransform()->updateWorldTransform();
+			}, m_root);
+	}
+
+	bool Scene::existNode(size_t id) const
+	{
+		if (m_sceneNodes[id].lock())
+		{
+			return true;
+		}
+
+		m_sceneNodes.erase(id);
+		return false;
+	}
+
+	std::shared_ptr<SceneNode> Scene::getNode(size_t id) const
+	{
+		return m_sceneNodes.at(id).lock();
+	}
+
+	bool Scene::removeComponent(std::shared_ptr<SceneNode> node, const std::string& type)
+	{
+		if (node->hasComponent(type))
+		{
+			node->removeComponent(type);
+
+			markDirty();
+			return true;
+		}
 
 		return false;
+	}
+
+	bool Scene::saveImpl()
+	{
+		std::shared_ptr<AssetInterface> asset = getptr<Scene>();
+		return saveAsset(asset, getSavePath(), false);
+	}
+
+	void Scene::unloadImpl()
+	{
+
 	}
 }

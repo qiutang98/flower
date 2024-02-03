@@ -1,18 +1,41 @@
 #pragma once
 
-#include "../widget.h"
-#include <imgui/imgui.h>
-#include <imgui/imgui_internal.h>
-#include <asset/asset.h>
-#include <utf8/cpp17.h>
+#include "../editor.h"
 #include "../selection.h"
-#include <scene/scene.h>
-#include <scene/scene_graph.h>
 
-class SceneOutlinerWidget : public Widget
+#include <scene/scene.h>
+#include <scene/scene_manager.h>
+
+struct SceneNodeSelctor
+{
+	std::weak_ptr<engine::SceneNode> node;
+	size_t nodeId = ~0;
+
+	explicit SceneNodeSelctor(const std::shared_ptr<engine::SceneNode> inNode)
+		: node(inNode)
+	{
+		if (inNode)
+		{
+			nodeId = inNode->getId();
+		}
+	}
+
+	bool operator==(const SceneNodeSelctor& rhs) const
+	{
+		return nodeId == rhs.nodeId;
+	}
+
+	bool operator!=(const SceneNodeSelctor& rhs) const { return !(*this == rhs); }
+	bool operator<(const SceneNodeSelctor& rhs) const { return nodeId < rhs.nodeId; }
+
+	operator bool() const { return isValid(); }
+	bool isValid() const { return node.lock() != nullptr; }
+};
+
+class SceneOutlinerWidget : public engine::WidgetBase
 {
 public:
-	SceneOutlinerWidget(Editor* editor);
+	SceneOutlinerWidget();
 
 	// event init.
 	virtual void onInit() override;
@@ -25,6 +48,10 @@ public:
 
 	// event when widget visible tick.
 	virtual void onVisibleTick(const engine::RuntimeModuleTickData& tickData) override;
+
+	const auto& getSelection() const { return m_sceneSelections; }
+	auto& getSelection() { return m_sceneSelections; }
+	void clearSelection() { m_sceneSelections.clear(); }
 
 private:
 	void drawSceneNode(std::shared_ptr<engine::SceneNode> node);
@@ -45,10 +72,14 @@ private:
 
 	void sortChildren(std::shared_ptr<engine::SceneNode> node);
 
+	void onActiveSceneChange(engine::Scene* old, engine::Scene* newScene);
+
+
+
 private:
 	engine::UUID m_activeSceneUUID { };
 
-	Selection<SceneNodeSelctor>* m_sceneSelections = nullptr;
+	Selection<SceneNodeSelctor> m_sceneSelections;
 
 	struct
 	{
@@ -58,6 +89,8 @@ private:
 		// Draw index for each draw loop.
 		size_t drawIndex = 0;
 
+		std::unordered_set<size_t> expandNodeInTreeView = {};
+
 		// Rename input buffer.
 		char inputBuffer[32];
 
@@ -65,71 +98,18 @@ private:
 		bool bRenameing = false;
 
 		// Mouse hover/left click/right click node.
-		std::weak_ptr<engine::SceneNode> hoverNode      = { };
+		std::weak_ptr<engine::SceneNode> hoverNode = { };
 
-		inline static const char* kPopupMenuName = "##OutlinerContextMenu";
-	
 		engine::UUID64u dragDropUUID;
 		std::vector<std::weak_ptr<engine::SceneNode>> dragingNodes = { };
-		inline static const char* kOutlinerDragDropName = "##OutlinerDragDropName";
 
 		// Cache node string map avoid rename with same name.
 		std::unordered_map<std::string, size_t> cacheNodeNameMap;
 
+		inline static const char* kPopupMenuName = "##OutlinerContextMenu";
+		inline static const char* kOutlinerDragDropName = "##OutlinerDragDropName";
 	} m_drawContext;
+
+
+	engine::DelegateHandle m_onActiveSceneChange;
 };
-
-// Snapshot basic undo for scene graph. TODO: XOR compression to save some memory.
-struct SceneGraphUndo : public Undo::Entry
-{
-public:
-	SceneGraphUndo(Undo* undo, engine::SceneManager* manager, const char* name) : m_manager(manager), m_name(name)
-	{
-		m_dataCopy = manager->getActiveScene()->saveToStream();
-	}
-
-	virtual const char* getType() const { return m_name; }
-
-	virtual void undo()
-	{
-		// Save current state.
-		auto oldData = m_manager->getActiveScene()->saveToStream();
-
-		// Load prev state.
-		m_manager->getActiveScene()->loadFromStream(std::move(m_dataCopy));
-
-		// Update data.
-		m_dataCopy = std::move(oldData);
-	}
-
-	virtual void redo() { undo(); }
-
-private:
-	const char* m_name;
-
-	// Scene manager.
-	engine::SceneManager* m_manager;
-
-	// Copy data.
-	std::stringstream m_dataCopy;
-};
-
-class SceneGraphUndoScope
-{
-public:
-	explicit SceneGraphUndoScope(Undo* undo, engine::SceneManager* manager, const char* name)
-	{
-		m_undo = undo;
-		m_entry = Undo::createEntry<SceneGraphUndo>(undo, manager, name);
-	}
-
-	~SceneGraphUndoScope()
-	{
-		m_undo->done(std::move(m_entry));
-	}
-private:
-	std::unique_ptr<SceneGraphUndo> m_entry;
-	Undo* m_undo;
-};
-
-#define SceneGraphUndoRecord(Name) SceneGraphUndoScope __scenegraph_undo(m_undo, m_sceneManager, Name)

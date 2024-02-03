@@ -1,19 +1,28 @@
 #pragma once
 
-#include <util/util.h>
-#include <asset/asset_archive.h>
+#include "scene_common.h"
+#include <iconFontcppHeaders/IconsFontAwesome6Brands.h>
 
 namespace engine
 {
-	class SceneNode;
+	struct UIComponentReflectionDetailed
+	{
+		bool bOptionalCreated = false;
+		std::string iconCreated = ICON_FA_NODE;
+	};
 
 	class Component
 	{
+		REGISTER_BODY_DECLARE();
+
 	public:
 		Component() = default;
 		Component(std::shared_ptr<SceneNode> sceneNode) : m_node(sceneNode) { }
 
 		virtual ~Component() = default;
+
+		virtual bool uiDrawComponent() { return false; }
+		static const UIComponentReflectionDetailed& uiComponentReflection();
 
 		// Interface.
 		virtual void init() { }
@@ -37,10 +46,21 @@ namespace engine
 		void markDirty();
 
 	protected:
-		ARCHIVE_DECLARE;
-		
 		// Component host node.
 		std::weak_ptr<SceneNode> m_node;
+	};
+
+	class RenderableComponent : public Component
+	{
+		REGISTER_BODY_DECLARE(Component);
+
+	public:
+		RenderableComponent() = default;
+		RenderableComponent(std::shared_ptr<SceneNode> sceneNode) : Component(sceneNode) { }
+		virtual ~RenderableComponent() = default;
+
+	public:
+
 	};
 }
 

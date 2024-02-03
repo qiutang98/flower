@@ -1,81 +1,96 @@
 #pragma once
 
-#include "widget.h"
-#include <imgui/imgui.h>
-#include <imgui/imgui_internal.h>
-#include <asset/asset.h>
-#include <utf8/cpp17.h>
-
-#include <scene/scene.h>
+#include <utils/utils.h>
 
 template<typename T>
 class Selection
 {
 public:
-	const auto& getSelections() const { return m_selections; }
-	auto& getSelections() { return m_selections; }
-
-	void clearSelections() 
-	{ 
-		m_selections.clear(); 
+	void setChangeCallback(std::function<void(Selection<T>*)>&& f)
+	{
+		m_onChangeCallback = std::move(f);
 	}
 
-	void addSelected(const T& o)
+	const auto& getSelections() const 
 	{ 
-		m_selections.push_back(o); 
+		return m_selections; 
+	}
+
+	void clear()
+	{
+		m_selections.clear();
+
+		if (m_onChangeCallback)
+		{
+			m_onChangeCallback(this);
+		}
+	}
+
+	void add(const T& in)
+	{
+		m_selections.push_back(in);
 		sortSelection();
+
+		if (m_onChangeCallback)
+		{
+			m_onChangeCallback(this);
+		}
 	}
 
-	void sortSelection() 
-	{ 
+	void sortSelection()
+	{
 		std::sort(m_selections.begin(), m_selections.end());
 	}
 
-	bool isSelected(const T& t)
+	bool isSelected(const T& t) const
 	{
 		return std::binary_search(m_selections.begin(), m_selections.end(), t);
 	}
 
-	size_t getNum() const { return m_selections.size(); }
+	size_t getNum() const 
+	{ 
+		return m_selections.size(); 
+	}
 
-	void removeSelect(const T& t) 
+	bool existElement() const
 	{
-		std::erase_if(m_selections,[&t](const T& v)
-		{ 
+		return !m_selections.empty();
+	}
+
+	bool empty() const
+	{
+		return m_selections.empty();
+	}
+
+	void remove(const T& t)
+	{
+		std::erase_if(m_selections, [&t](const T& v)
+		{
 			return t == v;
 		});
 
-		// Can save?
 		sortSelection();
-	}
 
-private:
-	std::vector<T> m_selections;
-};
-
-struct SceneNodeSelctor
-{
-	std::weak_ptr<engine::SceneNode> node;
-	size_t nodeId = ~0;
-
-	SceneNodeSelctor(std::shared_ptr<engine::SceneNode> inNode)
-		: node(inNode)
-	{
-		if (inNode)
+		if (m_onChangeCallback)
 		{
-			nodeId = inNode->getId();
+			m_onChangeCallback(this);
 		}
 	}
 
-	bool operator==(const SceneNodeSelctor& rhs) const 
-	{ 
-		return nodeId == rhs.nodeId;
+	const T& getElem(size_t i) const { return m_selections.at(i); }
+
+private:
+	std::vector<T> m_selections;
+	std::function<void(Selection<T>*)> m_onChangeCallback = nullptr;
+};
+
+
+struct DragAndDropAssets
+{
+	void clear()
+	{
+		selectAssets.clear();
 	}
 
-	bool operator!=(const SceneNodeSelctor& rhs) const { return !(*this == rhs); }
-
-	bool operator<(const SceneNodeSelctor& rhs) const { return nodeId < rhs.nodeId; }
-
-	operator bool() const { return isValid(); }
-	bool isValid() const { return node.lock() != nullptr; }
+	std::unordered_set<std::filesystem::path> selectAssets;
 };

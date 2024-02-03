@@ -1,18 +1,20 @@
 #include "scene_outliner.h"
-#include "imgui/ui.h"
-#include "imgui/region_string.h"
 #include "../editor.h"
+#include <renderer/render_scene.h>
 #include <regex>
-#include "component_draw/component_draw.h"
+#include <scene/component/postprocess_component.h>
+#include <scene/component/sky_component.h>
+#include <scene/component/reflection_probe_component.h>
 
 using namespace engine;
 using namespace engine::ui;
 
-RegionStringInit SceneOutliner_Title("SceneOutliner_Title", "Outliner", "SceneOutliner");
-const static std::string ICON_OUTLINER_CONTENT = ICON_FA_CHESS_QUEEN;
+const static std::string kIconOutline = ICON_FA_CHESS_QUEEN;
 
-SceneOutlinerWidget::SceneOutlinerWidget(Editor* editor)
-	: Widget(editor, "Outliner")
+SceneOutlinerWidget::SceneOutlinerWidget()
+	: WidgetBase(
+		combineIcon("Outliner", kIconOutline).c_str(),
+		combineIcon("Outliner", kIconOutline).c_str())
 {
 
 }
@@ -20,29 +22,29 @@ SceneOutlinerWidget::SceneOutlinerWidget(Editor* editor)
 
 void SceneOutlinerWidget::onInit()
 {
-	m_name = combineIcon(SceneOutliner_Title, ICON_OUTLINER_CONTENT);
-	m_sceneSelections = &m_editor->getSceneNodeSelections();
+	m_onActiveSceneChange = getSceneManager()->onActiveSceneChange.addRaw(this, &SceneOutlinerWidget::onActiveSceneChange);
+
+	m_sceneSelections.setChangeCallback([&](Selection<SceneNodeSelctor>* selector) 
+	{
+		Editor::get()->onOutlinerSelectionChange.broadcast(*selector);
+	});
 }
 
 void SceneOutlinerWidget::onRelease()
 {
-
+	getSceneManager()->onActiveSceneChange.remove(m_onActiveSceneChange);
 }
 
 void SceneOutlinerWidget::onTick(const RuntimeModuleTickData& tickData, VulkanContext* context)
 {
-	// Check wether active scene change.
-	auto activeScene = m_sceneManager->getActiveScene();
-	if (m_activeSceneUUID != activeScene->getUUID())
-	{
-		m_activeSceneUUID = activeScene->getUUID();
-		rebuildSceneNodeNameMap();
-	}
+
 }
 
 void SceneOutlinerWidget::onVisibleTick(const RuntimeModuleTickData& tickData)
 {
-	auto activeScene = m_sceneManager->getActiveScene();
+	ZoneScoped;
+
+	auto activeScene = getSceneManager()->getActiveScene();
 
 	// Reset draw index.
 	m_drawContext.drawIndex = 0;
@@ -74,7 +76,9 @@ void SceneOutlinerWidget::onVisibleTick(const RuntimeModuleTickData& tickData)
 
 	// End decorated text.
 	ImGui::Separator(); ImGui::Spacing();
-	ImGui::Text("  %d scene nodes.", activeScene->getNodeCount());
+	ImGui::Text("  %d scene nodes.", activeScene->getNodeCount() - 1);
+
+	m_drawContext.expandNodeInTreeView.clear();
 }
 
 void SceneOutlinerWidget::drawSceneNode(std::shared_ptr<SceneNode> node)
@@ -101,7 +105,7 @@ void SceneOutlinerWidget::drawSceneNode(std::shared_ptr<SceneNode> node)
 		ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_AllowItemOverlap | ImGuiTreeNodeFlags_SpanFullWidth;
 		nodeFlags |= bTreeNode ? ImGuiTreeNodeFlags_OpenOnArrow : ImGuiTreeNodeFlags_Leaf;
 
-		const bool bThisNodeSelected = m_sceneSelections->isSelected(SceneNodeSelctor(node));
+		const bool bThisNodeSelected = m_sceneSelections.isSelected(SceneNodeSelctor(node));
 
 		if (bThisNodeSelected)
 		{
@@ -127,7 +131,6 @@ void SceneOutlinerWidget::drawSceneNode(std::shared_ptr<SceneNode> node)
 				std::string newName = m_drawContext.inputBuffer;
 				if (!newName.empty())
 				{
-					SceneGraphUndoRecord("Change scene node name.");
 					node->setName(addUniqueIdForName(newName));
 				}
 				m_drawContext.bRenameing = false;
@@ -140,6 +143,11 @@ void SceneOutlinerWidget::drawSceneNode(std::shared_ptr<SceneNode> node)
 		}
 		else
 		{
+			if (m_drawContext.expandNodeInTreeView.contains(node->getId()))
+			{
+				ImGui::SetNextItemOpen(true);
+			}
+
 			bNodeOpen = ImGui::TreeNodeEx(
 				reinterpret_cast<void*>(static_cast<intptr_t>(node->getId())),
 				nodeFlags, 
@@ -157,19 +165,19 @@ void SceneOutlinerWidget::drawSceneNode(std::shared_ptr<SceneNode> node)
 		{
 			if (ImGui::GetIO().KeyCtrl)
 			{
-				if (m_sceneSelections->isSelected(SceneNodeSelctor(m_drawContext.hoverNode.lock())))
+				if (m_sceneSelections.isSelected(SceneNodeSelctor(m_drawContext.hoverNode.lock())))
 				{
-					m_sceneSelections->removeSelect(SceneNodeSelctor(m_drawContext.hoverNode.lock()));
+					m_sceneSelections.remove(SceneNodeSelctor(m_drawContext.hoverNode.lock()));
 				}
 				else
 				{
-					m_sceneSelections->addSelected(SceneNodeSelctor(m_drawContext.hoverNode.lock()));
+					m_sceneSelections.add(SceneNodeSelctor(m_drawContext.hoverNode.lock()));
 				}
 			}
 			else
 			{
-				m_sceneSelections->clearSelections();
-				m_sceneSelections->addSelected(SceneNodeSelctor(m_drawContext.hoverNode.lock()));
+				m_sceneSelections.clear();
+				m_sceneSelections.add(SceneNodeSelctor(m_drawContext.hoverNode.lock()));
 			}
 		}
 
@@ -233,9 +241,9 @@ void SceneOutlinerWidget::handleEvent()
 
 	// Prepare seleted one node state.
 	std::shared_ptr<SceneNode> selectedOneNode = nullptr;
-	if (m_sceneSelections->getNum() == 1)
+	if (m_sceneSelections.getNum() == 1)
 	{
-		selectedOneNode = m_sceneSelections->getSelections()[0].node.lock();
+		selectedOneNode = m_sceneSelections.getSelections()[0].node.lock();
 	}
 
 	const auto bLeftClick = ImGui::IsMouseClicked(0);
@@ -248,7 +256,7 @@ void SceneOutlinerWidget::handleEvent()
 		// Update selected node to root if no hover node.
 		if ((bRightClick || bLeftClick) && !m_drawContext.hoverNode.lock())
 		{
-			m_sceneSelections->clearSelections();
+			m_sceneSelections.clear();
 		}
 	}
 
@@ -266,35 +274,35 @@ void SceneOutlinerWidget::handleEvent()
 
 void SceneOutlinerWidget::popupMenu()
 {
-	auto activeScene = m_sceneManager->getActiveScene();
+	auto activeScene = getSceneManager()->getActiveScene();
 
 	if (!ImGui::BeginPopup(m_drawContext.kPopupMenuName))
 	{
 		return;
 	}
 
-	const bool bSelectedLessEqualOne = m_sceneSelections->getNum() <= 1;
+	const bool bSelectedLessEqualOne = m_sceneSelections.getNum() <= 1;
 	std::shared_ptr<SceneNode> selectedOneNode = nullptr;
-	if (m_sceneSelections->getNum() == 1)
+	if (m_sceneSelections.getNum() == 1)
 	{
-		selectedOneNode = m_sceneSelections->getSelections()[0].node.lock();
+		selectedOneNode = m_sceneSelections.getSelections()[0].node.lock();
 	}
 
 	if (selectedOneNode)
 	{
-		if (ImGui::MenuItem(ICON_NONE"   Rename"))
+		static const std::string kRenameStr = std::string(ICON_NONE) + "   Rename";
+		if (ImGui::MenuItem(kRenameStr.c_str()))
 		{
 			m_drawContext.bRenameing = true;
 		}
 	}
 
-	if (m_sceneSelections->getNum() > 0)
+	if (m_sceneSelections.getNum() > 0)
 	{
-		if (ImGui::MenuItem(ICON_NONE"   Delete"))
+		static const std::string kDeleteStr = std::string(ICON_NONE) + "   Delete";
+		if (ImGui::MenuItem(kDeleteStr.c_str()))
 		{
-			SceneGraphUndoRecord("Delete scene node.");
-
-			for (const auto& node : m_sceneSelections->getSelections())
+			for (const auto& node : m_sceneSelections.getSelections())
 			{
 				auto nodePtr = node.node.lock();
 				if (nodePtr && !nodePtr->isRoot())
@@ -302,7 +310,7 @@ void SceneOutlinerWidget::popupMenu()
 					activeScene->deleteNode(node.node.lock());
 				}
 			}
-			m_sceneSelections->clearSelections();
+			m_sceneSelections.clear();
 
 			ImGui::EndPopup();
 			return;
@@ -311,35 +319,45 @@ void SceneOutlinerWidget::popupMenu()
 
 	if (bSelectedLessEqualOne)
 	{
-		static const std::string kEmptyNodeStr = std::string("  ") + ICON_FA_FAN + std::string("  Empty Scene Node");
+		const auto camPos = Editor::get()->getActiveViewportCameraPos();
+
+		static const std::string kEmptyNodeStr = std::string("  ") + ICON_FA_FAN + 
+			std::string("  Empty Scene Node");
+
 		if (ImGui::MenuItem(kEmptyNodeStr.c_str()))
 		{
-			SceneGraphUndoRecord("Create scene node.");
-			activeScene->createNode(addUniqueIdForName("Untitled"), selectedOneNode);
-
+			auto newNode = activeScene->createNode(addUniqueIdForName("Untitled"), selectedOneNode);
+			newNode->getTransform()->setTranslation(camPos);
 			ImGui::EndPopup();
 			return;
 		}
 
-		static const std::string kSkyName = std::string("  ") + kIconSky;
+		static const std::string kSkyName = std::string("  ") + ICON_FA_SUN + std::string("  Sky");
 		if (ImGui::MenuItem(kSkyName.c_str()))
 		{
-			SceneGraphUndoRecord("Create scene node with sky.");
 			auto newNode = activeScene->createNode(addUniqueIdForName("Sky"), selectedOneNode);
 
-			newNode->getTransform()->setRotation(glm::vec3(-0.7854f, 0.0f, 0.0f));
 			newNode->getScene()->addComponent<SkyComponent>(std::make_shared<SkyComponent>(), newNode);
-			newNode->setType(SceneNode::EType::Sky);
+			newNode->getTransform()->setTranslation(camPos);
+			newNode->getTransform()->setRotation(vec3(-0.7854f, 0.0f, 0.0f));
 		}
 
-		static const std::string kPostprocessName = std::string("  ") + kIconPostprocess;
+		static const std::string kPostprocessName = std::string("  ") + ICON_FA_STAR + std::string("  Post Process");
 		if (ImGui::MenuItem(kPostprocessName.c_str()))
 		{
-			SceneGraphUndoRecord("Create scene node with postprocess.");
 			auto newNode = activeScene->createNode(addUniqueIdForName("Postprocess"), selectedOneNode);
 
-			newNode->getScene()->addComponent<PostprocessVolumeComponent>(std::make_shared<PostprocessVolumeComponent>(), newNode);
-			newNode->setType(SceneNode::EType::Postprocess);
+			newNode->getScene()->addComponent<PostprocessComponent>(std::make_shared<PostprocessComponent>(), newNode);
+			newNode->getTransform()->setTranslation(camPos);
+		}
+
+		static const std::string kReflectionProbeName = std::string("  ") + ICON_FA_FAN + std::string("  Reflection Probe");
+		if (ImGui::MenuItem(kReflectionProbeName.c_str()))
+		{
+			auto newNode = activeScene->createNode(addUniqueIdForName("ReflectionProbe"), selectedOneNode);
+
+			newNode->getScene()->addComponent<ReflectionProbeComponent>(std::make_shared<ReflectionProbeComponent>(), newNode);
+			newNode->getTransform()->setTranslation(camPos);
 		}
 	}
 
@@ -350,8 +368,8 @@ void SceneOutlinerWidget::beginDragDrop(std::shared_ptr<SceneNode> node)
 {
 	if (ImGui::BeginDragDropSource())
 	{
-		m_drawContext.dragingNodes.reserve(m_sceneSelections->getNum());
-		for (const auto& s : m_sceneSelections->getSelections())
+		m_drawContext.dragingNodes.reserve(m_sceneSelections.getNum());
+		for (const auto& s : m_sceneSelections.getSelections())
 		{
 			m_drawContext.dragingNodes.push_back(s.node);
 		}
@@ -365,7 +383,7 @@ void SceneOutlinerWidget::beginDragDrop(std::shared_ptr<SceneNode> node)
 
 void SceneOutlinerWidget::acceptDragdrop(bool bRoot)
 {
-	auto activeScene = m_sceneManager->getActiveScene();
+	auto activeScene = getSceneManager()->getActiveScene();
 
 	if (bRoot)
 	{
@@ -375,8 +393,6 @@ void SceneOutlinerWidget::acceptDragdrop(bool bRoot)
 			{
 				if (m_drawContext.dragingNodes.size() > 0)
 				{
-					SceneGraphUndoRecord("Change scene node relationship.");
-
 					for (const auto& node : m_drawContext.dragingNodes)
 					{
 						if (auto nodePtr = node.lock())
@@ -406,15 +422,16 @@ void SceneOutlinerWidget::acceptDragdrop(bool bRoot)
 				{
 					if (m_drawContext.dragingNodes.size() > 0)
 					{
-						SceneGraphUndoRecord("Change scene node relationship.");
-
 						for (auto& node : m_drawContext.dragingNodes)
 						{
 							if (auto nodePtr = node.lock())
 							{
 								if (activeScene->setParent(hoverNode, nodePtr))
 								{
-									activeScene->setDirty(true);
+									activeScene->markDirty();
+
+									m_drawContext.expandNodeInTreeView.insert(hoverNode->getId());
+									m_drawContext.expandNodeInTreeView.insert(nodePtr->getId());
 								}
 							}
 							// Reset draging node.
@@ -440,13 +457,12 @@ void SceneOutlinerWidget::handleDrawState(std::shared_ptr<SceneNode> node)
 	auto iconSizeStatic = ImGui::CalcTextSize(ICON_FA_PERSON_WALKING);
 
 	ImGui::BeginGroup();
-	ImGui::PushID(node->getRuntimeIdName().c_str());
+	ImGui::PushID(node->getId());
 
 	auto eyePosX = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - iconSizeEye.x - 1.0f;
 	ImGui::SetCursorPosX(eyePosX);
 	if (ImGui::Selectable(visibilityIcon))
 	{
-		SceneGraphUndoRecord("Change scene node visibility.");
 		node->setVisibility(!node->getVisibility());
 	}
 	ui::hoverTip("Set scene node visibility.");
@@ -457,7 +473,6 @@ void SceneOutlinerWidget::handleDrawState(std::shared_ptr<SceneNode> node)
 	bool bSeletcted = false;
 	if (ImGui::Selectable(staticIcon, &bSeletcted, ImGuiSelectableFlags_None, { iconSizeStatic.x, iconSizeEye.y }))
 	{
-		SceneGraphUndoRecord("Change scene node static state.");
 		node->setStatic(!node->getStatic());
 	}
 	ui::hoverTip("Set scene node static state.");
@@ -468,7 +483,7 @@ void SceneOutlinerWidget::handleDrawState(std::shared_ptr<SceneNode> node)
 
 void SceneOutlinerWidget::rebuildSceneNodeNameMap()
 {
-	auto activeScene = m_sceneManager->getActiveScene();
+	auto activeScene = getSceneManager()->getActiveScene();
 	m_drawContext.cacheNodeNameMap.clear();
 
 	activeScene->loopNodeTopToDown([&](std::shared_ptr<SceneNode> node)
@@ -513,4 +528,13 @@ void SceneOutlinerWidget::sortChildren(std::shared_ptr<SceneNode> node)
 			sortChildren(child);
 		}
 	}
+}
+
+void SceneOutlinerWidget::onActiveSceneChange(engine::Scene* old, engine::Scene* newScene)
+{
+	// Clear all scene selections.
+	m_sceneSelections.clear();
+
+	// Rebuild scene node map cache.
+	rebuildSceneNodeNameMap();
 }

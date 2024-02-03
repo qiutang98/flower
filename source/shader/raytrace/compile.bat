@@ -1,1 +1,0 @@
-%~dp0/../glslc.exe -fshader-stage=comp --target-env=vulkan1.3 %~dp0/hard_shadow.glsl -O -o %~dp0/../../../install/shader/rt_hard_shadow.comp.spv

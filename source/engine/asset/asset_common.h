@@ -1,117 +1,261 @@
 #pragma once
 
-#include <util/util.h>
-#include <rhi/rhi.h>
-
-#include "asset_archive.h"
+#include "../utils/utils.h"
+#include <engine/graphics/resource.h>
+#include <fstream>
 #include <lz4.h>
+#define CEREAL_THREAD_SAFE 1
 
+#include <cereal/access.hpp>
+#include <cereal/types/memory.hpp>
+#include <cereal/types/string.hpp>
+#include <cereal/types/vector.hpp>
+#include <cereal/types/array.hpp>
+#include <cereal/cereal.hpp> 
+#include <cereal/types/unordered_map.hpp>
+#include <cereal/types/unordered_set.hpp>
+#include <cereal/types/list.hpp>
+#include <cereal/types/polymorphic.hpp>
+#include <cereal/archives/binary.hpp>
+#include <cereal/archives/xml.hpp>
+#include <cereal/archives/json.hpp>
+#include <cereal/types/base_class.hpp>
+#include <cereal/types/set.hpp>
+#include <cereal/types/map.hpp>
+
+#include <rttr/type.h>
+#include <rttr/registration_friend.h>
+
+#include <nlohmann/json.hpp>
+#include <tinygltf/tiny_gltf.h>
+#include <profile/profile.h>
+namespace glm
+{
+	template<class Archive> void serialize(Archive& archive, glm::vec2&  v) { archive(v.x, v.y);               }
+	template<class Archive> void serialize(Archive& archive, glm::vec3&  v) { archive(v.x, v.y, v.z);          }
+	template<class Archive> void serialize(Archive& archive, glm::vec4&  v) { archive(v.x, v.y, v.z, v.w);     }
+	template<class Archive> void serialize(Archive& archive, glm::ivec2& v) { archive(v.x, v.y);               }
+	template<class Archive> void serialize(Archive& archive, glm::ivec3& v) { archive(v.x, v.y, v.z);          }
+	template<class Archive> void serialize(Archive& archive, glm::ivec4& v) { archive(v.x, v.y, v.z, v.w);     }
+	template<class Archive> void serialize(Archive& archive, glm::uvec2& v) { archive(v.x, v.y);               }
+	template<class Archive> void serialize(Archive& archive, glm::uvec3& v) { archive(v.x, v.y, v.z);          }
+	template<class Archive> void serialize(Archive& archive, glm::uvec4& v) { archive(v.x, v.y, v.z, v.w);     }
+	template<class Archive> void serialize(Archive& archive, glm::dvec2& v) { archive(v.x, v.y);               }
+	template<class Archive> void serialize(Archive& archive, glm::dvec3& v) { archive(v.x, v.y, v.z);          }
+	template<class Archive> void serialize(Archive& archive, glm::dvec4& v) { archive(v.x, v.y, v.z, v.w);     }
+	template<class Archive> void serialize(Archive& archive, glm::mat2&  m) { archive(m[0], m[1]);             }
+	template<class Archive> void serialize(Archive& archive, glm::dmat2& m) { archive(m[0], m[1]);             }
+	template<class Archive> void serialize(Archive& archive, glm::mat3&  m) { archive(m[0], m[1], m[2]);       }
+	template<class Archive> void serialize(Archive& archive, glm::mat4&  m) { archive(m[0], m[1], m[2], m[3]); }
+	template<class Archive> void serialize(Archive& archive, glm::dmat4& m) { archive(m[0], m[1], m[2], m[3]); }
+	template<class Archive> void serialize(Archive& archive, glm::quat&  q) { archive(q.x, q.y, q.z, q.w);     }
+	template<class Archive> void serialize(Archive& archive, glm::dquat& q) { archive(q.x, q.y, q.z, q.w);     }
+}
 
 namespace engine
 {
-	extern bool isEngineMetaAsset(const std::string& extension);
-	extern bool isAssetTextureMeta(const std::string& extension);
-	extern bool isAssetStaticMeshMeta(const std::string& extension);
-	extern bool isAssetMaterialMeta(const std::string& extension);
-	extern bool isAssetSceneMeta(const std::string& extension);
-	extern bool isAssetPMXMeta(const std::string& extension);
-	extern bool isAssetVMDMeta(const std::string& extension);
-	extern bool isAssetWaveMeta(const std::string& extension);
+	extern const uint32_t kAssetVersion;
+}
 
-	// Engine asset type.
-	enum class EAssetType
+#define ARCHIVE_DECLARE                                                                  \
+	friend class cereal::access;                                                         \
+	template<class Archive>                                                              \
+	void serialize(Archive& archive, std::uint32_t const version);
+
+#define ARCHIVE_NVP_DEFAULT(Member) archive(cereal::make_nvp(#Member, Member))
+
+// Version and type registry.
+#define ASSET_ARCHIVE_IMPL_BASIC(AssetNameXX, Version)                                   \
+	CEREAL_CLASS_VERSION(engine::AssetNameXX, Version);                                  \
+	CEREAL_REGISTER_TYPE_WITH_NAME(engine::AssetNameXX, "engine::"#AssetNameXX);
+
+// Virtual children class.
+#define registerClassMemberInherit(AssetNameXX, AssetNamePP)                             \
+	ASSET_ARCHIVE_IMPL_BASIC(AssetNameXX, engine::kAssetVersion);                        \
+	CEREAL_REGISTER_POLYMORPHIC_RELATION(engine::AssetNamePP, engine::AssetNameXX)       \
+	template<class Archive>                                                              \
+	void engine::AssetNameXX::serialize(Archive& archive, std::uint32_t const version) { \
+	archive(cereal::base_class<engine::AssetNamePP>(this));
+
+// Baisc class.
+#define registerClassMember(AssetNameXX)                                                 \
+	ASSET_ARCHIVE_IMPL_BASIC(AssetNameXX, engine::kAssetVersion);                        \
+	template<class Archive>                                                              \
+	void engine::AssetNameXX::serialize(Archive& archive, std::uint32_t const version)
+
+#define registerPODClassMember(AssetNameXX)                                              \
+	CEREAL_CLASS_VERSION(engine::AssetNameXX, engine::kAssetVersion);                    \
+	template<class Archive>                                                              \
+	void engine::AssetNameXX::serialize(Archive& archive, std::uint32_t const version)
+
+#define REGISTER_BODY_DECLARE(...)  \
+	ARCHIVE_DECLARE             \
+	RTTR_ENABLE(__VA_ARGS__);   \
+	RTTR_REGISTRATION_FRIEND();
+
+#define ARCHIVE_ENUM_CLASS(value)   \
+	{ size_t enum__type__##value = (size_t)value; \
+	ARCHIVE_NVP_DEFAULT(enum__type__##value); \
+	value = (decltype(value))(enum__type__##value); }
+
+namespace engine
+{
+
+	struct AssetImportConfigInterface
 	{
-		Texture = 0, // Texture asset.
-		StaticMesh,  // StaticMesh asset.
-		Material,    // Material asset.
-		Scene,       // Scene.
-		PMX,         // Pmx file.
-		VMD,         // Vmd file.
-		Wave,
-		Max,
+		using ImportAssetPath = std::pair<std::filesystem::path, std::filesystem::path>;
+		ImportAssetPath path;
 	};
 
-	inline static std::string buildRelativePathUtf8(
-		const std::filesystem::path& projectRootPath, 
-		const std::filesystem::path& savePath)
+	enum class EAssetType
 	{
-		const std::u16string assetProjectRootPath = std::filesystem::absolute(projectRootPath).u16string();
-		const std::u16string assetSavePath = std::filesystem::absolute(savePath).u16string();
+		darkscene = 0,
+		darktexture,
+		darkstaticmesh,
+		darkmaterial,
 
-		return utf8::utf16to8(assetSavePath.substr(assetProjectRootPath.size()));
-	}
+		max
+	};
 
-	// Asset interface.
-	class AssetInterface : public std::enable_shared_from_this<AssetInterface>
+	struct AssetReflectionInfo
 	{
+		using ImportConfigPtr = std::shared_ptr<AssetImportConfigInterface>;
+
+		std::string name;
+		std::string icon;
+		std::string decoratedName;
+
+		struct ImportConfig
+		{
+			bool bImportable;
+			std::string importRawAssetExtension;
+			std::function<ImportConfigPtr()> buildAssetImportConfig = nullptr;
+			std::function<void(ImportConfigPtr)> drawAssetImportConfig = nullptr;
+			std::function<bool(ImportConfigPtr)> importAssetFromConfigThreadSafe = nullptr;
+		} importConfig;
+	};
+
+	class AssetSaveInfo
+	{
+		ARCHIVE_DECLARE;
+
 	public:
-		AssetInterface() = default;
+		static const u8str kTempFolderStartChar;
+		static const u8str kBuiltinFileStartChar;
 
-		AssetInterface(const std::string& assetNameUtf8, const std::string& assetRelativeRootProjectPathUtf8)
-			: m_assetNameUtf8(assetNameUtf8)
-			, m_assetRelativePathUtf8(assetRelativeRootProjectPathUtf8)
+		AssetSaveInfo() = default;
+		explicit AssetSaveInfo(const u8str& name, const u8str& storeFolder);
+
+		static AssetSaveInfo buildTemp(const u8str& name);
+		static AssetSaveInfo buildRelativeProject(const std::filesystem::path& savePath);
+		
+	public:
+		const UUID getUUID() const 
 		{
-
+			if (isBuiltin())
+			{
+				return m_name;
+			}
+			return m_storePath; 
 		}
 
-		// Draw asset config pannel.
-		virtual bool drawAssetConfig() { return false; };
-
-		virtual EAssetType getType() const { return EAssetType::Max; }
-		virtual const char* getSuffix() const = 0;
-
-		bool saveAction();
-		bool savePathUnvalid() const { return m_assetNameUtf8.empty() || m_assetRelativePathUtf8.empty(); }
-
-		const UUID& getUUID() const { return m_uuid; }
-		void setUUID(const UUID& uuid) { m_uuid = uuid; }
-
-		const std::string& getNameUtf8() const { return m_assetNameUtf8; }
-		const std::string& getRelativePathUtf8() const { return m_assetRelativePathUtf8; }
-
-		void setNameUtf8(const std::string& in) { m_assetNameUtf8 = in; }
-		void setRelativePathUtf8(const std::string& in) { m_assetRelativePathUtf8 = in; }
-
-		uint32_t getSnapshotWidth() const { return m_widthSnapShot; }
-		uint32_t getSnapshotHeight() const { return m_heightSnapShot; }
-
-		void buildSnapshot(uint32_t width, uint32_t height, const uint8_t* buffer);
-
-		inline bool existSnapshot() const
-		{
-			return !m_snapshotData.empty() && m_widthSnapShot && m_heightSnapShot;
+		const std::u16string getStorePath() const 
+		{ 
+			return utf8::utf8to16(m_storePath); 
 		}
 
-		const auto& getSnapshotData() const { return m_snapshotData; }
-
-		const UUID& getSnapshotUUID() const { return m_snapshotUUID; }
-
-		std::shared_ptr<GPUImageAsset> getOrCreateLRUSnapShot(VulkanContext* ct);
-
-		// This scene already edit? need save?
-		bool isDirty() const { return m_bDirty; }
-
-		// Set scene dirty state.
-		bool setDirty(bool bDirty = true);
-
-		// Get shared ptr.
-		template<typename T>
-		std::shared_ptr<T> getptr()
+		UUID getSnapshotUUID() const
 		{
-			static_assert(std::is_base_of_v<AssetInterface, T>, "T must derive from AssetInterface!");
-			return std::static_pointer_cast<T>(AssetInterface::shared_from_this());
+			if (isTemp())
+			{
+				// Temp info no exist snapshot.
+				return getUUID();
+			}
+
+			const size_t hashID = std::hash<UUID>{}(getUUID() + "SnapShotImage");
+			return std::to_string(hashID) + "_SnapShotImage";
 		}
 
-		std::filesystem::path getSavePath() const;
-
-	protected:
-		virtual bool saveActionImpl() 
+		UUID getBinUUID() const
 		{
-			LOG_WARN("Unimplement save path for asset type, fix me!");
-			return false; 
+			if (isTemp())
+			{
+				// Temp info no exist bin.
+				return getUUID();
+			}
+
+			const size_t hashID = std::hash<UUID>{}(getUUID() + "BinFile");
+			return std::to_string(hashID) + "_BinFile";
 		}
 
-		inline static void quantifySnapshotDim(uint32_t& widthSnapShot, uint32_t& heightSnapShot, uint32_t texWidth, uint32_t texHeight)
+		const u8str& getStorePathU8() const 
+		{
+			return m_storePath;
+		}
+
+		const std::filesystem::path toPath() const;
+
+		const u8str& getName() const { return m_name; }
+		const u8str& getStoreFolder() const { return m_storeFolder; }
+
+		void setName(const u8str& newValue);
+		void setStoreFolder(const u8str& newValue);
+
+		bool empty() const
+		{
+			return m_name.empty() || m_storePath.empty();
+		}
+
+		bool isTemp() const;
+		bool isBuiltin() const;
+
+		// Save info can use for new asset create path or not.
+		bool canUseForCreateNewAsset() const;
+
+		// This save info path already in disk.
+		bool alreadyInDisk() const;
+
+
+		auto operator<=>(const AssetSaveInfo&) const = default;
+
+	private:
+		void updateStorePath();
+
+	private:
+		// Asset name.
+		u8str m_name = {};
+
+		// Store folder relative to project asset folder.
+		u8str m_storeFolder = {};
+
+		// Store path relative to project asset folder.
+		u8str m_storePath = {};
+	};
+
+	struct AssetSnapshot : NonCopyable
+	{
+		bool empty() const
+		{
+			return data.empty();
+		}
+
+		math::uvec2 dimension = {0, 0};
+		std::vector<uint8_t> data = {};
+
+		template<class Archive>
+		void serialize(Archive& archive)
+		{
+			archive(dimension, data);
+		}
+
+	public:
+		inline static uint32_t kMaxSnapshotDim = 128u;
+
+		static void quantifySnapshotDim(
+			uint32_t& widthSnapShot, 
+			uint32_t& heightSnapShot, 
+			uint32_t texWidth, 
+			uint32_t texHeight)
 		{
 			if (texWidth >= kMaxSnapshotDim || texHeight >= kMaxSnapshotDim)
 			{
@@ -137,54 +281,88 @@ namespace engine
 				widthSnapShot = texWidth;
 			}
 		}
-
-		inline static uint32_t kMaxSnapshotDim = 128u;
-
-	protected:
-		// Is asset dirty?
-		bool m_bDirty = false;
-
-
-
-
-	protected:
-		// Serialize field.
-		ARCHIVE_DECLARE;
-
-		// Asset uuid.
-		UUID m_uuid = buildUUID();
-
-		// This asset name, exclusive suffix, utf8 encode.
-		std::string m_assetNameUtf8;
-
-		// This asset relative project root path, utf8 encode.
-		std::string m_assetRelativePathUtf8;
-
-		// Asset snap shot
-		UUID m_snapshotUUID = buildUUID();
-		uint32_t m_widthSnapShot = 0;
-		uint32_t m_heightSnapShot = 0;
-		std::vector<uint8_t> m_snapshotData = {};
 	};
 
-	// Load from asset header snapshot data, no compress, cache in lru map.
-	struct SnapshotAssetTextureLoadTask : public AssetTextureLoadTask
+	class AssetInterface : public std::enable_shared_from_this<AssetInterface>
 	{
-		explicit SnapshotAssetTextureLoadTask(std::shared_ptr<AssetInterface> inAsset)
-			: cacheAsset(inAsset)
-		{
+		REGISTER_BODY_DECLARE();
 
+	public:
+		AssetInterface() = default;
+		explicit AssetInterface(const AssetSaveInfo& saveInfo);
+		virtual ~AssetInterface() = default;
+
+		// ~AssetInterface virtual function.
+		virtual EAssetType getType() const  = 0;
+		virtual void onPostAssetConstruct() = 0; // Call back when call AssetManager::createAsset
+		virtual VulkanImage* getSnapshotImage();
+		// ~AssetInterface virtual function.
+
+		// Get suffix of asset.
+		std::string getSuffix() const;
+
+		// Get asset store path.
+		const std::u16string& getStorePath() const { return m_saveInfo.getStorePath(); }
+
+		// Get asset store name.
+		const u8str& getName() const { return m_saveInfo.getName(); }
+
+		// Get asset store folder.
+		const u8str& getStoreFolder() const { return m_saveInfo.getStoreFolder(); }
+
+		bool isSavePathEmpty() const { return m_saveInfo.empty(); }
+
+		// Save asset.
+		bool save();
+
+		void unload();
+
+		// Asset is dirty or not.
+		bool isDirty() const { return m_bDirty; }
+
+		// Mark asset is dirty.
+		bool markDirty();
+
+		// Get shared ptr.
+		template<typename T> std::shared_ptr<T> getptr()
+		{
+			static_assert(std::is_base_of_v<AssetInterface, T>, "T must derive from AssetInterface!");
+			return std::static_pointer_cast<T>(AssetInterface::shared_from_this());
 		}
 
-		std::shared_ptr<AssetInterface> cacheAsset;
+		// Get asset save path.
+		std::filesystem::path getSavePath() const;
 
-		virtual void uploadFunction(
-			uint32_t stageBufferOffset,
-			void* bufferPtrStart, 
-			RHICommandBufferBase& commandBuffer, 
-			VulkanBuffer& stageBuffer) override;
+		const AssetSaveInfo& getSaveInfo() const { return m_saveInfo; }
 
-		static std::shared_ptr<SnapshotAssetTextureLoadTask> build(VulkanContext* context, std::shared_ptr<AssetInterface> asset);
+		void discardChanged();
+
+		bool changeSaveInfo(const AssetSaveInfo& newInfo);
+
+		UUID getSnapshotUUID() const;
+		std::filesystem::path getSnapshotPath() const;
+
+		std::filesystem::path getRawAssetPath() const;
+
+		UUID getBinUUID() const;
+		std::filesystem::path getBinPath() const;
+
+	protected:
+		// ~AssetInterface virtual function.
+		virtual bool saveImpl() = 0;
+
+		virtual void unloadImpl() = 0;
+		// ~AssetInterface virtual function.
+
+	private:
+		// Asset is dirty or not.
+		bool m_bDirty = false;
+
+	protected:
+		AssetSaveInfo m_saveInfo = { };
+
+		// Raw asset path relative to asset folder.
+		u8str m_rawAssetPath = {};
 	};
 
 	struct AssetCompressionHelper
@@ -192,75 +370,20 @@ namespace engine
 		int originalSize;
 		int compressionSize;
 
-		template<class Archive> void serialize(Archive& archive)
+		template<class Archive>
+		void serialize(Archive& archive)
 		{
 			archive(originalSize, compressionSize);
 		}
 	};
 
-	static inline bool loadAssetBinaryWithDecompression(std::vector<uint8_t>& out, const std::filesystem::path& rawSavePath)
-	{
-		if (!std::filesystem::exists(rawSavePath))
-		{
-			LOG_ERROR("Binary data {} miss!", utf8::utf16to8(rawSavePath.u16string()));
-			return false;
-		}
+	extern bool loadAssetBinaryWithDecompression(std::vector<uint8_t>& out, const std::filesystem::path& rawSavePath);
+	extern bool saveAssetBinaryWithCompression(const uint8_t* out, int size, const std::filesystem::path& savePath, const char* suffix);
 
-		std::ifstream is(rawSavePath, std::ios::binary);
-		cereal::BinaryInputArchive archive(is);
-
-		AssetCompressionHelper sizeHelper;
-
-		std::vector<uint8_t> compressionData;
-		archive(sizeHelper, compressionData);
-
-		// Resize to src data.
-		out.resize(sizeHelper.originalSize);
-
-		LZ4_decompress_safe((const char*)compressionData.data(), (char*)out.data(), sizeHelper.compressionSize, sizeHelper.originalSize);
-		return true;
-	}
-
-	static inline bool saveAssetBinaryWithCompression(const uint8_t* out, int size, const std::filesystem::path& savePath, const char* suffix)
-	{
-		std::filesystem::path rawSavePath = savePath;
-		rawSavePath += suffix;
-
-		if (std::filesystem::exists(rawSavePath))
-		{
-			LOG_ERROR("Binary data {} already exist, make sure never import save resource at same folder!", utf8::utf16to8(rawSavePath.u16string()));
-			return false;
-		}
-
-		// Save to disk.
-		std::ofstream os(rawSavePath, std::ios::binary);
-		cereal::BinaryOutputArchive archive(os);
-
-		// LZ4 compression.
-		std::vector<uint8_t> compressionData;
-
-		// Compress and shrink.
-		auto compressStaging = LZ4_compressBound(size);
-		compressionData.resize(compressStaging);
-		auto compressedSize = LZ4_compress_default((const char*)out, (char*)compressionData.data(), size, compressStaging);
-		compressionData.resize(compressedSize);
-
-		AssetCompressionHelper sizeHelper
-		{
-			.originalSize = size,
-			.compressionSize = compressedSize,
-		};
-
-		archive(sizeHelper, compressionData);
-		return true;
-	}
-
-	static inline bool saveAssetBinaryWithCompression(const std::vector<uint8_t>& out, const std::filesystem::path& savePath, const char* suffix)
+	inline bool saveAssetBinaryWithCompression(const std::vector<uint8_t>& out, const std::filesystem::path& savePath, const char* suffix)
 	{
 		return saveAssetBinaryWithCompression(out.data(), (int)out.size(), savePath, suffix);
 	}
-
-
 
 	template<typename T>
 	inline bool loadAsset(T& out, const std::filesystem::path& savePath)
@@ -284,7 +407,7 @@ namespace engine
 		int decompressSize = LZ4_decompress_safe(compressionData.data(), decompressionData.data(), sizeHelper.compressionSize, sizeHelper.originalSize);
 		CHECK(decompressSize == sizeHelper.originalSize);
 
-		// Exist copy-construct.
+		// Exist copsaveAssety-construct.
 		{
 			std::string str(decompressionData.data(), decompressionData.size());
 			std::stringstream ss;
@@ -292,71 +415,99 @@ namespace engine
 			cereal::BinaryInputArchive archive(ss);
 			archive(out);
 		}
-		
+
 		return true;
 	}
 
-
-
-	// Save as unique_ptr
 	template<typename T>
-	inline bool saveAsset(const T& in, const std::filesystem::path& savePath, const char* suffix, bool bRequireNoExist = true)
+	inline bool saveAsset(const T& in, const std::filesystem::path& savePath, bool bRequireNoExist = true)
 	{
 		std::filesystem::path rawSavePath = savePath;
-		rawSavePath += suffix;
-
 		if (bRequireNoExist && std::filesystem::exists(rawSavePath))
 		{
-			LOG_ERROR("Meta data {} already exist, make sure never import save resource at same folder!", utf8::utf16to8(rawSavePath.u16string()));
+			LOG_ERROR("Meta data {} already exist, make sure never import save resource at same folder!",
+				utf8::utf16to8(rawSavePath.u16string()));
 			return false;
 		}
-		
+
 		AssetCompressionHelper sizeHelper;
 		std::string originalData;
-		// Exist Copy construct.
 		{
 			std::stringstream ss;
 			cereal::BinaryOutputArchive archive(ss);
 			archive(in);
-
 			originalData = std::move(ss.str());
 		}
 
 		std::vector<char> compressedData(LZ4_compressBound((int)originalData.size()));
-		sizeHelper.compressionSize = LZ4_compress_default(originalData.c_str(), compressedData.data(), (int)originalData.size(), (int)compressedData.size());
+		sizeHelper.compressionSize = LZ4_compress_default(
+			originalData.c_str(),
+			compressedData.data(),
+			(int)originalData.size(),
+			(int)compressedData.size());
 
 		compressedData.resize(sizeHelper.compressionSize);
 		sizeHelper.originalSize = (int)originalData.size();
-
 		{
 			std::ofstream os(rawSavePath, std::ios::binary);
 			cereal::BinaryOutputArchive archive(os);
 			archive(sizeHelper, compressedData);
 		}
-
 		return true;
 	}
 
-	template<typename T>
-	inline bool saveAssetMeta(const T& in, const std::filesystem::path& savePath, const char* suffix, bool bRequireNoExist = true)
+	struct StaticMeshRenderBounds
 	{
-		// See insertAsset in asset system.
-		static_assert(std::is_base_of_v<AssetInterface, T>, "T must derived from AssetInterface.");
+		ARCHIVE_DECLARE;
 
-		// Exist one copy?
-		std::shared_ptr<AssetInterface> save = std::make_shared<T>(in);
-		return saveAsset(save, savePath, suffix, bRequireNoExist);
-	}
-}
+		// AABB min = origin - extents.
+		// AABB max = origin + extents.
+		// AABB center = origin.
+		math::vec3 origin;
+		math::vec3 extents;
 
-ASSET_ARCHIVE_IMPL(AssetInterface)
-{
-	ARCHIVE_NVP_DEFAULT(m_assetNameUtf8);
-	ARCHIVE_NVP_DEFAULT(m_assetRelativePathUtf8);
-	ARCHIVE_NVP_DEFAULT(m_widthSnapShot);
-	ARCHIVE_NVP_DEFAULT(m_heightSnapShot);
-	ARCHIVE_NVP_DEFAULT(m_snapshotData);
-	ARCHIVE_NVP_DEFAULT(m_uuid);
-	ARCHIVE_NVP_DEFAULT(m_snapshotUUID);
+		float radius;
+	};
+
+	struct StaticMeshSubMesh
+	{
+		ARCHIVE_DECLARE;
+
+		uint32_t indicesStart = 0;
+		uint32_t indicesCount = 0;
+
+		// Material of this submesh.
+		UUID material = {};
+		StaticMeshRenderBounds bounds = {};
+	};
+
+	// Standard index type in this engine.
+	using VertexIndexType = uint32_t;
+
+	// No sure which vertex layout is better.
+	// We default use seperate method instead of interleave.
+	// https://frostbite-wp-prd.s3.amazonaws.com/wp-content/uploads/2016/03/29204330/GDC_2016_Compute.pdf 
+	// https://developer.android.com/games/optimize/vertex-data-management?hl=zh-tw
+	using VertexPosition = math::vec3;
+	static_assert(sizeof(VertexPosition) == sizeof(float) * 3);
+
+	using VertexNormal = math::vec3;
+	static_assert(sizeof(VertexNormal) == sizeof(float) * 3);
+
+	using VertexTangent = math::vec4;
+	static_assert(sizeof(VertexTangent) == sizeof(float) * 4);
+
+	using VertexUv0 = math::vec2;
+	static_assert(sizeof(VertexUv0) == sizeof(float) * 2);
+
+	struct StaticMeshBin
+	{
+		ARCHIVE_DECLARE;
+
+		std::vector<VertexPosition> positions;
+		std::vector<VertexNormal> normals;
+		std::vector<VertexTangent> tangents;
+		std::vector<VertexUv0> uv0s;
+		std::vector<VertexIndexType> indices;
+	};
 }
-ASSET_ARCHIVE_END

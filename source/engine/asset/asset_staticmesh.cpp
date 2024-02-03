@@ -1,29 +1,73 @@
 #include "asset_staticmesh.h"
-#include "asset_material.h"
-#include "asset_texture.h"
+#include "../ui/ui.h"
 
-#include <util/assimp_helper.h>
-#include "asset_system.h"
-
-
-
+#include <rttr/registration.h>
+#include "assimp_import.h"
+#include "asset_manager.h"
+#include "../serialization/serialization.h"
+#include "graphics/context.h"
+#include <renderer/render_scene.h>
+#include <profile/profile.h>
 namespace engine
 {
-	AssetStaticMesh::AssetStaticMesh(const std::string& assetNameUtf8, const std::string& assetRelativeRootProjectPathUtf8)
-		: AssetInterface(assetNameUtf8, assetRelativeRootProjectPathUtf8)
+	AssetStaticMesh::AssetStaticMesh(const AssetSaveInfo& saveInfo)
+		: AssetInterface(saveInfo)
 	{
 
 	}
 
-	bool AssetStaticMesh::buildFromConfigs(
-		const ImportConfig& config,
-		const std::filesystem::path& projectRootPath,
-		const std::filesystem::path& savePath,
-		const std::filesystem::path& srcPath)
+	void AssetStaticMesh::onPostAssetConstruct()
 	{
+
+	}
+
+	const AssetStaticMesh* AssetStaticMesh::getCDO()
+	{
+		static AssetStaticMesh mesh{ };
+		return &mesh;
+	}
+
+	static void drawStaticMeshImportConfig(
+		std::shared_ptr<AssetImportConfigInterface> ptr)
+	{
+		auto gltfConfig = std::static_pointer_cast<AssetStaticMeshImportConfig>(ptr);
+		ImGui::Spacing();
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+
+
+		ImGui::PushID(std::hash<std::string>{}(gltfConfig->path.second.string()));
+		ImGui::Indent();
+		{
+			std::string utf8Name = utf8::utf16to8(gltfConfig->path.first.u16string());
+			std::string saveUtf8 = utf8::utf16to8(gltfConfig->path.second.u16string());
+
+			ImGui::TextDisabled(std::format("Load gltf from: {}", utf8Name).c_str());
+			ImGui::TextDisabled(std::format("Save gltf to: {}", saveUtf8).c_str());
+			ImGui::Spacing();
+
+		}
+		ImGui::Unindent();
+		ImGui::PopStyleVar();
+		ImGui::PopID();
+
+		ImGui::Spacing();
+		ImGui::Spacing();
+		ImGui::Separator();
+	}
+
+	static bool importStaticMeshFromConfigThreadSafe(
+		std::shared_ptr<AssetImportConfigInterface> inPtr)
+	{
+		auto ptr = std::static_pointer_cast<AssetStaticMeshImportConfig>(inPtr);
+
+		const std::filesystem::path& srcPath = ptr->path.first;
+		const std::filesystem::path& savePath = ptr->path.second;
+
 		Assimp::Importer importer;
 		const aiScene* scene = importer.ReadFile(srcPath.string(),
-			aiProcessPreset_TargetRealtime_Fast | aiProcess_FlipUVs | aiProcess_GenBoundingBoxes);
+			aiProcessPreset_TargetRealtime_Quality |
+			aiProcess_FlipUVs | 
+			aiProcess_GenBoundingBoxes);
 
 		if (scene == nullptr)
 		{
@@ -47,26 +91,48 @@ namespace engine
 
 		const auto textureFolderPath = savePath / "textures";
 		const auto materialFolderPath = savePath / "materials";
+		const auto rawAssetFolderPath = savePath / "raw";
 
 		std::filesystem::create_directory(textureFolderPath);
 		std::filesystem::create_directory(materialFolderPath);
+		std::filesystem::create_directory(rawAssetFolderPath);
 
-		AssimpStaticMeshImporter processor(srcPath, projectRootPath, materialFolderPath, textureFolderPath);
+		const auto name = savePath.filename().u16string() + utf8::utf8to16(AssetStaticMesh::getCDO()->getSuffix());
+		const auto relativePathUtf8 = buildRelativePathUtf8(getAssetManager()->getProjectConfig().assetPath, savePath);
+
+		auto saveInfo = AssetSaveInfo(utf8::utf16to8(name), relativePathUtf8);
+		auto meshPtr = getAssetManager()->createAsset<AssetStaticMesh>(saveInfo).lock();
+		meshPtr->markDirty();
+
+		// Copy raw asset.
+		{
+			auto copyDest = rawAssetFolderPath / srcPath.filename();
+			std::filesystem::copy(srcPath, copyDest);
+
+			// Copy material path.
+			{
+				auto fileName = srcPath.filename();
+				auto mtlFileName = fileName.stem();
+				mtlFileName += ".mtl";
+
+				std::filesystem::path mtlPath = srcPath.parent_path();
+				mtlPath /= mtlFileName;
+
+				if (std::filesystem::exists(mtlPath))
+				{
+					auto copyDestMtl = rawAssetFolderPath / mtlPath.filename();
+					std::filesystem::copy(mtlPath, copyDestMtl);
+				}
+			}
+
+			meshPtr->m_rawAssetPath = buildRelativePathUtf8(getAssetManager()->getProjectConfig().assetPath, rawAssetFolderPath);
+		}
+
+		AssimpStaticMeshImporter processor(srcPath, materialFolderPath, textureFolderPath);
 		processor.processNode(scene->mRootNode, scene);
 
-		const auto meshFileSavePath = savePath / assetNameUtf8;
-
-
-
 		// Save asset meta.
-		{
-			AssetStaticMesh meta(assetNameUtf8, buildRelativePathUtf8(projectRootPath, meshFileSavePath));
-			meta.m_subMeshes = processor.getSubmeshInfo();
-			meta.m_indicesCount = processor.getIndicesCount();
-			meta.m_verticesCount = processor.getVerticesCount();
-
-			saveAssetMeta<AssetStaticMesh>(meta, meshFileSavePath, ".staticmesh");
-		}
+		processor.fillMeshAssetMeta(*meshPtr);
 
 		// Save static mesh binary file.
 		{
@@ -77,11 +143,51 @@ namespace engine
 			meshBin.uv0s = processor.moveUv0s();
 			meshBin.positions = processor.movePositions();
 
-			saveAsset(meshBin, meshFileSavePath, ".staticmeshbin");
+			saveAsset(meshBin, meshPtr->getBinPath(), false);
 		}
 
-		return true;
+		return meshPtr->save();
 	}
+
+	const AssetReflectionInfo& AssetStaticMesh::uiGetAssetReflectionInfo()
+	{
+		const static AssetReflectionInfo kInfo =
+		{
+			.name = "StaticMesh",
+			.icon = ICON_FA_BUILDING,
+			.decoratedName = std::string("  ") + ICON_FA_BUILDING + std::string("     StaticMesh"),
+			.importConfig =
+			{
+				.bImportable = true,
+				.importRawAssetExtension = "obj",
+				.buildAssetImportConfig = []() 
+				{ 
+					return std::make_shared<AssetStaticMeshImportConfig>(); 
+				},
+				.drawAssetImportConfig = [](AssetReflectionInfo::ImportConfigPtr ptr) 
+				{ 
+					drawStaticMeshImportConfig(ptr); 
+				},
+				.importAssetFromConfigThreadSafe = [](AssetReflectionInfo::ImportConfigPtr ptr) 
+				{ 
+					return importStaticMeshFromConfigThreadSafe(ptr); 
+				},
+			}
+		};
+		return kInfo;
+	}
+
+	bool AssetStaticMesh::saveImpl()
+	{
+		std::shared_ptr<AssetInterface> asset = getptr<AssetStaticMesh>();
+		return saveAsset(asset, getSavePath(), false);
+	}
+
+	void AssetStaticMesh::unloadImpl()
+	{
+
+	}
+
 
 	void AssetStaticMeshLoadFromCacheTask::uploadFunction(
 		uint32_t stageBufferOffset, 
@@ -89,129 +195,86 @@ namespace engine
 		RHICommandBufferBase& commandBuffer, 
 		VulkanBuffer& stageBuffer)
 	{
-		auto savePath = getAssetSystem()->getProjectRootPath();
-		auto filePath = "\\." + cachePtr->getRelativePathUtf8() + ".staticmeshbin";
-		savePath += filePath;
-
 		StaticMeshBin meshBin{};
-		loadAsset(meshBin, savePath);
-
-		const auto tangentSize = meshBin.tangents.size() * sizeof(meshBin.tangents[0]);
-		const auto normalSize = meshBin.normals.size() * sizeof(meshBin.normals[0]);
-		const auto uv0Size = meshBin.uv0s.size() * sizeof(meshBin.uv0s[0]);
-		const auto indicesSize  = meshBin.indices.size() * sizeof(meshBin.indices[0]);
-		const auto positionsSize = meshBin.positions.size() * sizeof(meshBin.positions[0]);
-
-		ASSERT(uploadSize() == uint32_t(indicesSize + tangentSize + normalSize + uv0Size + positionsSize), "Static mesh size un-match!");
-
-		uint32_t indicesOffsetInSrcBuffer = 0;
-		uint32_t tangentOffsetInSrcBuffer = (uint32_t)(indicesOffsetInSrcBuffer + indicesSize);
-		uint32_t normalOffsetInSrcBuffer = (uint32_t)(tangentOffsetInSrcBuffer + tangentSize);
-		uint32_t uv0OffsetInSrcBuffer = (uint32_t)(normalOffsetInSrcBuffer + normalSize);
-		uint32_t positionsOffsetInSrcBuffer = (uint32_t)(uv0OffsetInSrcBuffer + uv0Size);
-
-		memcpy((void*)((char*)bufferPtrStart + indicesOffsetInSrcBuffer), (const void*)meshBin.indices.data(), indicesSize);
-		memcpy((void*)((char*)bufferPtrStart + tangentOffsetInSrcBuffer), (const void*)meshBin.tangents.data(), tangentSize);
-		memcpy((void*)((char*)bufferPtrStart + normalOffsetInSrcBuffer), (const void*)meshBin.normals.data(), normalSize);
-		memcpy((void*)((char*)bufferPtrStart + uv0OffsetInSrcBuffer), (const void*)meshBin.uv0s.data(), uv0Size);
-		memcpy((void*)((char*)bufferPtrStart + positionsOffsetInSrcBuffer), (const void*)meshBin.positions.data(), positionsSize);
-
+		if (!std::filesystem::exists(cachePtr->getBinPath()))
 		{
-			VkBufferCopy regionIndex{};
-			regionIndex.size = indicesSize;
-			regionIndex.srcOffset = stageBufferOffset + indicesOffsetInSrcBuffer;
-			regionIndex.dstOffset = 0;
-			vkCmdCopyBuffer(
-				commandBuffer.cmd,
-				stageBuffer,
-				meshAssetGPU->getIndices()->getVkBuffer(),
-				1,
-				&regionIndex);
+			UN_IMPLEMENT();
+		}
+		else
+		{
+			LOG_TRACE("Found bin for asset {} cache in disk so just load.",
+				utf8::utf16to8(cachePtr->getSaveInfo().getStorePath()));
+			loadAsset(meshBin, cachePtr->getBinPath());
 		}
 
-		{
-			VkBufferCopy regionVertex{};
-			regionVertex.size = tangentSize;
-			regionVertex.srcOffset = stageBufferOffset + tangentOffsetInSrcBuffer;
-			regionVertex.dstOffset = 0;
-			vkCmdCopyBuffer(
-				commandBuffer.cmd,
-				stageBuffer,
-				meshAssetGPU->getTangents()->getVkBuffer(),
-				1,
-				&regionVertex);
-		}
-		{
-			VkBufferCopy regionVertex{};
-			regionVertex.size = normalSize;
-			regionVertex.srcOffset = stageBufferOffset + normalOffsetInSrcBuffer;
-			regionVertex.dstOffset = 0;
-			vkCmdCopyBuffer(
-				commandBuffer.cmd,
-				stageBuffer,
-				meshAssetGPU->getNormals()->getVkBuffer(),
-				1,
-				&regionVertex);
-		}
-		{
-			VkBufferCopy regionVertex{};
-			regionVertex.size = uv0Size;
-			regionVertex.srcOffset = stageBufferOffset + uv0OffsetInSrcBuffer;
-			regionVertex.dstOffset = 0;
-			vkCmdCopyBuffer(
-				commandBuffer.cmd,
-				stageBuffer,
-				meshAssetGPU->getUv0s()->getVkBuffer(),
-				1,
-				&regionVertex);
-		}
+		uint32_t sizeAccumulate = 0;
 
+		auto copyBuffer = [&](const GPUStaticMeshAsset::ComponentBuffer& comp, const void* data)
 		{
-			VkBufferCopy regionVertex{};
-			regionVertex.size = positionsSize;
-			regionVertex.srcOffset = stageBufferOffset + positionsOffsetInSrcBuffer;
-			regionVertex.dstOffset = 0;
-			vkCmdCopyBuffer(
-				commandBuffer.cmd,
-				stageBuffer,
-				meshAssetGPU->getPosition()->getVkBuffer(),
-				1,
-				&regionVertex);
-		}
+			VkBufferCopy regionCopy{ };
+
+			regionCopy.size      = comp.stripeSize * comp.num;
+			regionCopy.srcOffset = stageBufferOffset + sizeAccumulate;
+			regionCopy.dstOffset = 0;
+
+			memcpy((void*)((char*)bufferPtrStart + sizeAccumulate), data, regionCopy.size);
+
+			vkCmdCopyBuffer(commandBuffer.cmd, stageBuffer, comp.buffer->getVkBuffer(), 1, &regionCopy);
+
+			sizeAccumulate += regionCopy.size;
+		};
+
+		copyBuffer(meshAssetGPU->getIndices(),   meshBin.indices.data());
+		copyBuffer(meshAssetGPU->getPositions(), meshBin.positions.data());
+		copyBuffer(meshAssetGPU->getNormals(),   meshBin.normals.data());
+		copyBuffer(meshAssetGPU->getUV0s(),      meshBin.uv0s.data());
+		copyBuffer(meshAssetGPU->getTangents(),  meshBin.tangents.data());
+
+		ASSERT(uploadSize() == sizeAccumulate, "Static mesh size un-match!");
 	}
 
-	std::shared_ptr<AssetStaticMeshLoadFromCacheTask> AssetStaticMeshLoadFromCacheTask::build(VulkanContext* context, std::shared_ptr<AssetStaticMesh> meta)
+	std::shared_ptr<AssetStaticMeshLoadFromCacheTask> 
+		AssetStaticMeshLoadFromCacheTask::build(std::shared_ptr<AssetStaticMesh> meta)
 	{
-		auto fallback = context->getEngineStaticMeshBox();
-		auto newTask = std::make_shared<AssetStaticMeshLoadFromCacheTask>();
-
-		const VkDeviceSize tangentSize  = meta->getVerticesCount() * sizeof(VertexTangent);
-		const VkDeviceSize normalSize = meta->getVerticesCount() * sizeof(VertexNormal);
-		const VkDeviceSize uv0Size = meta->getVerticesCount() * sizeof(VertexUv0);
-		const VkDeviceSize positionsSize = meta->getVerticesCount() * sizeof(VertexPosition);
-		const VkDeviceSize indicesSize   = meta->getIndicesCount() * sizeof(VertexIndexType);
-
 		auto newAsset = std::make_shared<GPUStaticMeshAsset>(
-			context,
-			meta->getUUID(),
-			fallback.get(),
-			meta->getRelativePathUtf8(),
-			tangentSize,
-			sizeof(VertexTangent),
-			normalSize,
-			sizeof(VertexNormal),
-			uv0Size,
-			sizeof(VertexUv0),
-			positionsSize,
-			sizeof(VertexPosition),
-			indicesSize,
-			sizeof(VertexIndexType)
+			meta,
+			getContext()->getBuiltinStaticMeshBox().get(),
+			meta->getSaveInfo().getName(),
+			meta->getVerticesCount(),
+			meta->getIndicesCount()
 		);
 
-		context->insertLRUAsset(meta->getUUID(), newAsset);
+		getContext()->insertLRUAsset(meta->getBinUUID(), newAsset);
+
+		auto newTask  = std::make_shared<AssetStaticMeshLoadFromCacheTask>();
 		newTask->meshAssetGPU = newAsset;
 		newTask->cachePtr = meta;
+
 		return newTask;
 	}
 
+	std::shared_ptr<GPUStaticMeshAsset> AssetStaticMesh::getGPUAsset()
+	{
+		ZoneScoped;
+		if (!m_gpuWeakPtr.lock())
+		{
+			if (getSaveInfo().isBuiltin())
+			{
+				m_gpuWeakPtr = getContext()->getBuiltinStaticMesh(getSaveInfo().getName());
+			}
+			else 
+			{
+				if (!getContext()->isLRUAssetExist(getBinUUID()))
+				{
+					auto newTask = AssetStaticMeshLoadFromCacheTask::build(getptr<AssetStaticMesh>());
+					getContext()->getAsyncUploader().addTask(newTask);
+				}
+
+				m_gpuWeakPtr =
+					std::dynamic_pointer_cast<GPUStaticMeshAsset>(getContext()->getLRU()->tryGet(getBinUUID()));
+			}
+		}
+
+		return m_gpuWeakPtr.lock();
+	}
 }

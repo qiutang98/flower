@@ -1,50 +1,52 @@
 #pragma once
 
-#include <util/util.h>
-#include <rhi/rhi.h>
-
-#include <imgui/imgui_manager.h>
+#include "../utils/utils.h"
+#include "../graphics/graphics.h"
+#include "../ui/ui.h"
 
 namespace engine
 {
+	constexpr size_t kMinRenderDim = 64;
+	constexpr size_t kMaxRenderDim = 4096;
+
 	struct TemporalBlueNoise;
 	class SharedTextures;
-	class Renderer final : public IRuntimeModule
+
+	class RenderScene;
+	class RendererManager final : public IRuntimeModule
 	{
 	public:
-		Renderer(Engine* engine) : IRuntimeModule(engine) { }
-		~Renderer() = default;
+		RendererManager(Engine* engine) : IRuntimeModule(engine) { }
+		~RendererManager() = default;
 
 		virtual void registerCheck(Engine* engine) override;
 		virtual bool init() override;
 		virtual bool tick(const RuntimeModuleTickData& tickData) override;
-		virtual void release() override;
-
-		// Get cache context.
-		VulkanContext* getContext() const { return m_context; }
+		virtual bool beforeRelease() override;
+		virtual bool release() override;
 
 		// Delegate of tick functions.
-		MulticastDelegate<const RuntimeModuleTickData&, VulkanContext*> tickFunctions; // Tick without command buffer, this tick first.
-        MulticastDelegate<const RuntimeModuleTickData&, VkCommandBuffer, VulkanContext*> tickCmdFunctions; // Tick with command buffer, this tick second.
 
-		class RenderScene* getScene() { return m_renderScene; }
+		// Tick without command buffer, this tick first.
+		MulticastDelegate<const RuntimeModuleTickData&, VulkanContext*> tickFunctions; 
+
+		// Tick with command buffer, this tick second.
+		MulticastDelegate<const RuntimeModuleTickData&, VkCommandBuffer, VulkanContext*> tickCmdFunctionsBefore;
+		MulticastDelegate<const RuntimeModuleTickData&, VkCommandBuffer, VulkanContext*> tickCmdFunctions; 
+
+		RenderScene* getScene() { return m_renderScene; }
+		const RenderScene* getScene() const { return m_renderScene; }
 
 		const TemporalBlueNoise& getBlueNoise() const { return *m_temporalBlueNoise; }
 		const SharedTextures& getSharedTextures() const { return *m_sharedTextures; }
 
-    private:
-        void initWindowCommandContext();
+		const VulkanBuffer& getSSBODump() const { return *m_fallbackSSBO; }
+
+	private:
+		void initWindowCommandContext();
 		void destroyWindowCommandContext();
 
-    private:
-		// RHI context.
-        VulkanContext* m_context;
-
-		class RenderScene* m_renderScene = nullptr;
-
-		TemporalBlueNoise* m_temporalBlueNoise = nullptr;
-		SharedTextures* m_sharedTextures = nullptr;
-
+	private:
 		// Imgui manager.
 		ImguiManager m_imguiManager;
 
@@ -54,13 +56,14 @@ namespace engine
 			// Main command buffer and semaphore used when main window no minimized.
 			std::vector<VkCommandBuffer> mainCmdRing;
 			std::vector<VkSemaphore> mainSemaphoreRing;
-
-			// Second command buffer and fence used when main window minimized.
-			VkFence secondCmdFence;
-			VkCommandBuffer secondCmd;
-
 		} m_windowCmdContext;
+
+		RenderScene* m_renderScene = nullptr;
+		SharedTextures* m_sharedTextures = nullptr;
+		TemporalBlueNoise* m_temporalBlueNoise = nullptr;
+
+		std::unique_ptr<VulkanBuffer> m_fallbackSSBO = nullptr;
 	};
 
-	extern Renderer* getRenderer();
+	extern RendererManager* getRenderer();
 }

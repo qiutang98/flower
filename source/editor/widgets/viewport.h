@@ -1,13 +1,10 @@
 #pragma once
 
-#include "../widget.h"
-#include <imgui/imgui.h>
-#include <imgui/imgui_internal.h>
-#include <asset/asset.h>
-#include <utf8/cpp17.h>
-#include <util/camera_interface.h>
+#include "../editor.h"
+#include <utils/camera_interface.h>
 #include <renderer/deferred_renderer.h>
 #include "transform_handle.h"
+
 
 class ViewportCamera : public engine::CameraInterface
 {
@@ -34,7 +31,7 @@ public:
 	// mouse speed.
 	float m_moveSpeed = 10.0f;
 	float m_mouseSensitivity = 0.1f;
-	float m_maxMouseMoveSpeed = 40.0f;
+	float m_maxMouseMoveSpeed = 400.0f;
 	float m_minMouseMoveSpeed = 1.0f;
 
 	// first time 
@@ -45,9 +42,9 @@ public:
 	float m_lastY = 0.0f;
 
 	// Cache matrix.
-	engine::math::mat4 m_viewMatrix{ 1.0f };
-	engine::math::mat4 m_projectMatrix{ 1.0f };
-	engine::math::mat4 m_imgizmoProjection{ 1.0f };
+	engine::math::mat4 m_viewMatrix { 1.0f };
+	engine::math::mat4 m_projectMatrix { 1.0f };
+	engine::math::mat4 m_imgizmoProjection { 1.0f };
 	bool isControlingCamera() const { return m_bActiveViewport; }
 
 private:
@@ -95,7 +92,7 @@ struct ProfilerViewer
 
 	const static size_t kCountNum = 14;
 	const int frameTimeGraphMaxFps[kCountNum] = { 800, 240, 120, 90, 60, 45, 30, 15, 10, 5, 4, 3, 2, 1 };
-	float frameTimeGraphMaxValues[kCountNum] = { 0.0f };
+	float frameTimeGraphMaxValues[kCountNum]  = { 0.0f };
 
 	ProfilerViewer()
 	{
@@ -106,10 +103,10 @@ struct ProfilerViewer
 	}
 };
 
-class ViewportWidget : public Widget
+class ViewportWidget : public engine::WidgetBase
 {
 public:
-	ViewportWidget(Editor* editor);
+	ViewportWidget(size_t index);
 
 	// event init.
 	virtual void onInit() override;
@@ -133,45 +130,24 @@ public:
 	// Mouse in viewport.
 	bool isMouseInViewport() const { return m_bMouseInViewport; }
 
-	// Get viewport camera.
-	ViewportCamera* getCamera() const { return m_camera.get(); }
-
-	engine::DeferredRenderer* getRenderer() const { return m_viewportRenderer.get(); }
-
-	void markShouldResize() { m_bShouldResize = true; }
+	engine::DeferredRenderer* getDeferredRenderer() const { return m_deferredRenderer.get(); }
 
 private:
-	void tryReleaseDescriptorSet(uint64_t tickTime);
+	void drawProfileViewer(uint32_t width, uint32_t height);
 
 private:
-	// Frame profile viewer.
-	ProfilerViewer m_profileViewer;
-
-	// Camera of viewport.
-	std::unique_ptr<ViewportCamera> m_camera;
-
 	// Viewport deferred renderer.
-	std::unique_ptr<engine::DeferredRenderer> m_viewportRenderer;
-	engine::DelegateHandle m_viewportRendererDelegate;
+	std::unique_ptr<engine::DeferredRenderer> m_deferredRenderer;
+	engine::DelegateHandle m_deferredRendererDelegate;
 
 	// Cache viewport size.
-	float m_cacheWidth  = 0.0f;
+	float m_cacheWidth = 0.0f;
 	float m_cacheHeight = 0.0f;
 
 	// State to know mouse in viewport. Warning: On glfw3.3 may cause some error state when set cursor to disabled.
 	bool m_bMouseInViewport = false;
 
-	bool m_bShouldResize = false;
-
-	// Sampler and set.
-	VkSampler m_viewportImageSampler;
-	VkDescriptorSet m_descriptorSet = VK_NULL_HANDLE;
-	struct LazyDestroyDescriptorSet
-	{
-		uint64_t tickTime;
-		VkDescriptorSet set;
-	};
-	std::vector<LazyDestroyDescriptorSet> m_lazyDestroy;
-
+	std::unique_ptr<ViewportCamera> m_camera;
+	ProfilerViewer m_profileViewer;
 	TransformHandle m_transformHandler;
 };
