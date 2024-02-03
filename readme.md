@@ -1,7 +1,5 @@
 # Miku Fan-Made Free MikuMikuDacne Renderer
 
-![](readme_assets/Snipaste_2024-02-03_15-32-23.png)
-
 ![](capture/Snipaste_2023-06-24_19-26-36.png)
 
 ![](capture/Snipaste_2023-02-06_10-39-57.png)
@@ -12,17 +10,15 @@
 
 ​	There is not too much wrapper, so every beginner can easy to find out how it work.
 
-​	you can also watch the video on youtube or bilibili:
-
-​	https://www.youtube.com/watch?v=ciw8UOmaFaI
-
-​	https://www.bilibili.com/video/BV1FL4y147DN?share_source=copy_web
+​	The render passes are some isolated render functions,  pretty easy and **clean** to build a renderer.
 
 ## How to build
 
  Just download the project, all dependency here is ready.(**Maybe need install VulkanSDK 1.3 and update driver**).
 
 There exist three branch, dark branch is clean developing branch. Main branch include MMD features. Release branch is stable legacy branch.
+
+![](readme_assets/Snipaste_2024-02-03_15-32-23.png)
 
 **Dark branch design UI and realtime rendering in 4k, so run in 1k or 2k, maybe need to change configs smaller:**
 
@@ -40,6 +36,14 @@ r.ImGui.IconSize
  and unzip then import mesh. It need some time to cook asset.
 
 **When first time open the editor, need something to compile shader variants, and it will cache if next time reopen.**
+
+## Some screenshots and videos
+
+​	you can also watch the video on youtube or bilibili:
+
+​	https://www.youtube.com/watch?v=ciw8UOmaFaI
+
+​	https://www.bilibili.com/video/BV1FL4y147DN?share_source=copy_web
 
 ![](capture/202312070012.png)
 
