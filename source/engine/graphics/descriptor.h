@@ -23,7 +23,6 @@ namespace engine
                 { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,     1.f },
                 { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,     1.f },
                 { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,           .5f },
-                { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, .5f },
             };
         };
 

@@ -165,20 +165,27 @@ namespace engine
         enable13GpuFeatures.dynamicRendering = VK_TRUE;
         enable13GpuFeatures.synchronization2 = VK_TRUE;
         enable13GpuFeatures.maintenance4 = VK_TRUE;
-        enable13GpuFeatures.pNext = &accelFeature;
+
+        auto* optionalNext = &enable13GpuFeatures.pNext;
+
 
         // Raytrace.
-        accelFeature.pNext = &rtPipelineFeature;
-        rtPipelineFeature.pNext = &rayQueryFeatures;
         if (m_graphicsSupportStates.bSupportRaytrace)
         {
+            (*optionalNext) = &accelFeature;
+
+            accelFeature.pNext = &rtPipelineFeature;
+            rtPipelineFeature.pNext = &rayQueryFeatures;
+
             accelFeature.accelerationStructure   = VK_TRUE;
             rtPipelineFeature.rayTracingPipeline = VK_TRUE;
             rayQueryFeatures.rayQuery            = VK_TRUE;
+
+            optionalNext = &rayQueryFeatures.pNext;
         }
 
         // Dynamic state.
-        rayQueryFeatures.pNext = &dynamicStateFeatures;
+        (*optionalNext) = &dynamicStateFeatures;
         dynamicStateFeatures.extendedDynamicState3PolygonMode = VK_TRUE;
 
 
