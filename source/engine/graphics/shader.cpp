@@ -94,7 +94,9 @@ namespace engine
                     params = std::format(L"{} -D{}={}", params, keyValue.first, std::to_wstring(keyValue.second));
                 }
 
-                params = std::format(L"{} {} -O -o {}", params, shaderPath.wstring(), saveShaderPath.wstring());
+                //Use escaped double quotes " to enclose the path to avoid tokenization issues caused by spaces
+                params = std::format(L"{} \"{}\" -O -o \"{}\"", params, shaderPath.wstring(), saveShaderPath.wstring());
+
                 {
                     SHELLEXECUTEINFO ShExecInfo = { 0 };
                     ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFO);
